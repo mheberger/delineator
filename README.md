@@ -1,12 +1,12 @@
-# Readme for delineator.py
+# delineator.py
 
-This set of Python scripts lets you perform fast, accurate watershed delineation for any point on the Earth's land surface, using a hybrid of vector- and raster-based methods and the datasets MERIT-Hydro and MERIT-Basins.
+Python scripts for fast, accurate watershed delineation for any point on the Earth's land surface, using a hybrid of vector- and raster-based methods and the datasets MERIT-Hydro and MERIT-Basins.
 
-Try the online demo at [https://mghydro.com/watersheds/](https://mghydro.com/watersheds/)
-
-Sample data is included covering Iceland. To use this script to delineate watersheds for other locations, you will need to download datasets from MERIT-Hydro and MERIT-Basins. Instructions on how to get the data and run the script are provided below.
+Online demo: [https://mghydro.com/watersheds/](https://mghydro.com/watersheds/)
 
 # Using these scripts
+
+Sample data is included covering Iceland. To use this script to delineate watersheds for other locations, you will need to download datasets from MERIT-Hydro and MERIT-Basins. Instructions on how to get the data and run the script are provided below.
 
 Download all of the files from this GitHub repository. If you're a GitHub user, you can fork the repository. You can also simply download all of the files here:
 https://mghydro.com/watersheds/delineator.zip](https://mghydro.com/watersheds/delineator.zip)
