@@ -4,6 +4,8 @@ Python scripts for fast, accurate watershed delineation for any point on the Ear
 
 Online demo: [https://mghydro.com/watersheds/](https://mghydro.com/watersheds/)
 
+Citation DOI: 10.5281/zenodo.7314287
+
 # Using these scripts
 
 Sample data is included covering Iceland. To use this script to delineate watersheds for other locations, you will need to download datasets from MERIT-Hydro and MERIT-Basins. Instructions on how to get the data and run the script are provided below.
