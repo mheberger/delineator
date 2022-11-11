@@ -1,0 +1,7 @@
+venv/
+.idea/
+__pycache__/
+py/__pycache__/
+map/*
+output/*
+plots/*
