@@ -18,7 +18,7 @@ with my watershed boundaries.
 """
 
 import geopandas as gpd
-from shapely.geometry import Polygon
+from shapely.geometry import Polygon, MultiPolygon
 gpd.options.use_pygeos = True
 
 
@@ -29,9 +29,10 @@ def buffer(poly: Polygon) -> Polygon:
     return poly.buffer(dist, join_style=2).buffer(-dist, join_style=2)
 
 
-def close_holes(poly: Polygon, area_max: float) -> Polygon:
+def close_holes(poly: Polygon or MultiPolygon, area_max: float) -> Polygon:
     """
     Close polygon holes by limitation to the exterior ring.
+    Updated to accept MultiPolygon
     Args:
         poly: Input shapely Polygon
         area_max: keep holes that are larger than this.
@@ -41,21 +42,35 @@ def close_holes(poly: Polygon, area_max: float) -> Polygon:
     Example:
         df.geometry.apply(lambda p: close_holes(p))
     """
-    if area_max == 0:
-        if poly.interiors:
-            return Polygon(list(poly.exterior.coords))
+
+    if isinstance(poly, Polygon):
+        # Handle Polygon case
+        if area_max == 0:
+            if poly.interiors:
+                return Polygon(list(poly.exterior.coords))
+            else:
+                return poly
+
         else:
-            return poly
+            list_interiors = []
 
+            for interior in poly.interiors:
+                p = Polygon(interior)
+                if p.area > area_max:
+                    list_interiors.append(interior)
+
+            return Polygon(poly.exterior.coords, holes=list_interiors)
+
+    elif isinstance(poly, MultiPolygon):
+        # Handle MultiPolygon case
+        result_polygons = []
+        for sub_poly in poly:
+            new_sub_poly = close_holes(sub_poly, area_max)
+            result_polygons.append(new_sub_poly)
+        return MultiPolygon(result_polygons)
     else:
-        list_interiors = []
+        raise ValueError("Unsupported geometry type")
 
-        for interior in poly.interiors:
-            p = Polygon(interior)
-            if p.area > area_max:
-                list_interiors.append(interior)
-
-        return Polygon(poly.exterior.coords, holes=list_interiors)
 
 
 def dissolve_shp(shp):

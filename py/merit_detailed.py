@@ -13,14 +13,16 @@ import numpy as np
 import os
 from config import PLOTS
 
+
 # Set PLOTS to True for debugging only; tells script to make plots of the pysheds steps
 if PLOTS:
     import matplotlib.pyplot as plt
     from matplotlib import colors
+    from matplotlib.colors import LogNorm
 
 
-def get_subdivided_merit_polygon(wid: str, basin: int, lat: float, lng: float, catchment_poly: Polygon, bSingleCatchment: bool) -> \
-        (object or None, float, float):
+def get_subdivided_merit_polygon(wid: str, basin: int, lat: float, lng: float, catchment_poly: Polygon,
+                                 bSingleCatchment: bool) -> (object or None, float, float):
     """
     Performs the detailed pixel-scale raster-based delineation for a watershed.
 
@@ -120,6 +122,8 @@ def get_subdivided_merit_polygon(wid: str, basin: int, lat: float, lng: float, c
     # (Seems I had to first convert it to hex format to get this to work...)
     hexpoly = catchment_poly.wkb_hex
     poly = wkb.loads(hexpoly, hex=True)
+    # coerce this into a single-part polygon! Somehow, putting it into the geopackage made it think this is a Polygon
+    poly = get_largest(poly)
 
     # Fix any holes in the polygon by taking the exterior coordinates.
     # One of the annoyances of working with GeoPandas and pysheds is that you have
@@ -133,13 +137,19 @@ def get_subdivided_merit_polygon(wid: str, basin: int, lat: float, lng: float, c
     mymask = grid.rasterize(multi_poly)
     grid.add_gridded_data(mymask, data_name="mymask", affine=grid.affine, crs=grid.crs, shape=grid.shape)
 
+    m, n = grid.shape
+    for i in range(0, m):
+        for j in range(0, n):
+            if int(grid.mymask[i, j]) == 0:
+                grid.fdir[i, j] = 0
+
     # Plot mask
     if PLOTS:
         fig = plt.figure(figsize=(10, 8))
         fig.patch.set_alpha(0)
-        plt.imshow(grid.mymask, extent=grid.extent, cmap='viridis', zorder=0)
+        plt.imshow(grid.mymask, extent=grid.extent, cmap='viridis', zorder=0, norm=LogNorm())
         plt.plot(*catchment_poly.exterior.xy, color='red')
-        plt.title( 'Mask grid for watershed id = {}'.format(wid))
+        plt.title('Mask grid for watershed id = {}'.format(wid))
         plt.grid(zorder=-1)
         plt.title("Mask for the unit catchment for watershed id = {}".format(wid))
         plt.savefig('plots/{}_raster_mask.png'.format(wid))
@@ -152,15 +162,14 @@ def get_subdivided_merit_polygon(wid: str, basin: int, lat: float, lng: float, c
     if PLOTS:
         fig = plt.figure(figsize=(10, 8))
         fig.patch.set_alpha(0)
-        plt.imshow(grid.fdir, extent=grid.extent, cmap='viridis', zorder=0)
-        plt.plot(*catchment_poly.exterior.xy, color='red')
+        plt.imshow(grid.fdir, extent=grid.extent, cmap='hsv', zorder=0, norm=LogNorm())
         boundaries = ([0] + sorted(list(dirmap)))
         plt.colorbar(boundaries=boundaries, values=sorted(dirmap))
         plt.xlabel('Longitude')
         plt.ylabel('Latitude')
         plt.title('Flow direction grid for watershed id ={}'.format(wid))
         plt.grid(zorder=-1)
-        plt.savefig("plots/{}_raster_flowdir.png".format(wid))
+        plt.savefig("plots/{}_raster_flowdir.jpg".format(wid))
         plt.close(fig)
 
     if VERBOSE: print("Snapping pour point")
@@ -197,14 +206,13 @@ def get_subdivided_merit_polygon(wid: str, basin: int, lat: float, lng: float, c
         plt.grid('on', zorder=1)
         im = ax.imshow(grid.acc, extent=grid.extent, zorder=0,
                        cmap='cubehelix',
-                       norm=colors.LogNorm(1, grid.acc.max()),
-                       interpolation='bilinear')
-        plt.plot(*catchment_poly.exterior.xy, color='red')
+                       norm=colors.LogNorm(1, grid.acc.max())
+                       )
         plt.colorbar(im, ax=ax, label='Upstream Cells')
         plt.title('Flow Accumulation Grid for watershed id = {}'.format(wid))
         plt.xlabel('Longitude')
         plt.ylabel('Latitude')
-        plt.savefig("plots/{}_raster_accum.png".format(wid))
+        plt.savefig("plots/{}_raster_accum.pdf".format(wid))
         plt.close(fig)
 
     # Snap the outlet to the nearest stream. This function depends entirely on the threshold
@@ -255,7 +263,7 @@ def get_subdivided_merit_polygon(wid: str, basin: int, lat: float, lng: float, c
 
         plt.grid('on', zorder=0)
         ax.imshow(np.where(clipped_catch, clipped_catch, np.nan), extent=grid.extent,
-                  zorder=1, cmap='viridis')
+                  zorder=1, cmap='hsv', norm=LogNorm())
         plt.plot(*catchment_poly.exterior.xy, color='red')
         plt.xlabel('Longitude')
         plt.ylabel('Latitude')
@@ -273,7 +281,7 @@ def get_subdivided_merit_polygon(wid: str, basin: int, lat: float, lng: float, c
     # not seem to suffer too much, presumably because I'm using small
     # little clipped sections of the rasters.)
     # I believe that the reason that it sometimes prodcuces many polygons is
-    # because MERIT-Hydro flow-directio grids, while being a very nice dataset,
+    # because MERIT-Hydro flow-direction grids, while being a very nice dataset,
     # can produce polygons with dangles, and with donut holes.
     # The solution "discard all but the largest polygon" is not ideal from a
     # theoretical standpoint, because we could discard a piece of the drainage
@@ -308,3 +316,31 @@ def get_subdivided_merit_polygon(wid: str, basin: int, lat: float, lng: float, c
     else:
         # return the single polygon
         return shapely_polygons[0], lat_snap, lng_snap
+
+
+def get_largest(input_poly: MultiPolygon or Polygon) -> Polygon:
+    """
+    Converts a Shapely MultiPolygon to a Shapely Polygon
+    For multipart polygons, will only keep the largest polygon
+    in terms of area. In my testing, this was usually good enough
+
+    Note: can also do this via PostGIS query... see myqueries_merit.py, query19a and query19b
+          Not sure one approach is better than the other. They both seem to work well.
+    Args:
+        input_poly: A Shapely Polygon or MultiPolygon
+
+    Returns:
+        a shapely Polygon
+    """
+    if input_poly.geom_type == "MultiPolygon":
+        areas = []
+        polygons = list(input_poly)
+
+        for poly in polygons:
+            areas.append(poly.area)
+
+        max_index = areas.index(max(areas))
+
+        return polygons[max_index]
+    else:
+        return input_poly

@@ -4,20 +4,20 @@ Python scripts for fast, accurate watershed delineation for any point on the Ear
 
 Online demo: [https://mghydro.com/watersheds/](https://mghydro.com/watersheds/)
 
-Citation DOI: 10.5281/zenodo.7314287
+Citation DOI: [10.5281/zenodo.7314287](https://zenodo.org/badge/latestdoi/564865701)
 
 # Using these scripts
 
-Sample data is included covering Iceland. To use this script to delineate watersheds for other locations, you will need to download datasets from MERIT-Hydro and MERIT-Basins. Instructions on how to get the data and run the script are provided below.
+This repository includes sample data covering Iceland. To delineate watersheds in other locations, you will need to download datasets from MERIT-Hydro and MERIT-Basins. Instructions on how to get the data and run the script are provided below.
 
-Download all of the files from this GitHub repository. If you're a GitHub user, you can fork the repository. You can also simply download all of the files here:
-https://mghydro.com/watersheds/delineator.zip](https://mghydro.com/watersheds/delineator.zip)
+To get started, download the files in this GitHub repository. If you're a GitHub user, you can fork the repository. Here is an alternative download link, with all the files in a .zip file:
+[https://mghydro.com/watersheds/delineator.zip](https://mghydro.com/watersheds/delineator.zip)
 
-These scripts were developed and tested with Python version 3.9. 
+These scripts were developed with Python version 3.9, and I later tested them with versions 3.10 and 3.11.
 
 I recommend creating a Python virtual environment in which to run `delineator.py`. Here is a good [introduction to virtual environments](https://python.land/virtual-environments/virtualenv) -- why they are useful, and how to use them. You can create and activate the virtual environment, then install all the required packages with the following commands. 
 
-Open the Terminal (Linux and Mac) or Command Prompt (Windows), `cd` to the directory where you saved delineator.py and its files, and enter these commands.
+Open the Terminal (Linux and Mac) or Command Prompt (Windows), `cd` to the directory containing `delineator.py` and related files, then enter these commands.
 
 To create the virtual environment:
 ```
@@ -27,7 +27,7 @@ python -m venv venv
 To activate the virtual environment:
 
 ```
-# Windows cmd.exe
+# Windows Command Prompt or PowerShell
 venv\Scripts\activate.bat
 
 # Windows PowerShell
@@ -44,7 +44,7 @@ $ pip install -r requirements.txt
 
 After this, follow the instructions below for how to get the input data, configure the settings, and run `delineator.py`.
 
-# Overview of how to use
+# Overview of using delineator.py
 
 The major steps are the following, with more detailed instructions below.
 
@@ -65,14 +65,13 @@ Before you begin downloading data in steps 1 and 2, determine which files you ne
 
 ## <a name="step1">1. Download MERIT-Hydro raster data</a>
 
-In order to delineate watersheds in the normal "high-precision mode," you will need two sets of MERIT-Hydro gridded (or raster) data for **flow accumulation** and **flow direction**. The authors of the MERIT-Hydro created 5-degree tiles, but this script needs larger data files that cover continental-scale river basins. Download these data at:
+To delineate watersheds in the default "high-precision mode," you will need two sets of MERIT-Hydro gridded (or raster) data: **flow accumulation** and **flow direction**. The authors of the MERIT-Hydro created 5-degree tiles, but this script needs seamless layers that cover entire river basins. Download these data here:
+[https://mghydro.com/watersheds/rasters](https://mghydro.com/watersheds/rasters)
 
-[https://mghydro.com/watersheds/rasters](https://mghydro.com/watersheds/rasters).
+Update `config.py` to tell the script where to find these data files. Modify the variables:
 
-You will need to update `config.py` to tell the script where these data are located. Modify the variables:
-
-- `MERIT_FDIR_DIR`
-- `MERIT_ACCUM_DIR`
+- `MERIT_FDIR_DIR` (for flow direction)
+- `MERIT_ACCUM_DIR` (for flow accumulation)
 
 
 ## 2. <a name="step2">Download MERIT-Basins vector data</a>
@@ -85,13 +84,13 @@ In the folder `pfaf_level_02` , download two sets of files:
 1. unit catchment shapefiles: `cat_pfaf_##_MERIT_Hydro_v07_Basins_v01.shp`
 2. river flowline shapefiles: `riv_pfaf_##_MERIT_Hydro_v07_Basins_v01.shp`
 
-In these files, `##` is the Pfafstetter Level 2 basin code. See the figure above to determine which of the 61 different level 2 basins you need, depending on your region of interest. 
+In these files, `##` is the Pfafstetter Level 2 basin code. See the figure above to determine which of the 61 level 2 basins you need, depending on your region of interest. 
 
-Unzip these files and save them to a folder on your hard drive. Then, in `config.py`, update the variable `HIGHRES_CATCHMENTS_DIR` and `RIVERS_DIR`.
+Unzip these files and save them to a folder on your hard drive. Then, in `config.py`, update the variables `HIGHRES_CATCHMENTS_DIR` and `RIVERS_DIR`.
 
 ## <a name="step3">3. Download simplified MERIT-Basins data</a>
 
-In "low-resolution" mode, the script will look for a simplified version of the unit catchments shapefiles. Download these files from:
+In "low-resolution" mode, the script will look for shapefiles with *simplified* unit catchment boundaries. I have created these files and you can download them here:
 
 [https://mghydro.com/watersheds/share/catchments\_simplified.zip](https://mghydro.com/watersheds/share/catchments_simplified.zip)
 
@@ -101,7 +100,7 @@ Unzip and save these files to a folder on your computer. In `config.py`, update 
 
 The script reads information about your desired watershed outlet points from a plain-text comma-delimited (CSV) file. Edit this file carefully, as the script will not run if this file is not formatted correctly. 
 
-The CSV file must contain a minimum of 3 fields or columns, and a maximum of 5 fields. There are two optional fields that are useful when reviewing the results.
+The CSV file **must** contain three required fields or columns, and another two optional fields that are useful when reviewing the results.
 
 - **id** - _required_: a unique identifier for your watershed or outlet point, an alphanumeric string. May be any length, but shorter is better. The script uses the id as the filename for output, so avoid using any forbidden characters. On Linux, do not use the forward slash /. On Windows, the list of forbidden characters is slightly longer (`\< \> : " / \ | ? \*`).
 
@@ -113,11 +112,11 @@ The CSV file must contain a minimum of 3 fields or columns, and a maximum of 5 f
 
 - **area** - _optional_: if you have an _a priori_ estimate of the watershed area, provide it here in square kilometers, km².
 
-All latitude and longitude coordinates should be in unprojected decimal degrees (EPSG: 4326, [https://spatialreference.org/ref/epsg/wgs-84/](https://spatialreference.org/ref/epsg/wgs-84/)).
+All latitude and longitude coordinates should be in decimal degrees (EPSG: 4326, [https://spatialreference.org/ref/epsg/wgs-84/](https://spatialreference.org/ref/epsg/wgs-84/)).
 
 ## <a name="step5">5. Update `config.py`</a>
 
-Read through the options and set the variables. Detailed instructions below. 
+Read through the options and set the variables as you wish. Detailed instructions are below. 
 
 ## <a name="step6">6. Run `delineator.py` to delineate watersheds</a>
 
@@ -127,9 +126,9 @@ Once you have downloaded the datasets listed above, and updated `config.py`, you
 
 ## <a name="step7">7. Review results</a>
 
-The script can output your watersheds as shapefiles or GeoJSON files, which you can view in your favorite GIS software.
+The script can output watersheds in several formats, as long as it is supported by `GeoPandas`. Shapefiles are popular, but I recommend **GeoPackage**, as it is a more modern and open format. To get a full list of available formats, follow the directions [here](https://geopandas.org/en/stable/docs/user_guide/io.html#writing-spatial-data). 
 
-The script also can create web page to review your results on an interactive map. In `config.py`, set `MAKE_MAP = True`, and enter your desired file path in `MAP_FOLDER`. The script will create `.js` files for each watershed with the geodata in a format readable by the web browser.
+The script also can create web page to review your results on an interactive map. In `config.py`, set `MAKE_MAP = True`, and enter your desired file path in `MAP_FOLDER`. The script will create `.js` files for each watershed with the geodata in `GeoJSON` format readable by the web browser.
 
 To view your watersheds, open the file `_viewer.html` in a web browser and click on a watershed ID. The table is sortable and searchable. 
 
@@ -137,7 +136,7 @@ To view your watersheds, open the file `_viewer.html` in a web browser and click
 
 Automated watershed delineation often makes mistakes. The good news is that these errors can often be fixed by slightly moving the location of your watershed outlet.
 
-Repeat steps 4 to 7 by creating a new CSV file, or modifying your existing file with revised coordinates. The script will automatically overwrite existing files.
+Repeat steps 4 to 7 by creating a new CSV file, or modifying your existing file, using revised coordinates. The script will automatically overwrite existing files, so make sure to back up anything you want to save.
 
 # Configuration Notes
 
@@ -145,21 +144,21 @@ Here are some more details on the variables in the file `config.py`.
 
 ## Watershed Outlets CSV file
 
-This GitHub repository contains example files to delineate several watersheds in Iceland. To delineate watersheds in other regions, follow the instructions above to download the input data files. The locations in `outlets_sample.csv` correspond to flow measurement gages in the [GRDC](https://bafg.de/GRDC) database. 
+This GitHub repository contains example files to delineate several watersheds in Iceland. To delineate watersheds in other regions, follow the instructions above to download the input data files. 
 
-(I chose Iceland because the data files for this region are small. In addition, Iceland has some [astonishingly beautiful](https://guidetoiceland.is/nature-info/rivers-in-iceland) rivers!)
+(The locations in `outlets_sample.csv` correspond to flow measurement gages in the [GRDC](https://bafg.de/GRDC) database. I chose Iceland because the data files for this region are small. In addition, Iceland has some [astonishingly beautiful](https://guidetoiceland.is/nature-info/rivers-in-iceland) rivers!)
 
 You can create your own CSV file and name it anything you like. In `config.py`, enter the file name in the variable `OUTLETS_CSV`. Your CSV file should have a header row with these fields written exactly like this:
 
 `id, lat, lng, name, area`
 
-It does not matter whether or not you include a space after each comma.
+It does not matter whether you include a space after each comma. The fields may be in any order.
 
-The first three fields (id, lat, lng) are required. The fields `name` and `area` are optional but are useful if you have them. 
+The first three fields (id, lat, lng) are required. The fields `name` and `area` are optional but are useful if you have them. You can include extra fields if you like. 
 
 ## Low-resolution vs. high-resolution mode
 
-If you are going to be creating large watersheds, say over 50,000 km², this script will be slow. This is a due to limitations in the loading data from shapefiles, and the processing speed with the Python libraries GeoPandas and pygeos. On my laptop, it took over 30 minutes to delineate the Amazon watershed (admittedly the largest watershed on earth). 
+If you are going to be creating large watersheds, say over 50,000 km², the script will take more time to run. There are three steps that tend to be slow: (1) loading large datasets from shapefiles, (2) building the spatial index, and (3) merging unit catchments with a Unary Union operation using the `GEOS` library. On my laptop, it took about 30 minutes to delineate the Amazon watershed (admittedly the largest watershed on earth). 
 
 For large watersheds, it is usually better to use low-precision mode, which will run more quickly, but with a slight loss in precision, which is barely noticeable in large watersheds.
 
@@ -167,39 +166,45 @@ In config.py, if you set `LOW_RES_THRESHOLD = 50000`, then all watersheds with a
 
 You may also turn off "high resolution" mode completely. In `config.py`, set `HIGH_RES = False`.
 
-If you will _only_ use low-resolution mode, you do not have to download the high-resolution raster data described in Step 1 above.
+If you _only_ use low-resolution mode, you do not have to download the high-resolution raster data described in Step 1 above, nor do you need the high-resolution MERIT-Basins vector data from Step 2.  
 
-In low-resolution mode, there are two differences. First, the program will look for shapefiles containing simplified unit catchment boundaries. Because the polygons have fewer vertices, processing them is faster.
+Low-resolution mode has two main differences. First, the program will use the simplified unit catchment boundaries. Because these polygons have fewer vertices, processing them is faster. Second, the script will not perform the detailed raster-based calculations near the outlet to "split" the most downstream unit catchment. As a result, your watershed will contain some extra area downstream of your requested outlet.
 
 To faster delineation of large watersheds, consider using the **online demo version** at [https://mghydro.com/watersheds](https://mghydro.com/watersheds)
 
-The online version has two optimizations that make it run much faster. First, it loads the geodata from a PostgreSQL database, rather than reading shapefiles from disk. Second, it uses PostGIS rather than GeoPandas for processing the vector data.
+The online version has a few optimizations that make it run a lot faster. First, it loads the geodata from a PostgreSQL database, rather than reading shapefiles from disk. Second, it uses PostGIS, which is known for its fast and efficient processing of vector geodata. Finally, it makes use of caching and memoization to save results from previous users.
 
 ## Search Distance
-Sometimes, your watershed outlet point will not fall inside one of the MERIT-Hydro unit catchments. Your point could be just offshore in the ocean or an estuary, or it may happen to fall into one of the many small gaps and slivers in the source dataset. 
 
-The variable `SEARCH_DIST` controls how far the script how far away from the pointshould we look for the nearest catchment (in decimal degrees). Setting `SEARCH_DIST = 0` means that the point MUST fall inside a unit catchment. I recommend setting it to at least 0.005 for good results. 
+Sometimes, your watershed outlet point will not fall inside one of the MERIT-Basins unit catchments. Your point could be just offshore in the ocean or an estuary, or it may happen to fall into one of the many small gaps and slivers in the source dataset. 
+
+The variable `SEARCH_DIST` controls how far away the script will look for the nearest catchment (in decimal degrees). Setting `SEARCH_DIST = 0` means that the point MUST fall inside a unit catchment to return results. I recommend setting it to at least 0.005 for reliable results, especially if your watersheds are near the coast.
 
 ## Filling holes in watershed polygons
 
-In `config.py`, set `FILL = True` to fill in small gaps "donut holes" in the watershed. 
+In `config.py`, set `FILL = True` to fill in small gaps or "donut holes" in the watershed. 
 
-Oftentimes, watersheds created by computer will contain internal gaps in the watershed polygon. How to handle these is somewhat of an outstanding question in hydrology, but my view is that most of these donut holes are unwanted.
+Oftentimes, watersheds created by computer will contain internal gaps in the watershed polygon. Many of these come from the source data. MERIT-Basins has many small gaps and slivers between unit catchments, often only a few pixels wide. I recommend allowing the program to fill these in. To do this, in `config.py`, set `FILL = True`, and enter a non-zero value for `FILL_THRESHOLD`.
 
-However, there are exceptions. For example, look up maps of the Rio Grande watershed (or try creating it yourself, with outlet coordinates at 26.05, -97.2).
+However, there are also larger donut holes inside a watershed, representing internal sinks, out of which water cannot flow. 
+ How to handle these holes is somewhat of an outstanding question in hydrology, but my view is that most of them are unwanted, especially the smaller ones.
 
-Many maps of the Rio Grande watershed show it with a big hole in the middle, between the Rio Grande in the west and the Pecos River in the east, running north-south for 350 miles from Texas to New Mexico. Inside this area, there are several alkaline lakes or "playas," where water flows in and evaporates rather than flowing out to the ocean.
+Larger gaps may be important, and you may not want to merge these with your watershed if they do not contribute to surface flow. As an example, here is a map of the Rio Grande watershed, with outlet coordinates at 26.05, -97.2.
 
-This script creates watersheds by merging MERIT-Basins unit catchments. These data have lots of little gaps and slivers, and so the resulting watersheds often have hundreds of little holes. I recommend have the program to fill these in for you. To do this, in `config.py`, set `FILL = True`, and enter a non-zero value for `FILL_THRESHOLD`.
+![Rio Grande Watershed](doc/rio_grande.jpg)
+
+Between the two main branches, the Rio Grande in the west and the Pecos River in the east, there is an endorheic basin that runs north-south for 560 km from New Mexico to Texas. Within this basin, there are several alkaline lakes or "playas," a tell-tale sign that water flows in and either seeps into the ground or evaporates. 
+
+For most applications, it will be important to recognize that this area is "disconnected" and does not contribute to surface water flow at the basin outlet. On the other hand, if you are studying groundwater recharge, these areas may be important.
 
 ### Fill threshold
 The script allows you to fill in small holes and keep big ones. If you have set `FILL` to True, the variable `FILL_THRESHOLD` controls what size holes get filled in. 
 
-The size threshold is roughly the number of pixels on a 3 arcsecond grid. In the source data, a pixels is 0.000833° square. This is about 90m x 90m near the equator, or about 0.0081 km². The pixels get smaller in terms of surface areaas you move north or southaway from the equator.
+The size threshold is roughly the number of pixels on a 3 arcsecond grid. In the source data, a pixels is a 0.000833° square. This is about 90m x 90m near the equator, or about 0.0081 km². The pixels get smaller in terms of surface area as you move north or south away from the equator.
 
-Setting `FILL_THRESHOLD = 10` will fill in any donut holes with a size of 10 pixels or less # and leave larger holes in place.
+For example, setting `FILL_THRESHOLD = 10` will fill in any donut holes with a width of 10 pixels or less and leave larger holes intact.
 
-Setting `FILL_THRESHOLD = 0` will fill *all* donut holes. 
+Setting `FILL_THRESHOLD = 0` will fill *all* donut holes, no matter their size (the same as setting it to a large number). 
 
 ## Simplify Output
 The output from the script may contain more detail than you need. To remove some vertices from the watershed boundary,
@@ -210,18 +215,20 @@ The output from the script may contain more detail than you need. To remove some
 Note that the vector polygons in the input data have been digitized from pixels with an edge length of 0.000833°. Setting `SIMPLIFY_TOLERANCE` to about half of this size or
 higher will remove the jagged "staircase" appearance of the watershed boundary.
 
-You might also try setting `SIMPLIFY = False`, and simplify the watersheds with a different method. I highly recommend [mapshaper.org](https://mapshaper.org).
+You might also try setting `SIMPLIFY = False` and using a different method. I highly recommend [mapshaper.org](https://mapshaper.org).
 
 ## Match Area
 
-In `config.py`, if you set `MATCH_AREAS = True`, the script will not snap your outlet point to the closest river reach. Rather, it will search the neighborhood around the outlet point until it finds a river reach whose reported upstream area is a close match to your estimated watershed area. 
+In `config.py`, if you set `MATCH_AREAS = True`, the script will not necessarily snap your outlet point to the closest river reach. Rather, it will search the neighborhood around the outlet point until it finds a river reach whose reported upstream area is a close match to your estimated watershed area. 
 
-This feature might be useful when you are looking for large watersheds, but the script is outputting small watersheds. Sometimes, the script will find the watershed for a small tributary stream instead of the large river you are looking for. 
+This feature can be useful when you are looking for large watersheds, but the script is outputting small watersheds. Sometimes, the script will find the watershed for a small tributary stream instead of the large river you are looking for. 
 
-**Note: this feature is experimental, and can produce weird and unexpected results.** It does not work well for small watersheds, say below 1,000 km².
+**Note: this feature is experimental and can produce weird and unexpected results.** It does not work well for small watersheds, say below 1,000 km².
 
 Also, you can only use this feature where you have provided an estimated upstream watershed area in your outlets CSV file. 
 
 If you have set `MATCH_AREAS = True`, you also need to provide a value for `AREA_MATCHING_THRESHOLD`. This value is a percentage. For example, enter 0.25 to specify that the upstream area of a river reach should be within 25% of your estimated area to be considered a match. 
 
+# Contributing
 
+If you have any comments or suggestions, please let me know. If you find a bug, you can report an issue here on GitHub. Finally, this code is open source, so if you are motivated to make any modifications, additions, or bug fixes, you can fork the repository and then do a pull request on GitHub. 
