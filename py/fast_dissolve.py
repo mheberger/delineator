@@ -4,10 +4,10 @@ Faster Dissolve All with GeoPandas
 For a layer with many polygons, it can be slow to dissolve to get the "outer boundary" or "outer perimeter"
 using GeoPandas
 
-I found a method that works a little more quickly.
+I found a method that works a little bit more quickly.
 
 (1) create a new rectangle out of the bounding box around all the features. 
-(2) clip the rectangle using the layer. 
+(2) clip the rectangle using the input layer (containing polygons).
 
 
 input: a geopandas dataframe with multiple polygons.
@@ -23,16 +23,20 @@ gpd.options.use_pygeos = True
 
 
 def buffer(poly: Polygon) -> Polygon:
-    """ Little trick that works wonders to remove slivers, dangles
-    and other weird errors in a shapely polygon"""
+    """
+    Little trick that works wonders to remove slivers, dangles
+    and other weird errors in a shapely polygon. We do a series of
+    2 buffers, out and then in, and it magically fixes issues.
+
+    """
     dist = 0.00001
     return poly.buffer(dist, join_style=2).buffer(-dist, join_style=2)
 
 
-def close_holes(poly: Polygon or MultiPolygon, area_max: float) -> Polygon:
+def close_holes(poly: Polygon or MultiPolygon, area_max: float) -> Polygon or MultiPolygon:
     """
     Close polygon holes by limitation to the exterior ring.
-    Updated to accept MultiPolygon
+    Updated to accept a MultiPolygon as input
     Args:
         poly: Input shapely Polygon
         area_max: keep holes that are larger than this.
@@ -73,7 +77,7 @@ def close_holes(poly: Polygon or MultiPolygon, area_max: float) -> Polygon:
 
 
 
-def dissolve_shp(shp):
+def dissolve_shp(shp: str) -> gpd.GeoDataFrame:
     """
     input is the path to a shapefile on disk. 
     
@@ -84,12 +88,12 @@ def dissolve_shp(shp):
     return dissolve_geopandas(df)
 
 
-def fill_geopandas(df, area_max):
-    filled = df.geometry.apply(lambda p: close_holes(p, area_max))
+def fill_geopandas(gdf: gpd.GeoDataFrame, area_max: float) -> gpd.GeoDataFrame:
+    filled = gdf.geometry.apply(lambda p: close_holes(p, area_max))
     return filled
 
 
-def dissolve_geopandas(df):
+def dissolve_geopandas(df: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """
     input is a Geopandas dataframe with multiple polygons that you want 
       to merge and dissolve into a single polygon

@@ -217,17 +217,19 @@ def plot_polys(polygons: list, wid: int):
     plt.close(fig)
 
 
-
 def delineate():
     """
-    Main watershed delineation routine
-    Make sure to set up the variables in `config.py` before running.
+    THIS is the Main watershed delineation routine
+    Make sure to set the variables in `config.py` before running.
+
     Reads a list of outlet points from a .csv file,
     then finds their watersheds or drainage basins,
     using hybrid of vector- and raster-based methods.
+
     Outputs geodata (.shp, .gpkg, etc.) and optionally a CSV file with a summary of results
-    (shows the watershed id, names, and areas)
-    and optionally creates an HTML page with a handy map viewer to review the results.
+    (shows the watershed id, names, and areas).
+
+    Optionally creates an HTML page with a handy map viewer to review the results.
     """
 
     # Regular expression used to find numbers so I can round lat, lng coordinates in GeoJSON files to make them smaller
@@ -439,6 +441,10 @@ def delineate():
         else:
             catchments_dir = LOWRES_CATCHMENTS_DIR
 
+        # TODO: Use the approach here:
+        #   https://stackoverflow.com/questions/76804871/create-save-and-load-spatial-index-using-geopandas
+        #   to pickle the geodataframe for future use, and check if there is a pickled file already
+
         catchments_shp = "{}/cat_pfaf_{}_MERIT_Hydro_v07_Basins_v01.shp".format(catchments_dir, basin)
 
         if not os.path.isfile(catchments_shp):
@@ -448,6 +454,8 @@ def delineate():
         catchments_gdf.set_index('COMID', inplace=True)
         catchments_gdf.to_crs(crs, inplace=True)
         print("  Building spatial index for catchments geodata in basin {}".format(basin))
+        # TODO: I am not using this spatial index for anything. It is not clear to me that
+        #   it is making a difference. I should benchmark this. 
         catchments_index = catchments_gdf.sindex
 
         # The network data is in the RIVERS file rather than the CATCHMENTS file
@@ -460,7 +468,8 @@ def delineate():
         rivers_gdf.set_index('COMID', inplace=True)
         rivers_sindex = rivers_gdf.sindex
 
-        # Spatial join to find which unit catchment our gage falls inside.
+        # Performa a Spatial join on gages (points) and unit catchments (polygons)
+        # to find the corresponding unit catchment for each gage
         # Adds the fields COMID and unitarea
         if VERBOSE: print("Performing spatial join on {} outlet points in basin #{}".format(num_gages_in_basin, basin))
         gages_in_basin.drop(['index_right'], axis=1, inplace=True)
