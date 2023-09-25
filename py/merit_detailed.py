@@ -212,7 +212,7 @@ def get_subdivided_merit_polygon(wid: str, basin: int, lat: float, lng: float, c
         plt.title('Flow Accumulation Grid for watershed id = {}'.format(wid))
         plt.xlabel('Longitude')
         plt.ylabel('Latitude')
-        plt.savefig("plots/{}_raster_accum.pdf".format(wid))
+        plt.savefig("plots/{}_raster_accum.jpg".format(wid))
         plt.close(fig)
 
     # Snap the outlet to the nearest stream. This function depends entirely on the threshold

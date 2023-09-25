@@ -452,7 +452,7 @@ def delineate():
         print("Reading catchment geodata in {}".format(catchments_shp))
         catchments_gdf = gpd.read_file(catchments_shp)
         catchments_gdf.set_index('COMID', inplace=True)
-        catchments_gdf.to_crs(crs, inplace=True)
+        catchments_gdf.set_crs(crs, inplace=True)
         print("  Building spatial index for catchments geodata in basin {}".format(basin))
         # TODO: I am not using this spatial index for anything. It is not clear to me that
         #   it is making a difference. I should benchmark this. 
