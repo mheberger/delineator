@@ -2,9 +2,11 @@
 
 Python scripts for fast, accurate watershed delineation for any point on the Earth's land surface, using a hybrid of vector- and raster-based methods and the datasets MERIT-Hydro and MERIT-Basins.
 
+Citation DOI: [10.5281/zenodo.7314287](https://zenodo.org/badge/latestdoi/564865701)
+
 Online demo: [https://mghydro.com/watersheds/](https://mghydro.com/watersheds/)
 
-Citation DOI: [10.5281/zenodo.7314287](https://zenodo.org/badge/latestdoi/564865701)
+(The web app is free and easy to use, and probably good enough for most users.)
 
 # Using these scripts
 
@@ -41,15 +43,18 @@ Next, install required packages:
 ```
 $ pip install -r requirements.txt
 ```
+Note that this script does *not* work with the most recent versions of `Shapely` or `pysheds`. 
+It seems like it will be a project to upgrade. I welcome contributions if you want to help. 
 
 After this, follow the instructions below for how to get the input data, configure the settings, and run `delineator.py`.
+
 
 # Overview of using delineator.py
 
 The major steps are the following, with more detailed instructions below.
 
 1. [Download basin-scale MERIT-Hydro raster data (mghydro.com)](#step1)
-2. [Download MERIT-Basins vector data (Princeton U.)](#step2)
+2. [Download MERIT-Basins vector data (reachhydro.com)](#step2)
 3. [Download simplified MERIT-Basins data (mghydro.com)](#step3)
 4. [Create a CSV file with your desired watershed outlet points](#step4)
 5. [Edit settings in `config.py`](#step5)
@@ -77,7 +82,7 @@ Update `config.py` to tell the script where to find these data files. Modify the
 ## 2. <a name="step2">Download MERIT-Basins vector data</a>
 
 Download the shapefiles for unit catchments and rivers. Follow the instructions here:
-<a href="https://www.reachhydro.org/home/params/merit-basins">https://www.reachhydro.org/home/params/merit-basins</a>
+[https://www.reachhydro.org/home/params/merit-basins](https://www.reachhydro.org/home/params/merit-basins)
 
 In the folder `pfaf_level_02` , download two sets of files:
 
@@ -120,23 +125,34 @@ Read through the options and set the variables as you wish. Detailed instruction
 
 ## <a name="step6">6. Run `delineator.py` to delineate watersheds</a>
 
-Once you have downloaded the datasets listed above, and updated `config.py`, you are ready to delineate watersheds. Run `delineate.py` from your favorite Python IDE or from the command line:
+Once you have downloaded the datasets listed above, and updated `config.py`, you are ready to delineate watersheds. 
+Run `delineate.py` from your favorite Python IDE or from the command line:
 
     >> python delineate.py
 
+You will get a couple of warnings about an older version of the library Shapely. I haven't had time to migrate to Shapely 0.20, 
+which will require some reprogramming. 
+
 ## <a name="step7">7. Review results</a>
 
-The script can output watersheds in several formats, as long as it is supported by `GeoPandas`. Shapefiles are popular, but I recommend **GeoPackage**, as it is a more modern and open format. To get a full list of available formats, follow the directions [here](https://geopandas.org/en/stable/docs/user_guide/io.html#writing-spatial-data). 
+The script can output watersheds in several different geodata formats, as long as it is supported by `GeoPandas`. Shapefiles are popular, but I recommend **GeoPackage**, as it is a more modern and open format. To get a full list of available formats, follow the directions [here](https://geopandas.org/en/stable/docs/user_guide/io.html#writing-spatial-data). 
 
 The script also can create web page to review your results on an interactive map. In `config.py`, set `MAKE_MAP = True`, and enter your desired file path in `MAP_FOLDER`. The script will create `.js` files for each watershed with the geodata in `GeoJSON` format readable by the web browser.
 
 To view your watersheds, open the file `_viewer.html` in a web browser and click on a watershed ID. The table is sortable and searchable. 
+
+In the example dataset I included, the results for "Blanda River at Langamyri" appear to be 
+totally wrong. I think there is a typo in the coordinates. The remainder of the results
+look quite reasonable. 
 
 ## <a name="step8">8. Run again to fix mistakes</a>
 
 Automated watershed delineation often makes mistakes. The good news is that these errors can often be fixed by slightly moving the location of your watershed outlet.
 
 Repeat steps 4 to 7 by creating a new CSV file, or modifying your existing file, using revised coordinates. The script will automatically overwrite existing files, so make sure to back up anything you want to save.
+
+To quickly test different outlet locations, consider using the free Global Watersheds web app, which uses the 
+same data and methods, but is often much faster: https://mghydro.com/watersheds/
 
 # Configuration Notes
 
@@ -154,13 +170,13 @@ You can create your own CSV file and name it anything you like. In `config.py`, 
 
 It does not matter whether you include a space after each comma. The fields may be in any order.
 
-The first three fields (id, lat, lng) are required. The fields `name` and `area` are optional but are useful if you have them. You can include extra fields if you like. 
+The first three fields (`id`, `lat`, `lng`) are required. The fields `name` and `area` are optional but are useful if you have them. You can include extra fields if you like. 
 
 ## Low-resolution vs. high-resolution mode
 
 If you are going to be creating large watersheds, say over 50,000 km², the script will take more time to run. There are three steps that tend to be slow: (1) loading large datasets from shapefiles, (2) building the spatial index, and (3) merging unit catchments with a Unary Union operation using the `GEOS` library. On my laptop, it took about 30 minutes to delineate the Amazon watershed (admittedly the largest watershed on earth). 
 
-For large watersheds, it is usually better to use low-precision mode, which will run more quickly, but with a slight loss in precision, which is barely noticeable in large watersheds.
+For large watersheds, it is usually better to use low-precision mode, which runs much more quickly. There will be a slight loss in precision, which is barely noticeable in large watersheds.
 
 In config.py, if you set `LOW_RES_THRESHOLD = 50000`, then all watersheds with an area greater than 50,000 km² will automatically use low-resolution mode.
 
@@ -168,11 +184,11 @@ You may also turn off "high resolution" mode completely. In `config.py`, set `HI
 
 If you _only_ use low-resolution mode, you do not have to download the high-resolution raster data described in Step 1 above, nor do you need the high-resolution MERIT-Basins vector data from Step 2.  
 
-Low-resolution mode has two main differences. First, the program will use the simplified unit catchment boundaries. Because these polygons have fewer vertices, processing them is faster. Second, the script will not perform the detailed raster-based calculations near the outlet to "split" the most downstream unit catchment. As a result, your watershed will contain some extra area downstream of your requested outlet.
+Low-resolution mode has two main differences. First, the program will use *simplified* unit catchment boundaries. Because these polygons have fewer vertices, processing them is faster. Second, the script will *not* perform the detailed raster-based calculations near the outlet to "split" the most downstream unit catchment. As a result, your watershed will contain some extra area downstream of your requested outlet.
 
 To faster delineation of large watersheds, consider using the **online demo version** at [https://mghydro.com/watersheds](https://mghydro.com/watersheds)
 
-The online version has a few optimizations that make it run a lot faster. First, it loads the geodata from a PostgreSQL database, rather than reading shapefiles from disk. Second, it uses PostGIS, which is known for its fast and efficient processing of vector geodata. Finally, it makes use of caching and memoization to save results from previous users.
+The online version has a few optimizations that make it run a lot faster. First, it loads the geodata from a PostgreSQL database, rather than reading shapefiles from disk. Second, it uses PostGIS, which is known for its fast and efficient processing of vector geodata. Finally, it makes use of caching and memoization to save results from previous users. 
 
 ## Search Distance
 
@@ -229,6 +245,29 @@ Also, you can only use this feature where you have provided an estimated upstrea
 
 If you have set `MATCH_AREAS = True`, you also need to provide a value for `AREA_MATCHING_THRESHOLD`. This value is a percentage. For example, enter 0.25 to specify that the upstream area of a river reach should be within 25% of your estimated area to be considered a match. 
 
+## Pickle Files
+
+**Optional.** One of the slow steps in the script is reading shapefiles and creating a GeoDataFrame. 
+Once you have done this once, you can save time in the future by storing the GeoDataFrame as a .pkl file.
+Enter a file path for the constant `PICKLE_DIR`, and the script will automatically save files here. 
+The script will not search for pickle files if you leave this as a blank string, `''` 
+Note that these files are not any smaller than the original shapefile, so they don't save disk space;
+they are just much faster to load. 
+
+
 # Contributing
 
-If you have any comments or suggestions, please let me know. If you find a bug, you can report an issue here on GitHub. Finally, this code is open source, so if you are motivated to make any modifications, additions, or bug fixes, you can fork the repository and then do a pull request on GitHub. 
+If you have any comments or suggestions, please get in touch. If you find a bug, you can report an issue here on GitHub. Finally, this code is open source, so if you are motivated to make any modifications, additions, or bug fixes, you can fork the repository and then do a pull request on GitHub. 
+
+# Version History
+
+## v1.2, 2025-09-28
+- updated code so it can handle input shapefiles with missing .prj files -- the latest version of MERIT-Basins does not include.
+- added ability to save GeoDataFrames as Python pickle files. This should speed up one of the slow steps, 
+- reading shapefiles and constructing the spatial index. Especially if you use the script multiple times.
+- Considered upgrading various Python libraries (namely pysheds and shapely), but it looks to be a major effort. 
+
+## v1.1, 2025-09-21
+ - Bug fix for rare issue where delineated watershed contains MultiPolygons instead of Polygons
+ 
+

@@ -4,7 +4,7 @@ using a bit of javascript and Leaflet.
 """
 
 from jinja2 import Template
-from config import MAP_FOLDER
+from config import MAP_FOLDER, HIGH_RES
 
 
 def make_map(df):
@@ -22,6 +22,11 @@ def make_map(df):
     # Here is the full set of columns, and the order I like
     cols_sorted = ['id', 'name', 'result', 'lat', 'lng', 'lat_snap', 'lng_snap', 'snap_dist', 'area_reported',
                    'area_calc', 'perc_diff']
+
+    #if not HIGH_RES:
+    #    cols_sorted.remove('lat_snap')
+    #    cols_sorted.remove('lng_snap')
+
 
     # Get the actual columns in our table, because it can vary depending on user inputs.
     df['id'] = df.index

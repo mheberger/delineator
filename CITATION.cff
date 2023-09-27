@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: Heberger
+    given-names: Matthew
+    orcid: https://orcid.org/0000-0001-9122-0030
+title: "delineator.py: Fast, accurate watershed delineation using hybrid vector- and raster-based methods and data from MERIT-Hydro"
+version: 1.0
+doi: 10.5281/zenodo.7314287
+date-released: 2021-11-11

@@ -24,6 +24,7 @@ or create an Issue on the GitHub repo: https://github.com/mheberger/delineator
 import warnings
 
 import numpy as np
+import pickle
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 import pandas as pd
@@ -36,6 +37,8 @@ import shapely.ops
 from shapely.wkt import loads
 import sigfig  # for formatting numbers to significant digits
 from py.fast_dissolve import dissolve_geopandas, fill_geopandas
+import pyproj
+from functools import partial
 from config import *
 
 if PLOTS:
@@ -43,12 +46,14 @@ if PLOTS:
 
 if HIGH_RES:
     import py.merit_detailed
-    import pyproj
-    from functools import partial
+
 if MAKE_MAP:
     from py.mapper import make_map
 
 gpd.options.use_pygeos = True
+
+# The WGS84 projection string, used in a few places
+PROJ_WGS84 = 'EPSG:4326'
 
 
 def create_folder_if_not_exists(folder_path: str) -> bool:
@@ -115,6 +120,7 @@ def validate(gages_df: pd.DataFrame) -> bool:
     if not all(len(str(wid)) > 0 for wid in ids):
         raise Exception("Every watershed outlet must have an id in the CSV file")
 
+    return True
 
 def validate_search_distance():
     """
@@ -124,14 +130,14 @@ def validate_search_distance():
     Does not return anything, just throws an error if it is out of range.
     """
     if not isinstance(SEARCH_DIST, numbers.Number):
-        raise Exception("SEARCH_DIST must be a number. We got {}".format(SEARCH_DIST))
+        raise Exception("SEARCH_DIST must be a number. We got {SEARCH_DIST}")
 
     if SEARCH_DIST < 0.0:
         raise Exception("SEARCH distance in config.py must be a positive number.")
 
     if SEARCH_DIST > 0.25:
         raise Exception("SEARCH_DIST is unrealistically high. It should be in decimal degrees, and must be less "
-                        "than 0.25. In config.py, you entered {}".format(SEARCH_DIST))
+                        "than 0.25. In config.py, you entered {SEARCH_DIST}")
 
 
 def get_area(poly: Polygon) -> float:
@@ -281,7 +287,7 @@ def delineate():
         iteration = 1
         while True:
             find_box = box(lng - dist, lat - dist, lng + dist, lat + dist)
-            possible_matches_index = list(rivers_sindex.intersection(find_box.bounds))
+            possible_matches_index = list(rivers_gdf.sindex.intersection(find_box.bounds))
             possible_matches = rivers_gdf.iloc[possible_matches_index]
             precise_matches = possible_matches[possible_matches.intersects(find_box)]
             segments_found = precise_matches
@@ -338,17 +344,18 @@ def delineate():
 
     # Check that the CSV file is there
     if not os.path.isfile(OUTLETS_CSV):
-        raise Exception("Could not your outlets file at: {}".format(OUTLETS_CSV))
+        raise Exception(f"Could not your outlets file at: {OUTLETS_CSV}")
 
-    if VERBOSE: print("Reading your outlets data in: {}".format(OUTLETS_CSV))
+    if VERBOSE: print(f"Reading your outlets data in: {OUTLETS_CSV}")
+
     # Create a Pandas DataFrame for the outlet points
-    # I call the outlet points gages, because I am mostly interested in delineated basins for streamflow gages
+    # (I call the outlet points gages, because I usually in delineated watersheds at streamflow gages)
     gages_df = pd.read_csv(OUTLETS_CSV, header=0, dtype={'id': 'str', 'lat': 'float', 'lng': 'float'})
 
     # Check that the CSV file includes at a minimum: id, lat, lng and that all values are appropriate
     validate(gages_df)
 
-    # Get the number of outlets, for status messages
+    # Get the number of points, for status messages
     n_gages = len(gages_df)
 
     # Boolean vars to track whether user's outlets file had fields `area` and/or `name`
@@ -361,26 +368,26 @@ def delineate():
         gages_df.drop(['area'], axis=1, inplace=True)
 
     # If we are doing detailed delineation with raster data, we'll keep track of the "snapped" pour point
-    # pysheds will always move the point a little bit, so it coincides with the gridded data.
+    # pysheds will always move the point a little bit, so that it coincides with the gridded data.
     if HIGH_RES:
         gages_df['lat_snap'] = np.nan
         gages_df['lng_snap'] = np.nan
         gages_df['snap_dist'] = 0
 
-    # Create a GeoPandas GeoDataFrame from gages_df
+    # Convert gages_df to a GeoPandas GeoDataFrame (adds geography, lets us do geo. operations)
     coordinates = [Point(xy) for xy in zip(gages_df['lng'], gages_df['lat'])]
-    crs = 'EPSG:4326'
-    points_gdf = gpd.GeoDataFrame(gages_df, crs=crs, geometry=coordinates)
+    points_gdf = gpd.GeoDataFrame(gages_df, crs=PROJ_WGS84, geometry=coordinates)
     # The line above has the surpsising side effect of adding a geometry column to gages_df (!)
     # Since we don't want or need this, drop the column.
-    gages_df.drop(['geometry'], axis=1, inplace=True)
+    # No longer needed with GeoPandas v 0.14
+    #gages_df.drop(['geometry'], axis=1, inplace=True)
 
     if VERBOSE: print("Finding out which Level 2 megabasin(s) your points are in")
     # This file has the merged "megabasins" in it
     merit_basins_shp = 'data/shp/basins_level2/merit_hydro_vect_level2.shp'
     megabasins = gpd.read_file(merit_basins_shp)
     # The CRS string in the shapefile is EPSG 4326 but does not match verbatim
-    megabasins.to_crs(crs, inplace=True)
+    megabasins.to_crs(PROJ_WGS84, inplace=True)
     if not megabasins.loc[0].BASIN == 11:
         raise Exception("An error occurred loading the Level 2 basins shapefile")
 
@@ -407,7 +414,7 @@ def delineate():
     basins_df = gages_basins_join.groupby("BASIN").id.nunique()
     basins = basins_df.index.tolist()
 
-    if VERBOSE: print("Your watershed outlets are in {} basin(s)".format(len(basins)))
+    if VERBOSE: print(f"Your watershed outlets are in {len(basins)} basin(s)")
 
     # Find any outlet points that are not in any Level 2 basin, and add these to the fail list
     # Look for any rows that are in gages_df that are not in basins_df
@@ -434,44 +441,21 @@ def delineate():
         num_gages_in_basin = len(gages_in_basin)
         print("\nBeginning delineation for %s outlet point(s) in Level 2 Basin #%s." % (num_gages_in_basin, basin))
 
-        # Open the shapefile for the basin (will be a number like 11 or 83)
         if HIGH_RES:
-            catchments_dir = HIGHRES_CATCHMENTS_DIR
+            catchments_gdf = load_gdf("catchments", basin, True)
             catchments_lowres_gdf = None
         else:
-            catchments_dir = LOWRES_CATCHMENTS_DIR
-
-        # TODO: Use the approach here:
-        #   https://stackoverflow.com/questions/76804871/create-save-and-load-spatial-index-using-geopandas
-        #   to pickle the geodataframe for future use, and check if there is a pickled file already
-
-        catchments_shp = "{}/cat_pfaf_{}_MERIT_Hydro_v07_Basins_v01.shp".format(catchments_dir, basin)
-
-        if not os.path.isfile(catchments_shp):
-            raise Exception("Could not find the catchments file: {}".format(catchments_shp))
-        print("Reading catchment geodata in {}".format(catchments_shp))
-        catchments_gdf = gpd.read_file(catchments_shp)
-        catchments_gdf.set_index('COMID', inplace=True)
-        catchments_gdf.set_crs(crs, inplace=True)
-        print("  Building spatial index for catchments geodata in basin {}".format(basin))
-        # TODO: I am not using this spatial index for anything. It is not clear to me that
-        #   it is making a difference. I should benchmark this. 
-        catchments_index = catchments_gdf.sindex
+            catchments_gdf = load_gdf("catchments", basin, False)
 
         # The network data is in the RIVERS file rather than the CATCHMENTS file
         # (this is just how the MeritBASIS authors did it)
-        print('Reading data table for rivers in basin %s' % basin)
-        rivers_filename = "{}/riv_pfaf_{}_MERIT_Hydro_v07_Basins_v01.dbf".format(RIVERS_DIR, basin)
-        if not os.path.isfile(rivers_filename):
-            raise Exception("Could not find the rivers file: {}".format(rivers_filename))
-        rivers_gdf = gpd.read_file(rivers_filename)
-        rivers_gdf.set_index('COMID', inplace=True)
-        rivers_sindex = rivers_gdf.sindex
+        if VERBOSE: print('Reading data table for rivers in basin %s' % basin)
+        rivers_gdf = load_gdf("rivers", basin, True)
 
-        # Performa a Spatial join on gages (points) and unit catchments (polygons)
+        # Perform a Spatial join on gages (points) and unit catchments (polygons)
         # to find the corresponding unit catchment for each gage
         # Adds the fields COMID and unitarea
-        if VERBOSE: print("Performing spatial join on {} outlet points in basin #{}".format(num_gages_in_basin, basin))
+        if VERBOSE: print(f"Performing spatial join on {num_gages_in_basin} outlet points in basin #{basin}")
         gages_in_basin.drop(['index_right'], axis=1, inplace=True)
         validate_search_distance()
         if SEARCH_DIST == 0:
@@ -543,14 +527,7 @@ def delineate():
                 bool_high_res = False
                 # If we just flipped to low-res mode, check if the low-res unit catchment polygons are loaded.
                 if catchments_lowres_gdf is None:
-                    catchments_shp = "{}/cat_pfaf_{}_MERIT_Hydro_v07_Basins_v01.shp".format(LOWRES_CATCHMENTS_DIR,
-                                                                                            basin)
-                    if not os.path.isfile(catchments_shp):
-                        raise Exception("Could not find the catchments file: {}".format(catchments_shp))
-                    print("Reading catchment geodata in {}".format(catchments_shp))
-                    catchments_lowres_gdf = gpd.read_file(catchments_shp)
-                    catchments_lowres_gdf.set_index('COMID', inplace=True)
-                    catchments_lowres_gdf.to_crs(crs, inplace=True)
+                    catchments_lowres_gdf = load_gdf("catchments", basin, False)
 
                 subbasins_gdf = catchments_lowres_gdf.loc[B]
             else:
@@ -614,17 +591,23 @@ def delineate():
             if bool_high_res:
                 mybasin_gdf['result'] = "High Res"
                 gages_df.at[wid, 'result'] = "high res"
-                gages_df.at[wid, 'lat_snap'] = round(lat_snap, 3)
-                gages_df.at[wid, 'lng_snap'] = round(lng_snap, 3)
-
-                # Get the (approx.) snap distance
-                geod = pyproj.Geod(ellps='WGS84')
-                snap_dist = geod.inv(lng, lat, lng_snap, lat_snap)[2]
-                gages_df.at[wid, 'snap_dist'] = sigfig.round(snap_dist, 2)
 
             else:
                 mybasin_gdf['result'] = "Low Res"
                 gages_df.at[wid, 'result'] = "low res"
+
+                # Todo: get the endpoint of the downstream river so we can find an effective snap point in low-res mode
+                snapped_outlet = rivers_gdf.loc[terminal_comid].geometry.coords[0]
+                lat_snap = snapped_outlet[1]
+                lng_snap = snapped_outlet[0]
+
+            # Get the (approx.) snap distance
+            geod = pyproj.Geod(ellps='WGS84')
+            snap_dist = geod.inv(lng, lat, lng_snap, lat_snap)[2]
+            gages_df.at[wid, 'snap_dist'] = sigfig.round(snap_dist, 2)
+            gages_df.at[wid, 'lat_snap'] = round(lat_snap, 3)
+            gages_df.at[wid, 'lng_snap'] = round(lng_snap, 3)
+
 
             up_area = sigfig.round(up_area, 3)
             mybasin_gdf['area_calc'] = up_area
@@ -637,9 +620,14 @@ def delineate():
                 gages_df.at[wid, 'perc_diff'] = perc_diff
 
             # SAVE the Watershed to disk as a GeoJSON file or a shapefile
-            if VERBOSE: (' Writing output for watershed {}'.format(wid))
-            outfile = "{}/{}.{}".format(OUTPUT_DIR, wid, OUTPUT_EXT)
-            mybasin_gdf.geometry = mybasin_gdf.geometry.apply(lambda x: loads(re.sub(simpledec, mround, x.wkt)))
+            if VERBOSE: print(f' Writing output for watershed {wid}')
+            outfile = f"{OUTPUT_DIR}/{wid}.{OUTPUT_EXT}"
+
+            # This line rounds all the vertices to fewer digits. For text-like formats GeoJSON or KML, makes smaller
+            # files with minimal loss of precision. For other formats (shp, gpkg), doesn't make a difference in file size
+            # Todo: check this assertion
+            if OUTPUT_EXT.lower() in ['geojson', 'kml']:
+                mybasin_gdf.geometry = mybasin_gdf.geometry.apply(lambda x: loads(re.sub(simpledec, mround, x.wkt)))
 
             if OUTPUT_EXT != "":
                 with warnings.catch_warnings():
@@ -647,18 +635,17 @@ def delineate():
                     mybasin_gdf.to_file(outfile)
 
             # Create the HTML Viewer Map?
-            # Unfortunately, we have to write a second, slightly different version of the GeoJSON files,
+            # We have to write a second, slightly different version of the GeoJSON files,
             # because we need it in a .js file assigned to a variable, to avoid cross-origin restrictions
             # of modern web browsers.
             if MAKE_MAP:
                 create_folder_if_not_exists(MAP_FOLDER)
-                watershed_js = "{}/{}.js".format(MAP_FOLDER, wid)
+                watershed_js = f"{MAP_FOLDER}/{wid}.js"
                 with open(watershed_js, 'w') as f:
-                    s = "gage_coords = [{}, {}];\n".format(lat, lng)
+                    s = f"gage_coords = [{lat}, {lng}];\n"
                     f.write(s)
-                    if bool_high_res:
-                        s = "snapped_coords = [{}, {}];\n".format(lat_snap, lng_snap)
-                        f.write(s)
+                    s = f"snapped_coords = [{lat_snap}, {lng_snap}];\n"
+                    f.write(s)
 
                     f.write("basin = ")
                     f.write(mybasin_gdf.to_json())
@@ -676,7 +663,7 @@ def delineate():
                     myrivers_gdf = myrivers_gdf[myrivers_gdf.order >= min_order]
                     myrivers_gdf = myrivers_gdf.round(1)
                     myrivers_gdf.geometry = myrivers_gdf.geometry.apply(lambda x: loads(re.sub(simpledec, mround, x.wkt)))
-                    rivers_js = "{}/{}_rivers.js".format(MAP_FOLDER, wid)
+                    rivers_js = f"{MAP_FOLDER}/{wid}_rivers.js"
                     with open(rivers_js, 'w') as f:
                         f.write("rivers = ")
                         f.write(myrivers_gdf.to_json())
@@ -684,18 +671,18 @@ def delineate():
     # CREATE OUTPUT.CSV, a data table of the outputs
     # id, status (hi, low, failed), name, area_reported, area_calculated
     if OUTPUT_CSV:
-        output_csv_filename = "{}/OUTPUT.csv".format(OUTPUT_DIR)
+        output_csv_filename = f"{OUTPUT_DIR}/OUTPUT.csv"
         gages_df.to_csv(output_csv_filename)
 
     # FAILED.csv: If there were any failures, write this to a separate CSV file
     if len(failed) > 0:
-        print("### FAILED to find watersheds for {} locations. Check FAILED.csv for info.".format(len(failed)))
+        print(f"### FAILED to find watersheds for {len(failed)} locations. Check FAILED.csv for info.")
 
-        failfile = "{}/FAILED.csv".format(OUTPUT_DIR)
+        failfile = f"{OUTPUT_DIR}/FAILED.csv"
         with open(failfile, 'w') as f:
             f.write("ID, EXPLANATION\n")
             for k, v in failed.items():
-                f.write('{},"{}"\n'.format(k, v))
+                f.write(f'{k},"{v}"\n')
 
     # If the user wants the browser map, make it
     if MAKE_MAP:
@@ -703,7 +690,103 @@ def delineate():
         make_map(gages_df)
 
     # Finished, print a little status message
-    if VERBOSE: print("It's over! See results in {}".format(output_csv_filename))
+    if VERBOSE: print(f"It's over! See results in {output_csv_filename}")
+
+
+def get_pickle_filename(geotype: str, basin: int, high_resolution: bool) -> str:
+    """Simple function to get the standard filename for the pickle files used by this project.
+    The filenames look like this:
+       PICKLE_DIR/catchments_##_hires.pkl
+       PICKLE_DIR/catchments_##_lores.pkl
+
+       PICKLE_DIR/rivers_##_hires.pkl
+       PICKLE_DIR/rivers_##_lores.pkl
+
+    where ## is the megabasin number (11-91)
+
+    """
+
+    if high_resolution:
+        resolution_str = 'hires'
+    else:
+        resolution_str = 'lores'
+    fname = f'{PICKLE_DIR}/{geotype}_{basin}_{resolution_str}.pkl'
+    return fname
+
+
+def load_gdf(geotype: str, basin: int, high_resolution: bool) -> gpd.GeoDataFrame:
+    """
+    Returns the unit catchments vector polygon dataset as a GeoDataFrame
+    Gets the data from the MERIT-Basins shapefile the first time,
+    and after that from a saved .pkl file on disk.
+    Uses some global parameters from config.py
+
+    :param geotype: either "catchments" or "rivers" depending on which one we want to open.
+    :param basin: the Pfafstetter level 2 megabasin, an integer from 11 to 91
+    :param high_resolution: True to load the standard (high-resolution) file,
+      False to load the low-resolution version (for faster processing, slightly less accurate results)
+
+    :return: a GeoPandas GeoDataFrame
+
+    """
+
+    # First, check for the presence of a pickle file
+    if PICKLE_DIR != '':
+        pickle_fname = get_pickle_filename(geotype, basin, high_resolution)
+        if os.path.isfile(pickle_fname):
+            if VERBOSE: print(f"Fetching BASIN # {basin} catchment data from pickle file.")
+            gdf = pickle.load(open(pickle_fname, "rb"))
+            return gdf
+
+    # Open the shapefile for the basin
+    if geotype == "catchments":
+        if high_resolution:
+            directory = HIGHRES_CATCHMENTS_DIR
+        else:
+            directory = LOWRES_CATCHMENTS_DIR
+        shapefile = f"{directory}/cat_pfaf_{basin}_MERIT_Hydro_v07_Basins_v01.shp"
+    elif geotype == "rivers":
+        shapefile = f"{RIVERS_DIR}/riv_pfaf_{basin}_MERIT_Hydro_v07_Basins_v01.shp"
+
+    if not os.path.isfile(shapefile):
+        raise Exception(f"Could not find the file: {shapefile}")
+
+    if VERBOSE: print(f"Reading geodata in {shapefile}")
+    gdf = gpd.read_file(shapefile)
+    gdf.set_index('COMID', inplace=True)
+
+    # This line is necessary because some of the shapefiles provided by reachhydro.com do not include .prj files
+    gdf.set_crs(PROJ_WGS84, inplace=True, allow_override=True)
+
+    # Before we exit, save the GeoDataFrame as a pickle file, for future speedups!
+    save_pickle(geotype, gdf, basin, high_resolution)
+    return gdf
+
+
+def save_pickle(geotype: str, gdf: gpd.GeoDataFrame, basin: int, high_resolution: bool):
+    # If we loaded the catchments from a shapefile, save the gdf to a pickle file for future speedup
+    if PICKLE_DIR != '':
+
+        # Check whether the GDF has a spatial index.
+        # Note: I don't think this is ever necessary. Since version 0.7.0 (March 2020), GeoPandas
+        # creates a spatial index by default.
+        has_spatial_index = hasattr(gdf, 'sindex')
+        if not has_spatial_index:
+            gdf.sindex.create_index()
+
+        else:
+            # The spatial index size should match the number of rows in the GeoDataFrame.
+            if gdf.sindex.size < gdf.shape[0]:
+                gdf.sindex.rebuild()
+
+        # Get the standard project filename for the pickle files.
+        pickle_fname = get_pickle_filename(geotype, basin, high_resolution)
+        if not os.path.isfile(pickle_fname):
+            if VERBOSE: print(f"Saving GeoDataFrame to pickle file: {pickle_fname}")
+            try:
+                pickle.dump(gdf, open(pickle_fname, "wb"))
+            except:
+                raise Warning("Could not save pickle file to: {pickle_fname}")
 
 
 if __name__ == "__main__":
