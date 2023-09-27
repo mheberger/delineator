@@ -596,7 +596,6 @@ def delineate():
                 mybasin_gdf['result'] = "Low Res"
                 gages_df.at[wid, 'result'] = "low res"
 
-                # Todo: get the endpoint of the downstream river so we can find an effective snap point in low-res mode
                 snapped_outlet = rivers_gdf.loc[terminal_comid].geometry.coords[0]
                 lat_snap = snapped_outlet[1]
                 lng_snap = snapped_outlet[0]
@@ -625,7 +624,6 @@ def delineate():
 
             # This line rounds all the vertices to fewer digits. For text-like formats GeoJSON or KML, makes smaller
             # files with minimal loss of precision. For other formats (shp, gpkg), doesn't make a difference in file size
-            # Todo: check this assertion
             if OUTPUT_EXT.lower() in ['geojson', 'kml']:
                 mybasin_gdf.geometry = mybasin_gdf.geometry.apply(lambda x: loads(re.sub(simpledec, mround, x.wkt)))
 
