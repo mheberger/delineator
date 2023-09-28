@@ -2,12 +2,32 @@
 Makes a nice little map in an .html file for viewing in a web browser
 using a bit of javascript and Leaflet.
 """
-
+import pandas as pd
 from jinja2 import Template
-from config import MAP_FOLDER, HIGH_RES
+from config import MAP_FOLDER, VERBOSE
+import os
 
+def create_folder_if_not_exists(folder_path: str) -> bool:
+    """
+    Check if a folder exists at the specified path. If not, create it.
 
-def make_map(df):
+    :param folder_path: The path of the folder to check/create.
+    :return: True if the folder exists or is created, False otherwise.
+    """
+    try:
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
+            if VERBOSE: print(f"Created folder: {folder_path}")
+        else:
+            pass  # Folder is already there
+
+        return True
+
+    except Exception as e:
+        print(f"Error creating folder: {e}")
+        return False
+
+def make_map(df: pd.DataFrame) -> bool:
     """
 
     input:
@@ -15,7 +35,7 @@ def make_map(df):
 
     returns:
         True if it successfully wrote the file viewer.html.
-        Otherwise, will raise some kind of error message
+        Otherwise, the function will raise some kind of error message
 
     """
     # Reorganize the columns a bit so it looks good.
@@ -83,7 +103,10 @@ def make_map(df):
         cols=columns
     )
 
-    viewer_fname = "{}/_viewer.html".format(MAP_FOLDER)
+    # Make sure the folder is there. If not, try to create it.
+    create_folder_if_not_exists(MAP_FOLDER)
+
+    viewer_fname = f"{MAP_FOLDER}/_viewer.html"
     f = open(viewer_fname, 'w')
     f.write(html)
     f.close()

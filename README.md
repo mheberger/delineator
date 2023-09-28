@@ -95,7 +95,7 @@ Unzip these files and save them to a folder on your hard drive. Then, in `config
 
 ## <a name="step3">3. Download simplified MERIT-Basins data</a>
 
-In "low-resolution" mode, the script will look for shapefiles with *simplified* unit catchment boundaries. I have created these files and you can download them here:
+In "low-resolution" mode, the script will look for shapefiles with *simplified* unit catchment boundaries. I have created these files, and you can download them here:
 
 [https://mghydro.com/watersheds/share/catchments\_simplified.zip](https://mghydro.com/watersheds/share/catchments_simplified.zip)
 
@@ -258,16 +258,3 @@ they are just much faster to load.
 # Contributing
 
 If you have any comments or suggestions, please get in touch. If you find a bug, you can report an issue here on GitHub. Finally, this code is open source, so if you are motivated to make any modifications, additions, or bug fixes, you can fork the repository and then do a pull request on GitHub. 
-
-# Version History
-
-## v1.2, 2025-09-28
-- updated code so it can handle input shapefiles with missing .prj files -- the latest version of MERIT-Basins does not include.
-- added ability to save GeoDataFrames as Python pickle files. This should speed up one of the slow steps, 
-- reading shapefiles and constructing the spatial index. Especially if you use the script multiple times.
-- Considered upgrading various Python libraries (namely pysheds and shapely), but it looks to be a major effort. 
-
-## v1.1, 2025-09-21
- - Bug fix for rare issue where delineated watershed contains MultiPolygons instead of Polygons
- 
-

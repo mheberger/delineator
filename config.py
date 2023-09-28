@@ -4,7 +4,8 @@ Configuration / Settings for delineator.py
 Edit this file carefully before running delineator.py
 
 See README for more information about the options and for instructions
-on how to download the input data. 
+on how to download the input data for delineating watersheds in areas
+outside of the sample data provided for Iceland.
 
 """
 
@@ -24,7 +25,7 @@ MERIT_FDIR_DIR = "data/raster/flowdir_basins"
 MERIT_ACCUM_DIR = "data/raster/accum_basins"
 
 # Set to True if you want the script to write status messages to the console
-VERBOSE = False
+VERBOSE = True
 
 # Set to True to make a bunch of plots of each watershed.
 # (Just for debugging. Slows down the script a lot.)
@@ -45,11 +46,11 @@ RIVERS_DIR = "C:/Data/GIS/MERITBasins/rivers"
 # Folder where the script will write the output GeoJSON files or shapefiles
 OUTPUT_DIR = "output"
 
-# The file extension will determine the types of files the script creates.
+# The file extension will determine the types of geodata files the script creates.
 #   "gpkg" for GeoPackage (recommended)
 #   "geojson" for GeoJSON files
 #   "shp" for shapefile
-# Use a blank string "" if you DO NOT want any output (for example,
+# Use a blank string "" if you DO NOT want any geodata files (for example,
 # you are only making the interactive map and don't need geodata).
 # Other file formats are available;
 # see: https://geopandas.org/en/stable/docs/user_guide/io.html#writing-spatial-data
@@ -61,7 +62,8 @@ OUTPUT_CSV = True
 # Directory to store Python pickle files. Because it can be slow for Python to
 # read shapefiles and create a GeoDataFrame. Once you have done this once, you
 # can save time in the future by storing the GeoDataFrame as a .pkl file.
-# The script will not search for pickle files if you leave this as a blank string, ''
+# Enter a blank string, '' if you do NOT want the script to create .pkl files.
+# Please note that these files can be large! (Up to around 1 GB for large basins.)
 PICKLE_DIR = 'pkl'
 
 # Threshold for watershed size in km² above which the script will revert to
@@ -85,12 +87,11 @@ FILL_THRESHOLD = 100
 # from the watershed boundary and output smaller files.
 SIMPLIFY = False
 
-# If SIMPLIFY is True, set SIMPLIFY_TOLERANCE to a value in decimal degrees. 
-# Note that the vector polygons
+# If SIMPLIFY is True, set SIMPLIFY_TOLERANCE to a value in decimal degrees.
 SIMPLIFY_TOLERANCE = 0.0008
 
 # Set to TRUE if you want the script to create a local web page where you 
-# can review the results
+# can review the results.
 MAKE_MAP = True
 
 # Folder where the script should put the map files. (MAKE sure it exists!)
@@ -100,19 +101,20 @@ MAP_FOLDER = "map"
 # On the map, do you also want to include the rivers?
 MAP_RIVERS = True
 
-# If you mapped the rivers, how many stream orders to include?
-# I recommend 4 or 5. More than this and the browser may not display all the rivers in a large watershed.
+# On the web page map, if MAP_RIVERS is True, how many stream orders shall we display?
+# I recommend 4 or less. More than this and the browser may not display all the rivers in a large watershed.
 NUM_STREAM_ORDERS = 3
 
 # Set to True to use the experimental match areas feature. 
-# You must include watershed areas in your outlets CSV file to use this feature. 
+# You must include the field `area` in your outlets CSV file to use this feature (in km²)
 MATCH_AREAS = False
 
 # If you set MATCH_AREAS = True, how close of a match should the script look for?
-# Enter 0.25 for 25%. If you have not entered areas in your CSV file, you can ignore this parameter.
+# Enter 0.25 for 25%. If you set MATCH_AREAS to False you can ignore this parameter.
 AREA_MATCHING_THRESHOLD = 0.25
 
 # If you set MATCH_AREAS = True, how far away from the original outlet point should the script look 
 # for a river reach that is a better match in terms of upstream area?
-# Units are decimal degrees (not a proper distance measurement!)
+# Units are decimal degrees (sorry, not a proper distance measurement, this feature could be improved!)
+# 0.1° is about 11 km near the equator, and about 8 km near at a latitude of 45°
 MAX_DIST = 0.075

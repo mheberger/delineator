@@ -40,6 +40,7 @@ from py.fast_dissolve import dissolve_geopandas, fill_geopandas
 import pyproj
 from functools import partial
 from config import *
+from py.mapper import make_map, create_folder_if_not_exists
 
 if PLOTS:
     import matplotlib.pyplot as plt
@@ -47,32 +48,11 @@ if PLOTS:
 if HIGH_RES:
     import py.merit_detailed
 
-if MAKE_MAP:
-    from py.mapper import make_map
 
 gpd.options.use_pygeos = True
 
 # The WGS84 projection string, used in a few places
 PROJ_WGS84 = 'EPSG:4326'
-
-
-def create_folder_if_not_exists(folder_path: str) -> bool:
-    """
-    checks for the existence of a folder and tries to create it if it doesn't exist.
-
-    returns:
-        True if the folder already exists or could be created successfully
-        False if it couldn't create the folder
-    """
-    try:
-        if not os.path.exists(folder_path):
-            os.makedirs(folder_path)
-        return True
-    except Exception as e:
-        # Handle the specific exception that might occur during folder creation.
-        # You can customize this error handling based on your needs.
-        print(f"An error occurred: {e}")
-        return False
 
 
 def validate(gages_df: pd.DataFrame) -> bool:
@@ -121,6 +101,7 @@ def validate(gages_df: pd.DataFrame) -> bool:
         raise Exception("Every watershed outlet must have an id in the CSV file")
 
     return True
+
 
 def validate_search_distance():
     """
@@ -274,8 +255,8 @@ def delineate():
     def find_close_catchment():
         """
         Part of my simple pour point relocation method. If the outlet falls in a unit catchment
-        whose area is a mismatch of our a priori estimate,
-        look around the neighborhood for a unit catchment whose area that matches more closely
+        whose area is a mismatch of our a priori estimate of the upstream area,
+        look around the neighborhood for a unit catchment whose area matches more closely
         """
         # Find the river segment that is within a bounding box around the point
         dist = 0.01
@@ -342,14 +323,30 @@ def delineate():
         plt.savefig(f"plots/{wid}_vector_unit_catch.png")
         plt.close(fig)
 
+    # Check that the OUTPUT directories are there. If not, try to create them.
+    folder_exists =  create_folder_if_not_exists(OUTPUT_DIR)
+    if not folder_exists:
+        raise Exception(f"No folder for output. Stopping")
+
+    # Check for the folder to put Python PICKLE files
+    if PICKLE_DIR != "":
+        folder_exists =  create_folder_if_not_exists(OUTPUT_DIR)
+        if not folder_exists:
+            raise Exception(f"No folder for pickle files. Stopping")
+
+    # Check if the MAP_FOLDER is there
+    if MAKE_MAP:
+        folder_exists = create_folder_if_not_exists(MAP_FOLDER)
+        if not folder_exists:
+            raise Exception(f"No folder for the map files. Stopping")
+
     # Check that the CSV file is there
     if not os.path.isfile(OUTLETS_CSV):
         raise Exception(f"Could not your outlets file at: {OUTLETS_CSV}")
 
-    if VERBOSE: print(f"Reading your outlets data in: {OUTLETS_CSV}")
-
-    # Create a Pandas DataFrame for the outlet points
+    # Read the outlet points CSV file and put into a Pandas DataFrame
     # (I call the outlet points gages, because I usually in delineated watersheds at streamflow gages)
+    if VERBOSE: print(f"Reading your outlets data in: {OUTLETS_CSV}")
     gages_df = pd.read_csv(OUTLETS_CSV, header=0, dtype={'id': 'str', 'lat': 'float', 'lng': 'float'})
 
     # Check that the CSV file includes at a minimum: id, lat, lng and that all values are appropriate
@@ -439,7 +436,7 @@ def delineate():
         # Create a dataframe of the gages_basins_join in that basins
         gages_in_basin = gages_basins_join[gages_basins_join["BASIN"] == basin]
         num_gages_in_basin = len(gages_in_basin)
-        print("\nBeginning delineation for %s outlet point(s) in Level 2 Basin #%s." % (num_gages_in_basin, basin))
+        if VERBOSE: print("\nBeginning delineation for %s outlet point(s) in Level 2 Basin #%s." % (num_gages_in_basin, basin))
 
         if HIGH_RES:
             catchments_gdf = load_gdf("catchments", basin, True)
@@ -481,9 +478,12 @@ def delineate():
         # Iterate over the gages and assemble the watershed
         for i in range(0, num_gages_in_basin):
             gages_counter += 1
+            if VERBOSE: print(f"\n* Delineating watershed {gages_counter} of {n_gages}, with outlet id = {wid}")
+
+            # Reset the local boolean flag for high-res mode. If the watershed is too big, script will switch to low.
             bool_high_res = HIGH_RES
 
-            # Let wid be the watershed ID
+            # Let wid be the watershed ID. Get the lat, lng coords of the gage.
             wid = gages_joined['id'].iloc[i]
             lat = gages_joined['lat'].iloc[i]
             lng = gages_joined['lng'].iloc[i]
@@ -491,9 +491,13 @@ def delineate():
             # The terminal comid is the unit catchment that contains (overlaps) the outlet point
             terminal_comid = gages_joined['COMID'].iloc[i]
 
-            # If the user provided the area, check whether it is a good match.
-            # If it is not, look around for a better match in the neighborhood.
+            # Get the upstream area of the unit catchment we found, according to MERIT-Basins
             up_area = rivers_gdf.loc[terminal_comid].uparea
+
+            # If MATCH_AREAS is True and the user provided the area in the outlets CSV file,
+            # the script will check whether the upstream area of the unit catchment is a good match.
+            # If the areas do not match well, look around the neighborhood for another unit catchment
+            # whose area is a closer match to what we think it is.
             if bAreas and MATCH_AREAS:
                 area_reported = gages_df.loc[wid].area_reported
                 PD_area = abs((area_reported - up_area) / area_reported)
@@ -504,20 +508,17 @@ def delineate():
                     candidate_comid, up_area = find_close_catchment()
                     if candidate_comid is None:
                         failed[wid] = "Could not find a nearby river reach whose upstream area is " \
-                                      "within {}% of reported area of {:,.0f} km²"\
-                                      .format(AREA_MATCHING_THRESHOLD * 100, area_reported)
+                                      "within {}% of reported area of {:,.0f} km²" \
+                            .format(AREA_MATCHING_THRESHOLD * 100, area_reported)
                         continue
                     else:
                         terminal_comid = candidate_comid
 
-            # Let B be the list of unit catchments_gdf that are in the basin
+            # Let B be the list of unit catchments (and river reaches) that are in the basin
             B = []
 
-            # add the first node, and the rest will be added, as the function is recursive.
-            print(f"\n*** DELINEATING watershed {gages_counter} of {n_gages}, with outlet id = {wid}")
+            # Add the first node, and the rest will be added recursively
             addnode(B, terminal_comid)
-
-            # Now we have a list B containing the COMIDs of rivers and unit watersheds.
             if VERBOSE: print(f"  found {len(B)} unit catchments in the watershed")
 
             # If the watershed is too big, revert to low-precision mode.
@@ -637,7 +638,6 @@ def delineate():
             # because we need it in a .js file assigned to a variable, to avoid cross-origin restrictions
             # of modern web browsers.
             if MAKE_MAP:
-                create_folder_if_not_exists(MAP_FOLDER)
                 watershed_js = f"{MAP_FOLDER}/{wid}.js"
                 with open(watershed_js, 'w') as f:
                     s = f"gage_coords = [{lat}, {lng}];\n"
