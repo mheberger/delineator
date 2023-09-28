@@ -12,8 +12,7 @@ Online demo: [https://mghydro.com/watersheds/](https://mghydro.com/watersheds/)
 
 This repository includes sample data covering Iceland. To delineate watersheds in other locations, you will need to download datasets from MERIT-Hydro and MERIT-Basins. Instructions on how to get the data and run the script are provided below.
 
-To get started, download the files in this GitHub repository. If you're a GitHub user, you can fork the repository. Here is an alternative download link, with all the files in a .zip file:
-[https://mghydro.com/watersheds/delineator.zip](https://mghydro.com/watersheds/delineator.zip)
+To get started, download the latest release from this GitHub repository. If you're a GitHub user, you can fork the repository.
 
 These scripts were developed with Python version 3.9, and I later tested them with versions 3.10 and 3.11.
 
