@@ -1,17 +1,19 @@
 """
-Performs a detailed, raster-based delineation, but only inside of a single unit catchment.
-This is the innovation of my method, as far as I can tell. Doing the raster math is slow
+Performs a detailed, raster-based delineation, but only inside of a *single* unit catchment.
+This is my implementation of the hybrid method, which I "invented" but which was actually
+first described by Djokic and Ye (1999). Doing the raster math is slow
 and takes a lot of memory. So we only do the bare minimum that we have to, and use the
 vector data that has already been processed for most of the upstream watershed.
 """
 
 from pysheds.pgrid import Grid as Grid
 from shapely.geometry import Polygon, MultiPolygon
-from shapely import wkb
+from shapely import wkb, ops
 from config import *
 import numpy as np
 import os
 from config import PLOTS
+import geopandas as gpd
 
 
 # Set PLOTS to True for debugging only; tells script to make plots of the pysheds steps
@@ -48,11 +50,12 @@ def get_subdivided_merit_polygon(wid: str, basin: int, lat: float, lng: float, c
 
     For HIGH PRECISION, we will discard the most downstream catchment
     polygon, and replace it with a more detailed delineation.
-    For this, we will clip the flow direction raster to that unit
-    catchment's boundaries, and do a raster-based delineation
-    Or find all of the pixels that contribute flow to our pour point.
-    Then, we will convert that collection of pixels to a polygon,
-    and add it to our watershed boundary
+    For this, we will use a small piece of the flow direction raster
+    that fully contains the terminal unit catchment's boundaries,
+    and do a raster-based delineation.
+    This finds all of the pixels in the unit catchments that contribute flow to our
+    pour point. Then, we will convert that collection of pixels to a polygon,
+    and merge it with the upstream unit catchment polygons.
 
     Read the flow direction raster, but use "Windowed Reading",
     where we only read in the portion
@@ -116,13 +119,14 @@ def get_subdivided_merit_polygon(wid: str, basin: int, lat: float, lng: float, c
     # grid = Grid.from_raster(path=fdir_fname, data=fdir_fname, data_name="myflowdir", window=bounding_box,nodata=0)
     grid = Grid.from_raster(fdir_fname, data_name="fdir", window=bounding_box, nodata=0)
 
-    # Now "clip" the rectangular flow direction grid even further so that it ONLY covers our unit catchment
+    # Now "clip" the rectangular flow direction grid even further so that it ONLY contains data
+    # inside the bounaries of the terminal unit catchment.
     # This prevents us from accidentally snapping the pour point to a neighboring watershed.
     # This was especially a problem around confluences, but this step seems to fix it.
     # (Seems I had to first convert it to hex format to get this to work...)
     hexpoly = catchment_poly.wkb_hex
     poly = wkb.loads(hexpoly, hex=True)
-    # coerce this into a single-part polygon! Somehow, putting it into the geopackage made it think this is a Polygon
+    # coerce this into a single-part polygon, in case the geometry is a MultiPolygon
     poly = get_largest(poly)
 
     # Fix any holes in the polygon by taking the exterior coordinates.
@@ -133,22 +137,26 @@ def get_subdivided_merit_polygon(wid: str, basin: int, lat: float, lng: float, c
     # It needs to be of type MultiPolygon to work with rasterio apparently
     multi_poly = MultiPolygon([filled_poly])
 
-    # Convert the polygon into a pixelized raster mask.
+    # Convert the polygon into a pixelized raster "mask".
     mymask = grid.rasterize(multi_poly)
     grid.add_gridded_data(mymask, data_name="mymask", affine=grid.affine, crs=grid.crs, shape=grid.shape)
 
+    # I believe this step was unnecessary, but it makes the plots look a little nicer
     m, n = grid.shape
     for i in range(0, m):
         for j in range(0, n):
             if int(grid.mymask[i, j]) == 0:
                 grid.fdir[i, j] = 0
 
-    # Plot mask
+    # Plot the mask that I created from rasterized vector polygon
     if PLOTS:
         fig = plt.figure(figsize=(10, 8))
         fig.patch.set_alpha(0)
-        plt.imshow(grid.mymask, extent=grid.extent, cmap='viridis', zorder=0, norm=LogNorm())
+        numeric_array = grid.mymask.astype(int)
+        plt.imshow(numeric_array, extent=grid.extent)
         plt.plot(*catchment_poly.exterior.xy, color='red')
+        plt.scatter(x=lng, y=lat, c='red', edgecolors='black')
+        plt.colorbar()
         plt.title('Mask grid for watershed id = {}'.format(wid))
         plt.grid(zorder=-1)
         plt.title("Mask for the unit catchment for watershed id = {}".format(wid))
@@ -162,11 +170,12 @@ def get_subdivided_merit_polygon(wid: str, basin: int, lat: float, lng: float, c
     if PLOTS:
         fig = plt.figure(figsize=(10, 8))
         fig.patch.set_alpha(0)
-        plt.imshow(grid.fdir, extent=grid.extent, cmap='hsv', zorder=0, norm=LogNorm())
+        plt.imshow(grid.fdir, extent=grid.extent, cmap='viridis', zorder=0, norm=LogNorm())
         boundaries = ([0] + sorted(list(dirmap)))
         plt.colorbar(boundaries=boundaries, values=sorted(dirmap))
         plt.xlabel('Longitude')
         plt.ylabel('Latitude')
+        plt.scatter(x=lng, y=lat, c='red', edgecolors='black')
         plt.title('Flow direction grid for watershed id ={}'.format(wid))
         plt.grid(zorder=-1)
         plt.savefig("plots/{}_raster_flowdir.jpg".format(wid))
@@ -199,28 +208,13 @@ def get_subdivided_merit_polygon(wid: str, basin: int, lat: float, lng: float, c
             if int(grid.mymask[i, j]) == 0:
                 grid.acc[i, j] = 0
 
-    # Plot the accumulation grid, for debugging
-    if PLOTS:
-        fig, ax = plt.subplots(figsize=(10, 8))
-        fig.patch.set_alpha(0)
-        plt.grid('on', zorder=1)
-        im = ax.imshow(grid.acc, extent=grid.extent, zorder=0,
-                       cmap='cubehelix',
-                       norm=colors.LogNorm(1, grid.acc.max())
-                       )
-        plt.colorbar(im, ax=ax, label='Upstream Cells')
-        plt.title('Flow Accumulation Grid for watershed id = {}'.format(wid))
-        plt.xlabel('Longitude')
-        plt.ylabel('Latitude')
-        plt.savefig("plots/{}_raster_accum.jpg".format(wid))
-        plt.close(fig)
-
     # Snap the outlet to the nearest stream. This function depends entirely on the threshold
     # that you set for how minimum number of upstream pixels to define a waterway.
-    # If the user is looking for a small headwater stream, we can use a small number
-    # In most other circumstances, a much larger value gives better results.
+    # If the user is looking for a small headwater stream, we can use a small number.
+    # In this case, there will be only one unit catchment in the watershed.
+    # In most other circumstances (num unit catchments > 1), a much larger value gives better results.
     # The values here work OK, but I did not test very extensively...
-    # A value of 300 prevents the app from finding little tiny watersheds. Not our purpose.
+    # Using a minimum value like 500 prevents the script from finding little tiny watersheds.
     if bSingleCatchment:
         numpixels = 500
     else:
@@ -234,7 +228,44 @@ def get_subdivided_merit_polygon(wid: str, basin: int, lat: float, lng: float, c
     # is greater than our threshold
     streams = grid.acc > numpixels
     xy = (lng, lat)
-    [lng_snap, lat_snap], dist = grid.snap_to_mask(streams, xy)
+    try:
+        [lng_snap, lat_snap], dist = grid.snap_to_mask(streams, xy)
+    except Exception as e:
+        if VERBOSE: print(f"Could not snap the pour point. Error: {e}")
+        return None, None, None
+
+    # Plot the accumulation grid, for debugging
+    if PLOTS:
+        fig, ax = plt.subplots(figsize=(10, 8))
+        fig.patch.set_alpha(0)
+        plt.grid('on', zorder=1)
+        im = ax.imshow(grid.acc, extent=grid.extent, zorder=0,
+                       cmap='cubehelix',
+                       norm=colors.LogNorm(1, grid.acc.max())
+                       )
+        plt.colorbar(im, ax=ax, label='Upstream Cells')
+        plt.scatter(x=lng, y=lat, c='red', edgecolors='black')
+        plt.scatter(x=lng_snap, y=lat_snap, c='cyan', edgecolors='black')
+        plt.title('Flow Accumulation Grid for watershed id = {}'.format(wid))
+        plt.xlabel('Longitude')
+        plt.ylabel('Latitude')
+        plt.savefig("plots/{}_raster_accum.jpg".format(wid))
+        plt.close(fig)
+
+    # Plot the streams!
+    if PLOTS:
+        fig, ax = plt.subplots(figsize=(10, 8))
+        fig.patch.set_alpha(0)
+        plt.grid('on', zorder=1)
+        im = ax.imshow(streams, extent=grid.extent)
+        plt.scatter(x=lng, y=lat, c='red', edgecolors='black')
+        plt.scatter(x=lng_snap, y=lat_snap, c='cyan', edgecolors='black')
+        plt.plot(*catchment_poly.exterior.xy, color='red')
+        plt.title(f'Streams, defined by # upstream pixels > {numpixels}')
+        plt.xlabel('Longitude')
+        plt.ylabel('Latitude')
+        plt.savefig("plots/{}_streams.jpg".format(wid))
+        plt.close(fig)
 
     # Finally, here is the raster based watershed delineation with pysheds!
     if VERBOSE: print("Delineating catchment")
@@ -252,9 +283,13 @@ def get_subdivided_merit_polygon(wid: str, basin: int, lat: float, lng: float, c
         # Seems optional, but turns out this line is essential.
         grid.clip_to('catch')
         clipped_catch = grid.view('catch', dtype=np.uint8)
-    except:
-        if VERBOSE: print("ERROR: something went wrong during pysheds grid.catchment() ")
+    except Exception as e:
+        if VERBOSE: print(f"ERROR: something went wrong during pysheds grid.catchment(). Error: {e}")
         return None, lng_snap, lat_snap
+
+    # Convert high-precision raster subcatchment to a polygon using pysheds method .polygonize()
+    if VERBOSE: print("Converting to polygon")
+    shapes = grid.polygonize()
 
     if PLOTS:
         # Plot the catchment
@@ -263,17 +298,17 @@ def get_subdivided_merit_polygon(wid: str, basin: int, lat: float, lng: float, c
 
         plt.grid('on', zorder=0)
         ax.imshow(np.where(clipped_catch, clipped_catch, np.nan), extent=grid.extent,
-                  zorder=1, cmap='hsv', norm=LogNorm())
+                  zorder=1, cmap='viridis', norm=LogNorm())
         plt.plot(*catchment_poly.exterior.xy, color='red')
+
         plt.xlabel('Longitude')
         plt.ylabel('Latitude')
+        plt.scatter(x=lng, y=lat, c='red', edgecolors='black')
+        plt.scatter(x=lng_snap, y=lat_snap, c='cyan', edgecolors='black')
         plt.title('Delineated Raster Catchment for watershed id = {}'.format(wid))
         plt.savefig("plots/{}_raster_catchment.png".format(wid))
         plt.close(fig)
 
-    # Convert high-precision raster subcatchment to a polygon using pysheds method .polygonize()
-    if VERBOSE: print("Converting to polygon")
-    shapes = grid.polygonize()
 
     # The output (from pysheds without numba) is creating MANY shapes.
     # Dissolve them together with the unary union operation in shapely
@@ -288,7 +323,7 @@ def get_subdivided_merit_polygon(wid: str, basin: int, lat: float, lng: float, c
     # area, but in my testing, it usually only results in the loss of a few pixels
     # here and there, in other words, trivial differences. The tradeoff seemed
     # worthwhile -- we lose a bit of accuracy, but in exchange, we gain the simplicity
-    # of working with Polygon geometries, rather than MultiPolygon.
+    # of working with Polygon geometries, rather than MultiPolygons.
 
     shapely_polygons = []
 
@@ -298,24 +333,31 @@ def get_subdivided_merit_polygon(wid: str, basin: int, lat: float, lng: float, c
     lng_snap += halfpix
     lat_snap -= halfpix
 
+    # Convert the result from pysheds into a list of shapely polygons
     for shape, value in shapes:
         pysheds_polygon = shape
 
         shape_count += 1
-        # The pyshseds polygon can be converted via a one-liner
-        # This makes a shapely polygon, class 'shapely.geometry.polygon.Polygon'
-        # a more standard format to work with
+        # The pyshseds polygon can be converted to a shapely Polygon in this one-liner
         shapely_polygon = Polygon([[p[0], p[1]] for p in pysheds_polygon['coordinates'][0]])
         shapely_polygons.append(shapely_polygon)
 
     if shape_count > 1:
-        # merge the polys
-        from shapely import ops
-        shapely_polygon = ops.unary_union(shapely_polygons)
-        return shapely_polygon, lat_snap, lng_snap
+        # If pysheds returned multiple polygons, dissolve them using shapely's unary_union() function
+        # Note that this can sometimes return a MultiPolygon, which we'll need to fix later
+        result_polygon = ops.unary_union(shapely_polygons)
+
+        if result_polygon.geom_type == "MultiPolygon":
+            if PLOTS:
+                polygons = list(result_polygon)
+                plot_polys(polygons, wid)
+
+            result_polygon = get_largest(result_polygon)
     else:
-        # return the single polygon
-        return shapely_polygons[0], lat_snap, lng_snap
+        # If pysheds generated a single polygon, that is our answer
+        result_polygon = shapely_polygons[0]
+
+    return result_polygon, lat_snap, lng_snap
 
 
 def get_largest(input_poly: MultiPolygon or Polygon) -> Polygon:
@@ -344,3 +386,34 @@ def get_largest(input_poly: MultiPolygon or Polygon) -> Polygon:
         return polygons[max_index]
     else:
         return input_poly
+
+
+def plot_polys(polygons: list, wid: int):
+    """
+    Plots a list of shapely polygons
+
+    This was mostly to debug an issue where the subdivided downstream unit catchment
+    is a MultiPolygon with more than one part. I needed to make sure that throwing out
+    all but the largest parts was OK. After testing hundreds of watersheds, I only ever
+    found that the smaller parts were one or two pixels in size, so I decided that using
+    my get_largest() function was legitimate.
+
+    """
+
+    gdf = gpd.GeoDataFrame(columns=["id", "geometry"], crs='epsg:4326')
+    n_polys = len(polygons)
+    print(n_polys)
+    for i in range(0, n_polys):
+        gdf.loc[i] = (i, polygons[i])
+
+    [fig, ax] = plt.subplots(1, 1, figsize=(10, 8))
+    plt.title(f"Subdivided downstream unit catchment for watershed id = '{wid}'"
+              f"\nMultiPolygon with {n_polys} parts")
+
+    # Plot each unit catchment with a different color
+    for x in gdf.index:
+        color = np.random.rand(3, )
+        gdf.loc[[x]].plot(edgecolor='gray', color=color, ax=ax)
+    #plt.show()
+    plt.savefig(f"plots/{wid}_vector_catch_sub.png")
+    plt.close(fig)

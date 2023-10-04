@@ -144,66 +144,6 @@ def get_area(poly: Polygon) -> float:
     return projected_poly.area / 1e6
 
 
-def get_largest(input_poly: Polygon or MultiPolygon, wid: int):
-    """
-    Converts a Shapely MultiPolygon to a Shapely polygon
-    For multipart polygons, will only keep the largest polygon
-    in terms of area. In my testing, this was usually good enough
-
-    Args:
-        input_poly: A Shapely Polygon or MultiPolygon
-        wid: the watershed ID 
-    Returns:
-        a shapely Polygon
-    """
-    if input_poly.geom_type == "MultiPolygon":
-        areas = []
-        polygons = list(input_poly)
-
-        if PLOTS:
-            plot_polys(polygons, wid)
-
-        for poly in polygons:
-            areas.append(poly.area)
-
-        max_index = areas.index(max(areas))
-
-        return polygons[max_index]
-    else:
-        return input_poly
-
-
-def plot_polys(polygons: list, wid: int):
-    """
-    Plots a list of shapely polygons
-
-    This was mostly to debug an issue where the subdivided downstream unit catchment
-    is a MultiPolygon with more than one part. I needed to make sure that throwing out
-    all but the largest parts was OK. After testing hundreds of watersheds, I only ever
-    found that the smaller parts were one or two pixels in size, so I decided that using
-    my get_largest() function was legitimate.
-
-    """
-
-    gdf = gpd.GeoDataFrame(columns=["id", "geometry"], crs='epsg:4326')
-    n_polys = len(polygons)
-    print(n_polys)
-    for i in range(0, n_polys):
-        gdf.loc[i] = (i, polygons[i])
-
-    [fig, ax] = plt.subplots(1, 1, figsize=(10, 8))
-    plt.title(f"Subdivided downstream unit catchment for watershed id = '{wid}'"
-              f"\nMultiPolygon with {n_polys} parts")
-
-    # Plot each unit catchment with a different color
-    for x in gdf.index:
-        color = np.random.rand(3, )
-        gdf.loc[[x]].plot(edgecolor='gray', color=color, ax=ax)
-    #plt.show()
-    plt.savefig(f"plots/{wid}_vector_catch_sub.png")
-    plt.close(fig)
-
-
 def delineate():
     """
     THIS is the Main watershed delineation routine
@@ -303,10 +243,12 @@ def delineate():
                 dist += 0.01
                 iteration += 1
 
-    def plot_basins():
+    def plot_basins(suffix: str):
         """
         Makes a plot of the unit catchments that are in the watershed
-        For debugging mostly
+
+        It is all the upstream unit catchments, and the *split* terminal unit catchment.
+
         """
         # subbasins_gdf.plot(column='area', edgecolor='gray', legend=True)
         [fig, ax] = plt.subplots(1, 1, figsize=(10, 8))
@@ -317,10 +259,15 @@ def delineate():
             subbasins_gdf.loc[[x]].plot(facecolor=color, edgecolor=color, alpha=0.5, ax=ax)
 
         # Plot the gage point
-        gages_joined.iloc[[i]].plot(ax=ax)
+        gages_joined.iloc[[i]].plot(ax=ax, c='red', edgecolors='black')
 
-        plt.title(f"Found {len(subbasins_gdf)} unit catchments for watershed id = {wid}")
-        plt.savefig(f"plots/{wid}_vector_unit_catch.png")
+        if suffix == "post":
+            plt.scatter(x=lng_snap, y=lat_snap, c='cyan', edgecolors='black')
+            plt.title(f"Showing the {len(subbasins_gdf)-1} upstream unit catchments and split terminal unit catchment")
+        else:
+            plt.title(f"Found {len(subbasins_gdf)} unit catchments for watershed id = {wid}")
+
+        plt.savefig(f"plots/{wid}_vector_unit_catchments_{suffix}.png")
         plt.close(fig)
 
     # Check that the OUTPUT directories are there. If not, try to create them.
@@ -538,33 +485,31 @@ def delineate():
 
             # Make a plot of the selected unit catchments
             if PLOTS:
-                plot_basins()
+                plot_basins("pre")
 
             # In detailed mode,
             if bool_high_res:
                 if VERBOSE: print("Performing detailed raster-based delineation for "
                                   "the downstream portion of the watershed")
-                # Let poly be the polygon of the terminal unit catchment
+                # Let split_catchment_poly be the polygon of the terminal unit catchment
                 assert terminal_comid == B[0]
                 catchment_poly = subbasins_gdf.loc[terminal_comid].geometry
                 bSingleCatchment = len(B) == 1
-                poly, lat_snap, lng_snap = py.merit_detailed.get_subdivided_merit_polygon(wid, basin, lat, lng,
-                                                                                          catchment_poly,
-                                                                                          bSingleCatchment)
-                if poly is None:
+                split_catchment_poly, lat_snap, lng_snap = py.merit_detailed.get_subdivided_merit_polygon(wid, basin, lat, lng,
+                                                                                                          catchment_poly,
+                                                                                                          bSingleCatchment)
+                if split_catchment_poly is None:
                     failed[wid] = "An error occured in pysheds detailed delineation."
                     continue
                 else:
-                    poly = get_largest(poly, wid)  # We want a single Polygon, not a MultiPolygon
-
                     # Create a temporary GeoDataFrame to create the geometry of this polygon
-                    # and then transfer it to our watershed's subbasins GDF
-                    gdf = gpd.GeoDataFrame(index=[0], crs='epsg:4326', geometry=[poly])
+                    # just so we can easily transfer it to our watershed's subbasins GDF
+                    gdf = gpd.GeoDataFrame(index=[0], crs='epsg:4326', geometry=[split_catchment_poly])
                     geom = gdf.loc[0, 'geometry']
                     subbasins_gdf.loc[terminal_comid, 'geometry'] = geom
 
             if PLOTS:
-                plot_basins()
+                plot_basins("post")
 
             if VERBOSE: print("Dissolving...")
             # mybasin_gs is a GeoPandas GeoSeries
