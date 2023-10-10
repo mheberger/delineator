@@ -1,20 +1,20 @@
 """
-Performs a detailed, raster-based delineation, but only inside of a *single* unit catchment.
-This is my implementation of the hybrid method, which I "invented" but which was actually
-first described by Djokic and Ye (1999). Doing the raster math is slow
-and takes a lot of memory. So we only do the bare minimum that we have to, and use the
-vector data that has already been processed for most of the upstream watershed.
+Performs a detailed, raster-based watershed delineation with `pysheds`,
+but only inside of a *single* unit catchment.
+This is my implementation of the hybrid method, which I "invented" -- but which was actually
+first described in a a paper by Djokic and Ye at the 1999 ESRI User Conference.
+Raster-based delineation is slow and requires a lot of memory. So we only do the bare minimum,
+and use vector data for the rest of the upstream watershed.
 """
-import copy  # TODO: undo this modification?
-
-from pysheds.pgrid import Grid as Grid
+import copy
+import os
+from numpy import floor, ceil, uint8
+from pysheds.pgrid import Grid
 from shapely.geometry import Polygon, MultiPolygon
 from shapely import wkb, ops
-from config import *
-import numpy as np
-import os
-from config import PLOTS
+
 from py.raster_plots import *
+from config import *
 
 
 def split_catchment(wid: str, basin: int, lat: float, lng: float, catchment_poly: Polygon,
@@ -88,10 +88,10 @@ def split_catchment(wid: str, basin: int, lat: float, lng: float, catchment_poly
     # to put it back in its regular units of decimal degrees. Then, since pysheds wants the *center*
     # of the pixel, not its edge, add or subtract a half-pixel width as appropriate.
     # This took me a while to figure out but was essential to getting results that look correct
-    bounds_list[0] = np.floor(bounds_list[0] * 1200) / 1200 - halfpix
-    bounds_list[1] = np.floor(bounds_list[1] * 1200) / 1200 - halfpix
-    bounds_list[2] = np.ceil( bounds_list[2] * 1200) / 1200 + halfpix
-    bounds_list[3] = np.ceil( bounds_list[3] * 1200) / 1200 + halfpix
+    bounds_list[0] = floor(bounds_list[0] * 1200) / 1200 - halfpix
+    bounds_list[1] = floor(bounds_list[1] * 1200) / 1200 - halfpix
+    bounds_list[2] = ceil( bounds_list[2] * 1200) / 1200 + halfpix
+    bounds_list[3] = ceil( bounds_list[3] * 1200) / 1200 + halfpix
 
     # The bounding box needs to be a tuple for pysheds.
     bounding_box = tuple(bounds_list)
@@ -233,7 +233,7 @@ def split_catchment(wid: str, basin: int, lat: float, lng: float, catchment_poly
         # Clip the bounding box to the catchment
         # Seems optional, but turns out this line is essential.
         grid.clip_to('catch')
-        clipped_catch = grid.view('catch', dtype=np.uint8)
+        clipped_catch = grid.view('catch', dtype=uint8)
     except Exception as e:
         if VERBOSE: print(f"ERROR: something went wrong during pysheds grid.catchment(). Error: {e}")
         return None, lng_snap, lat_snap

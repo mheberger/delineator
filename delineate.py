@@ -30,7 +30,6 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 import pandas as pd
 import geopandas as gpd
 import os
-import numbers
 import re
 from shapely.geometry import Point, Polygon, box
 import shapely.ops
@@ -110,8 +109,8 @@ def validate_search_distance():
     This function just checks whether this is valid.
     Does not return anything, just throws an error if it is out of range.
     """
-    if not isinstance(SEARCH_DIST, numbers.Number):
-        raise Exception("SEARCH_DIST must be a number. We got {SEARCH_DIST}")
+    if isinstance(SEARCH_DIST, int) or isinstance(SEARCH_DIST, float):
+       raise Exception("SEARCH_DIST must be a number. We got {SEARCH_DIST}")
 
     if SEARCH_DIST < 0.0:
         raise Exception("SEARCH distance in config.py must be a positive number.")
