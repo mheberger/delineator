@@ -32,7 +32,7 @@ import geopandas as gpd
 import os
 import numbers
 import re
-from shapely.geometry import Point, Polygon, MultiPolygon, box
+from shapely.geometry import Point, Polygon, box
 import shapely.ops
 from shapely.wkt import loads
 import sigfig  # for formatting numbers to significant digits
@@ -261,7 +261,7 @@ def delineate():
         # Plot the gage point
         gages_joined.iloc[[i]].plot(ax=ax, c='red', edgecolors='black')
 
-        if suffix == "post":
+        if suffix == "post" and HIGH_RES:
             plt.scatter(x=lng_snap, y=lat_snap, c='cyan', edgecolors='black')
             plt.title(f"Showing the {len(subbasins_gdf)-1} upstream unit catchments and split terminal unit catchment")
         else:
@@ -495,18 +495,18 @@ def delineate():
                 assert terminal_comid == B[0]
                 catchment_poly = subbasins_gdf.loc[terminal_comid].geometry
                 bSingleCatchment = len(B) == 1
-                split_catchment_poly, lat_snap, lng_snap = py.merit_detailed.get_subdivided_merit_polygon(wid, basin, lat, lng,
-                                                                                                          catchment_poly,
-                                                                                                          bSingleCatchment)
+                split_catchment_poly, lat_snap, lng_snap = py.merit_detailed.split_catchment(wid, basin, lat, lng,
+                                                                                             catchment_poly,
+                                                                                             bSingleCatchment)
                 if split_catchment_poly is None:
                     failed[wid] = "An error occured in pysheds detailed delineation."
                     continue
                 else:
-                    # Create a temporary GeoDataFrame to create the geometry of this polygon
-                    # just so we can easily transfer it to our watershed's subbasins GDF
-                    gdf = gpd.GeoDataFrame(index=[0], crs='epsg:4326', geometry=[split_catchment_poly])
-                    geom = gdf.loc[0, 'geometry']
-                    subbasins_gdf.loc[terminal_comid, 'geometry'] = geom
+                    # Create a temporary GeoDataFrame to create the geometry of the split catchment polygon
+                    # This is just a shortcut method to transfer it to our watershed's subbasins GDF
+                    split_gdf = gpd.GeoDataFrame(index=[0], crs='epsg:4326', geometry=[split_catchment_poly])
+                    split_geom = split_gdf.loc[0, 'geometry']
+                    subbasins_gdf.loc[terminal_comid, 'geometry'] = split_geom
 
             if PLOTS:
                 plot_basins("post")
@@ -518,8 +518,8 @@ def delineate():
             if FILL:
                 # Fill donut holes in the watershed polygon
                 # Recall we asked the user for the fill threshold in terms of number of pixels
-                pixel_area = 0.000000695
-                area_max = FILL_THRESHOLD * pixel_area
+                PIXEL_AREA = 0.000000695  # Constant for the area of a single pixel in MERIT-Hydro, in decimal degrees
+                area_max = FILL_THRESHOLD * PIXEL_AREA
                 mybasin_gs = fill_geopandas(mybasin_gs, area_max=area_max)
 
             if SIMPLIFY:
@@ -716,11 +716,6 @@ def save_pickle(geotype: str, gdf: gpd.GeoDataFrame, basin: int, high_resolution
         has_spatial_index = hasattr(gdf, 'sindex')
         if not has_spatial_index:
             gdf.sindex.create_index()
-
-        else:
-            # The spatial index size should match the number of rows in the GeoDataFrame.
-            if gdf.sindex.size < gdf.shape[0]:
-                gdf.sindex.rebuild()
 
         # Get the standard project filename for the pickle files.
         pickle_fname = get_pickle_filename(geotype, basin, high_resolution)

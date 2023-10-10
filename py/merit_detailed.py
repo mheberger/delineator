@@ -5,6 +5,7 @@ first described by Djokic and Ye (1999). Doing the raster math is slow
 and takes a lot of memory. So we only do the bare minimum that we have to, and use the
 vector data that has already been processed for most of the upstream watershed.
 """
+import copy  # TODO: undo this modification?
 
 from pysheds.pgrid import Grid as Grid
 from shapely.geometry import Polygon, MultiPolygon
@@ -13,17 +14,10 @@ from config import *
 import numpy as np
 import os
 from config import PLOTS
-import geopandas as gpd
+from py.raster_plots import *
 
 
-# Set PLOTS to True for debugging only; tells script to make plots of the pysheds steps
-if PLOTS:
-    import matplotlib.pyplot as plt
-    from matplotlib import colors
-    from matplotlib.colors import LogNorm
-
-
-def get_subdivided_merit_polygon(wid: str, basin: int, lat: float, lng: float, catchment_poly: Polygon,
+def split_catchment(wid: str, basin: int, lat: float, lng: float, catchment_poly: Polygon,
                                  bSingleCatchment: bool) -> (object or None, float, float):
     """
     Performs the detailed pixel-scale raster-based delineation for a watershed.
@@ -150,36 +144,18 @@ def get_subdivided_merit_polygon(wid: str, basin: int, lat: float, lng: float, c
 
     # Plot the mask that I created from rasterized vector polygon
     if PLOTS:
-        fig = plt.figure(figsize=(10, 8))
-        fig.patch.set_alpha(0)
-        numeric_array = grid.mymask.astype(int)
-        plt.imshow(numeric_array, extent=grid.extent)
-        plt.plot(*catchment_poly.exterior.xy, color='red')
-        plt.scatter(x=lng, y=lat, c='red', edgecolors='black')
-        plt.colorbar()
-        plt.title('Mask grid for watershed id = {}'.format(wid))
-        plt.grid(zorder=-1)
-        plt.title("Mask for the unit catchment for watershed id = {}".format(wid))
-        plt.savefig('plots/{}_raster_mask.png'.format(wid))
-        plt.close(fig)
+        plot_mask(grid, catchment_poly, lat, lng, wid)
 
     # MERIT-Hydro flow direction uses the old ESRI standard for flow direction...
     dirmap = (64, 128, 1, 2, 4, 8, 16, 32)
 
     # Plot the flow-direction raster, for debugging
     if PLOTS:
-        fig = plt.figure(figsize=(10, 8))
-        fig.patch.set_alpha(0)
-        plt.imshow(grid.fdir, extent=grid.extent, cmap='viridis', zorder=0, norm=LogNorm())
-        boundaries = ([0] + sorted(list(dirmap)))
-        plt.colorbar(boundaries=boundaries, values=sorted(dirmap))
-        plt.xlabel('Longitude')
-        plt.ylabel('Latitude')
-        plt.scatter(x=lng, y=lat, c='red', edgecolors='black')
-        plt.title('Flow direction grid for watershed id ={}'.format(wid))
-        plt.grid(zorder=-1)
-        plt.savefig("plots/{}_raster_flowdir.jpg".format(wid))
-        plt.close(fig)
+        plot_flowdir(grid, lat, lng, wid, dirmap, catchment_poly)
+
+    # Making a copy of the grid before clipping to split catchment boundary, for plots
+    if PLOTS:
+        grid2 = copy.deepcopy(grid)
 
     if VERBOSE: print("Snapping pour point")
 
@@ -236,36 +212,11 @@ def get_subdivided_merit_polygon(wid: str, basin: int, lat: float, lng: float, c
 
     # Plot the accumulation grid, for debugging
     if PLOTS:
-        fig, ax = plt.subplots(figsize=(10, 8))
-        fig.patch.set_alpha(0)
-        plt.grid('on', zorder=1)
-        im = ax.imshow(grid.acc, extent=grid.extent, zorder=0,
-                       cmap='cubehelix',
-                       norm=colors.LogNorm(1, grid.acc.max())
-                       )
-        plt.colorbar(im, ax=ax, label='Upstream Cells')
-        plt.scatter(x=lng, y=lat, c='red', edgecolors='black')
-        plt.scatter(x=lng_snap, y=lat_snap, c='cyan', edgecolors='black')
-        plt.title('Flow Accumulation Grid for watershed id = {}'.format(wid))
-        plt.xlabel('Longitude')
-        plt.ylabel('Latitude')
-        plt.savefig("plots/{}_raster_accum.jpg".format(wid))
-        plt.close(fig)
+        plot_accum(grid, lat, lng, lat_snap, lng_snap, wid, catchment_poly)
 
     # Plot the streams!
     if PLOTS:
-        fig, ax = plt.subplots(figsize=(10, 8))
-        fig.patch.set_alpha(0)
-        plt.grid('on', zorder=1)
-        im = ax.imshow(streams, extent=grid.extent)
-        plt.scatter(x=lng, y=lat, c='red', edgecolors='black')
-        plt.scatter(x=lng_snap, y=lat_snap, c='cyan', edgecolors='black')
-        plt.plot(*catchment_poly.exterior.xy, color='red')
-        plt.title(f'Streams, defined by # upstream pixels > {numpixels}')
-        plt.xlabel('Longitude')
-        plt.ylabel('Latitude')
-        plt.savefig("plots/{}_streams.jpg".format(wid))
-        plt.close(fig)
+        plot_streams(grid, streams, catchment_poly, lat, lng, lat_snap, lng_snap, wid, numpixels)
 
     # Finally, here is the raster based watershed delineation with pysheds!
     if VERBOSE: print("Delineating catchment")
@@ -290,24 +241,6 @@ def get_subdivided_merit_polygon(wid: str, basin: int, lat: float, lng: float, c
     # Convert high-precision raster subcatchment to a polygon using pysheds method .polygonize()
     if VERBOSE: print("Converting to polygon")
     shapes = grid.polygonize()
-
-    if PLOTS:
-        # Plot the catchment
-        fig, ax = plt.subplots(figsize=(10, 8))
-        fig.patch.set_alpha(0)
-
-        plt.grid('on', zorder=0)
-        ax.imshow(np.where(clipped_catch, clipped_catch, np.nan), extent=grid.extent,
-                  zorder=1, cmap='viridis', norm=LogNorm())
-        plt.plot(*catchment_poly.exterior.xy, color='red')
-
-        plt.xlabel('Longitude')
-        plt.ylabel('Latitude')
-        plt.scatter(x=lng, y=lat, c='red', edgecolors='black')
-        plt.scatter(x=lng_snap, y=lat_snap, c='cyan', edgecolors='black')
-        plt.title('Delineated Raster Catchment for watershed id = {}'.format(wid))
-        plt.savefig("plots/{}_raster_catchment.png".format(wid))
-        plt.close(fig)
 
 
     # The output (from pysheds without numba) is creating MANY shapes.
@@ -357,6 +290,11 @@ def get_subdivided_merit_polygon(wid: str, basin: int, lat: float, lng: float, c
         # If pysheds generated a single polygon, that is our answer
         result_polygon = shapely_polygons[0]
 
+    if PLOTS:
+        plot_catchment(grid, grid2, catchment_poly, result_polygon, lat, lng, lat_snap, lng_snap, wid, dirmap)
+        plot_clipped(grid, clipped_catch, catchment_poly, lat, lng, lat_snap, lng_snap, wid, result_polygon)
+
+
     return result_polygon, lat_snap, lng_snap
 
 
@@ -388,32 +326,3 @@ def get_largest(input_poly: MultiPolygon or Polygon) -> Polygon:
         return input_poly
 
 
-def plot_polys(polygons: list, wid: int):
-    """
-    Plots a list of shapely polygons
-
-    This was mostly to debug an issue where the subdivided downstream unit catchment
-    is a MultiPolygon with more than one part. I needed to make sure that throwing out
-    all but the largest parts was OK. After testing hundreds of watersheds, I only ever
-    found that the smaller parts were one or two pixels in size, so I decided that using
-    my get_largest() function was legitimate.
-
-    """
-
-    gdf = gpd.GeoDataFrame(columns=["id", "geometry"], crs='epsg:4326')
-    n_polys = len(polygons)
-    print(n_polys)
-    for i in range(0, n_polys):
-        gdf.loc[i] = (i, polygons[i])
-
-    [fig, ax] = plt.subplots(1, 1, figsize=(10, 8))
-    plt.title(f"Subdivided downstream unit catchment for watershed id = '{wid}'"
-              f"\nMultiPolygon with {n_polys} parts")
-
-    # Plot each unit catchment with a different color
-    for x in gdf.index:
-        color = np.random.rand(3, )
-        gdf.loc[[x]].plot(edgecolor='gray', color=color, ax=ax)
-    #plt.show()
-    plt.savefig(f"plots/{wid}_vector_catch_sub.png")
-    plt.close(fig)
