@@ -29,7 +29,7 @@ VERBOSE = True
 
 # Set to True to make a bunch of plots of each watershed.
 # (Just for debugging. Slows down the script a lot.)
-PLOTS = False
+PLOTS = True
 
 # Folder where you have stored the Merit-BASINS catchment shapefiles.
 # These files need to be downloaded from: https://www.reachhydro.org/home/params/merit-basins
@@ -71,8 +71,8 @@ PICKLE_DIR = 'pkl'
 LOW_RES_THRESHOLD = 50000
 
 # If the requested watershed outlet is not inside a catchment, how far away 
-# from the point should we look for the nearest catchment (in degrees)
-SEARCH_DIST = 0.025
+# from the point should we look for the nearest catchment (in degrees). 0.025 recommended
+SEARCH_DIST = 0
 
 # Watersheds created with Merit-Hydro data tend to have many "donut holes"
 # ranging from one or two pixels to much larger.

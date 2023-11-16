@@ -42,8 +42,13 @@ Next, install required packages:
 ```
 $ pip install -r requirements.txt
 ```
-Note that this script does *not* work with the most recent versions of `Shapely` or `pysheds`. 
-It seems like it will be a project to upgrade. I welcome contributions if you want to help. 
+This script uses the latest versions of Python packages circa November 2023, 
+with one exception. I had to use an older version of GeoPandas (0.13.2 instead of 0.14),
+because of this: [Issue #3054](https://github.com/geopandas/geopandas/issues/3054).
+
+
+It seems that many of the libraries I'm using are under very active development, 
+and upgrading packages usually breaks the code, requiring lots of careful debugging. 
 
 After this, follow the instructions below for how to get the input data, configure the settings, and run `delineator.py`.
 

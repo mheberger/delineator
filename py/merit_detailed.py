@@ -1,15 +1,14 @@
 """
 Performs a detailed, raster-based watershed delineation with `pysheds`,
 but only inside of a *single* unit catchment.
-This is my implementation of the hybrid method, which I "invented" -- but which was actually
+This is my implementation of the *hybrid* method that I "invented" -- but which was actually
 first described in a a paper by Djokic and Ye at the 1999 ESRI User Conference.
 Raster-based delineation is slow and requires a lot of memory. So we only do the bare minimum,
 and use vector data for the rest of the upstream watershed.
 """
-import copy
 import os
-from numpy import floor, ceil, uint8
-from pysheds.pgrid import Grid
+from numpy import floor, ceil
+from pysheds.grid import Grid
 from shapely.geometry import Polygon, MultiPolygon
 from shapely import wkb, ops
 
@@ -18,7 +17,7 @@ from config import *
 
 
 def split_catchment(wid: str, basin: int, lat: float, lng: float, catchment_poly: Polygon,
-                                 bSingleCatchment: bool) -> (object or None, float, float):
+                    bSingleCatchment: bool) -> (object or None, float, float):
     """
     Performs the detailed pixel-scale raster-based delineation for a watershed.
 
@@ -111,8 +110,8 @@ def split_catchment(wid: str, basin: int, lat: float, lng: float, catchment_poly
     # You can still use it without numba, but the code is older and has not evolved with the new stuff (?)
     # Anyhow, the old version worked better for me in my testing.
     # grid = Grid.from_raster(path=fdir_fname, data=fdir_fname, data_name="myflowdir", window=bounding_box,nodata=0)
-    grid = Grid.from_raster(fdir_fname, data_name="fdir", window=bounding_box, nodata=0)
-
+    grid = Grid.from_raster(fdir_fname, window=bounding_box, nodata=0)
+    fdir = grid.read_raster(fdir_fname, window=bounding_box, nodata=0)
     # Now "clip" the rectangular flow direction grid even further so that it ONLY contains data
     # inside the bounaries of the terminal unit catchment.
     # This prevents us from accidentally snapping the pour point to a neighboring watershed.
@@ -130,32 +129,29 @@ def split_catchment(wid: str, basin: int, lat: float, lng: float, catchment_poly
 
     # It needs to be of type MultiPolygon to work with rasterio apparently
     multi_poly = MultiPolygon([filled_poly])
+    polygon_list = list(multi_poly.geoms)
 
     # Convert the polygon into a pixelized raster "mask".
-    mymask = grid.rasterize(multi_poly)
-    grid.add_gridded_data(mymask, data_name="mymask", affine=grid.affine, crs=grid.crs, shape=grid.shape)
+    mymask = grid.rasterize(polygon_list)
+    # grid.add_gridded_data(mymask, data_name="mymask", affine=grid.affine, crs=grid.crs, shape=grid.shape)
 
     # I believe this step was unnecessary, but it makes the plots look a little nicer
     m, n = grid.shape
     for i in range(0, m):
         for j in range(0, n):
-            if int(grid.mymask[i, j]) == 0:
-                grid.fdir[i, j] = 0
+            if int(mymask[i, j]) == 0:
+                fdir[i, j] = 0
 
     # Plot the mask that I created from rasterized vector polygon
     if PLOTS:
-        plot_mask(grid, catchment_poly, lat, lng, wid)
+        plot_mask(mymask, catchment_poly, lat, lng, wid)
 
     # MERIT-Hydro flow direction uses the old ESRI standard for flow direction...
     dirmap = (64, 128, 1, 2, 4, 8, 16, 32)
 
     # Plot the flow-direction raster, for debugging
     if PLOTS:
-        plot_flowdir(grid, lat, lng, wid, dirmap, catchment_poly)
-
-    # Making a copy of the grid before clipping to split catchment boundary, for plots
-    if PLOTS:
-        grid2 = copy.deepcopy(grid)
+        plot_flowdir(fdir, lat, lng, wid, dirmap, catchment_poly)
 
     if VERBOSE: print("Snapping pour point")
 
@@ -164,11 +160,11 @@ def split_catchment(wid: str, basin: int, lat: float, lng: float, catchment_poly
     if not os.path.isfile(accum_fname):
         raise Exception("Could not find accumulation raster: {}".format(accum_fname))
 
-    grid.read_raster(accum_fname, data_name="acc", window=bounding_box, window_crs=grid.crs)
+    acc = grid.read_raster(accum_fname, data_name="acc", window=bounding_box, window_crs=grid.crs, nodata=0)
 
     # Clips the flow direction grid to a new rectangular bounding box.
     # that corresponds to the mask of the unit catchment.
-    grid.clip_to("mymask", inplace=True, apply_mask=True)
+    grid.clip_to(mymask)
 
     # MASK the accumulation raster to the unit catchment POLYGON. Set any pixel that is not
     # in 'mymask' to zero. That way, the pour point will always snap to a grid cell that is
@@ -181,8 +177,8 @@ def split_catchment(wid: str, basin: int, lat: float, lng: float, catchment_poly
     m, n = grid.shape
     for i in range(0, m):
         for j in range(0, n):
-            if int(grid.mymask[i, j]) == 0:
-                grid.acc[i, j] = 0
+            if int(mymask[i, j]) == 0:
+                acc[i, j] = 0
 
     # Snap the outlet to the nearest stream. This function depends entirely on the threshold
     # that you set for how minimum number of upstream pixels to define a waterway.
@@ -191,6 +187,7 @@ def split_catchment(wid: str, basin: int, lat: float, lng: float, catchment_poly
     # In most other circumstances (num unit catchments > 1), a much larger value gives better results.
     # The values here work OK, but I did not test very extensively...
     # Using a minimum value like 500 prevents the script from finding little tiny watersheds.
+    # TODO: turn these into parameters in config.py
     if bSingleCatchment:
         numpixels = 500
     else:
@@ -202,48 +199,46 @@ def split_catchment(wid: str, basin: int, lat: float, lng: float, catchment_poly
 
     # Snap the pour point to a point on the accumulation grid where accum (# of upstream pixels)
     # is greater than our threshold
-    streams = grid.acc > numpixels
+    streams = acc > numpixels
     xy = (lng, lat)
     try:
-        [lng_snap, lat_snap], dist = grid.snap_to_mask(streams, xy)
+        [lng_snap, lat_snap] = grid.snap_to_mask(streams, xy)  # New version does not give you the snap distance.
     except Exception as e:
         if VERBOSE: print(f"Could not snap the pour point. Error: {e}")
         return None, None, None
 
     # Plot the accumulation grid, for debugging
     if PLOTS:
-        plot_accum(grid, lat, lng, lat_snap, lng_snap, wid, catchment_poly)
+        plot_accum(acc, lat, lng, lat_snap, lng_snap, wid, catchment_poly)
 
     # Plot the streams!
     if PLOTS:
-        plot_streams(grid, streams, catchment_poly, lat, lng, lat_snap, lng_snap, wid, numpixels)
+        plot_streams(streams, catchment_poly, lat, lng, lat_snap, lng_snap, wid, numpixels)
 
     # Finally, here is the raster based watershed delineation with pysheds!
     if VERBOSE: print("Delineating catchment")
     try:
-        grid.catchment(data='fdir',
-                       x=lng_snap,
-                       y=lat_snap,
-                       dirmap=dirmap,
-                       xytype='label',
-                       out_name='catch',
-                       recursionlimit=15000,
-                       nodata_out=0)
+        catch = grid.catchment(fdir=fdir,
+                               x=lng_snap,
+                               y=lat_snap,
+                               dirmap=dirmap,
+                               xytype='coordinate',
+                               recursionlimit=15000)
 
         # Clip the bounding box to the catchment
         # Seems optional, but turns out this line is essential.
-        grid.clip_to('catch')
-        clipped_catch = grid.view('catch', dtype=uint8)
+        grid.clip_to(catch)
+        clipped_catch = grid.view(catch, dtype=np.uint8)
     except Exception as e:
         if VERBOSE: print(f"ERROR: something went wrong during pysheds grid.catchment(). Error: {e}")
         return None, lng_snap, lat_snap
 
     # Convert high-precision raster subcatchment to a polygon using pysheds method .polygonize()
     if VERBOSE: print("Converting to polygon")
-    shapes = grid.polygonize()
+    shapes = grid.polygonize(clipped_catch)
 
 
-    # The output (from pysheds without numba) is creating MANY shapes.
+    # The output from pysheds is creating MANY shapes.
     # Dissolve them together with the unary union operation in shapely
     # (Could not install numba on my web server, but performance does
     # not seem to suffer too much, presumably because I'm using small
@@ -282,7 +277,7 @@ def split_catchment(wid: str, basin: int, lat: float, lng: float, catchment_poly
 
         if result_polygon.geom_type == "MultiPolygon":
             if PLOTS:
-                polygons = list(result_polygon)
+                polygons = list(result_polygon.geoms)
                 plot_polys(polygons, wid)
 
             result_polygon = get_largest(result_polygon)
@@ -291,9 +286,8 @@ def split_catchment(wid: str, basin: int, lat: float, lng: float, catchment_poly
         result_polygon = shapely_polygons[0]
 
     if PLOTS:
-        plot_catchment(grid, grid2, catchment_poly, result_polygon, lat, lng, lat_snap, lng_snap, wid, dirmap)
-        plot_clipped(grid, clipped_catch, catchment_poly, lat, lng, lat_snap, lng_snap, wid, result_polygon)
-
+        plot_catchment(catch, catchment_poly, result_polygon, lat, lng, lat_snap, lng_snap, wid, dirmap)
+        plot_clipped(fdir, clipped_catch, catchment_poly, lat, lng, lat_snap, lng_snap, wid, result_polygon)
 
     return result_polygon, lat_snap, lng_snap
 
@@ -314,7 +308,7 @@ def get_largest(input_poly: MultiPolygon or Polygon) -> Polygon:
     """
     if input_poly.geom_type == "MultiPolygon":
         areas = []
-        polygons = list(input_poly)
+        polygons = list(input_poly.geoms)
 
         for poly in polygons:
             areas.append(poly.area)
@@ -324,5 +318,3 @@ def get_largest(input_poly: MultiPolygon or Polygon) -> Polygon:
         return polygons[max_index]
     else:
         return input_poly
-
-

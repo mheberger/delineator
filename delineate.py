@@ -25,11 +25,9 @@ import warnings
 
 import numpy as np
 import pickle
-
-warnings.simplefilter(action='ignore', category=FutureWarning)
 import pandas as pd
-import geopandas as gpd
 import os
+import geopandas as gpd
 import re
 from shapely.geometry import Point, Polygon, box
 import shapely.ops
@@ -47,6 +45,7 @@ if PLOTS:
 if HIGH_RES:
     import py.merit_detailed
 
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 gpd.options.use_pygeos = True
 
@@ -270,13 +269,13 @@ def delineate():
         plt.close(fig)
 
     # Check that the OUTPUT directories are there. If not, try to create them.
-    folder_exists =  create_folder_if_not_exists(OUTPUT_DIR)
+    folder_exists = create_folder_if_not_exists(OUTPUT_DIR)
     if not folder_exists:
         raise Exception(f"No folder for output. Stopping")
 
     # Check for the folder to put Python PICKLE files
     if PICKLE_DIR != "":
-        folder_exists =  create_folder_if_not_exists(OUTPUT_DIR)
+        folder_exists = create_folder_if_not_exists(OUTPUT_DIR)
         if not folder_exists:
             raise Exception(f"No folder for pickle files. Stopping")
 
@@ -326,24 +325,25 @@ def delineate():
     #gages_df.drop(['geometry'], axis=1, inplace=True)
 
     if VERBOSE: print("Finding out which Level 2 megabasin(s) your points are in")
-    # This file has the merged "megabasins" in it
+    # This file has the merged "megabasins_gdf" in it
     merit_basins_shp = 'data/shp/basins_level2/merit_hydro_vect_level2.shp'
-    megabasins = gpd.read_file(merit_basins_shp)
+    megabasins_gdf = gpd.read_file(merit_basins_shp)
     # The CRS string in the shapefile is EPSG 4326 but does not match verbatim
-    megabasins.to_crs(PROJ_WGS84, inplace=True)
-    if not megabasins.loc[0].BASIN == 11:
+    megabasins_gdf.to_crs(PROJ_WGS84, inplace=True)
+    if not megabasins_gdf.loc[0].BASIN == 11:
         raise Exception("An error occurred loading the Level 2 basins shapefile")
 
     # Overlay the gage points on the Level 2 Basins polygons to find out which
     # PFAF_2 basin each point falls inside of, using a spatial join
     if SEARCH_DIST == 0:
-        gages_basins_join = gpd.sjoin(points_gdf, megabasins, op="within")
+        gages_basins_join = gpd.sjoin(points_gdf, megabasins_gdf, how="left", predicate='intersects')
+
     else:
         # Better results obtained with a "nearest shape"
         # This line generates a warning about how its bad to use distances in unprojected geodata. OK
         with warnings.catch_warnings():
             warnings.simplefilter(action='ignore', category=UserWarning)
-            gages_basins_join = gpd.sjoin_nearest(points_gdf, megabasins, max_distance=SEARCH_DIST)
+            gages_basins_join = gpd.sjoin_nearest(points_gdf, megabasins_gdf, how='left', max_distance=SEARCH_DIST)
 
     # Needed to set this option in order to avoid a warning message in Geopandas.
     # https://stackoverflow.com/questions/20625582/how-to-deal-with-settingwithcopywarning-in-pandas
@@ -402,14 +402,14 @@ def delineate():
         gages_in_basin.drop(['index_right'], axis=1, inplace=True)
         validate_search_distance()
         if SEARCH_DIST == 0:
-            gages_joined = gpd.sjoin(gages_in_basin, catchments_gdf, how="inner", predicate="intersects")
+            gages_joined = gpd.sjoin(gages_in_basin, catchments_gdf, how="left", predicate="intersects")
         else:
             # This line generates a warning about how its bad to use distances in unprojected geodata. OK
             with warnings.catch_warnings():
                 warnings.simplefilter(action='ignore', category=UserWarning)
                 gages_joined = gpd.sjoin_nearest(gages_in_basin, catchments_gdf, max_distance=SEARCH_DIST)
 
-            gages_joined.rename(columns={"index_right": "COMID"}, inplace=True)
+        gages_joined.rename(columns={"index_right": "COMID"}, inplace=True)
 
         # For any gages for which we could not find a unit catchment, add them to failed
         gages_matched = gages_joined['id'].tolist()
@@ -552,7 +552,7 @@ def delineate():
             gages_df.at[wid, 'lat_snap'] = round(lat_snap, 3)
             gages_df.at[wid, 'lng_snap'] = round(lng_snap, 3)
 
-
+            # Add the upstream area of the delineated watershed to the DataFrame
             up_area = sigfig.round(up_area, 3)
             mybasin_gdf['area_calc'] = up_area
             gages_df.at[wid, 'area_calc'] = up_area
