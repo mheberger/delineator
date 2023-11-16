@@ -187,13 +187,12 @@ def split_catchment(wid: str, basin: int, lat: float, lng: float, catchment_poly
     # In most other circumstances (num unit catchments > 1), a much larger value gives better results.
     # The values here work OK, but I did not test very extensively...
     # Using a minimum value like 500 prevents the script from finding little tiny watersheds.
-    # TODO: turn these into parameters in config.py
     if bSingleCatchment:
-        numpixels = 500
+        numpixels = THRESHOLD_SINGLE
     else:
         # Case where there are 2 or more unit catchments in the watershed
         # setting this value too low causes incorrect results and weird topology problems in the output
-        numpixels = 5000
+        numpixels = THRESHOLD_MULTIPLE
 
     if VERBOSE: print("Using threshold of {} for number of upstream pixels.".format(numpixels))
 

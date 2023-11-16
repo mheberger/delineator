@@ -118,3 +118,9 @@ AREA_MATCHING_THRESHOLD = 0.25
 # Units are decimal degrees (sorry, not a proper distance measurement, this feature could be improved!)
 # 0.1° is about 11 km near the equator, and about 8 km near at a latitude of 45°
 MAX_DIST = 0.075
+
+# Threshold for number of upstream pixels that defines a stream
+# These values worked will in my testing, but you might try changing if the
+# outlet is not getting snapped to a river centerline properly
+THRESHOLD_SINGLE = 500
+THRESHOLD_MULTIPLE = 5000
