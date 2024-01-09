@@ -10,7 +10,7 @@ outside of the sample data provided for Iceland.
 """
 
 # Path to your CSV file with the watershed outlet data
-OUTLETS_CSV = 'outlets_sample.csv'
+OUTLETS_CSV = '/Users/thomasgermann/Desktop/NewDelin/ncdamstest.csv'
 
 # Set to True for "higher resolution" mode or False for "lower resolution."
 HIGH_RES = True
@@ -18,33 +18,33 @@ HIGH_RES = True
 # Directory containing the merged, basin-scale MERIT-Hydro flow direction rasters (.tif)
 # Download from https://mghydro.com/watersheds/rasters
 # For all paths, do not include a trailing slash.
-MERIT_FDIR_DIR = "data/raster/flowdir_basins"
+MERIT_FDIR_DIR = "/Users/thomasgermann/Desktop/NewDelin/flowdir73.tif"
 
 # Directory containing the merged, basin-scale MERIT-Hydro flow accumulation rasters (.tif)
 # Download from https://mghydro.com/watersheds/rasters
-MERIT_ACCUM_DIR = "data/raster/accum_basins"
+MERIT_ACCUM_DIR = "/Users/thomasgermann/Desktop/NewDelin/accum73.tif"
 
 # Set to True if you want the script to write status messages to the console
 VERBOSE = True
 
 # Set to True to make a bunch of plots of each watershed.
 # (Just for debugging. Slows down the script a lot.)
-PLOTS = True
+PLOTS = False
 
 # Folder where you have stored the Merit-BASINS catchment shapefiles.
 # These files need to be downloaded from: https://www.reachhydro.org/home/params/merit-basins
-HIGHRES_CATCHMENTS_DIR = "data/shp/merit_catchments"
+HIGHRES_CATCHMENTS_DIR = "/Users/thomasgermann/Desktop/NewDelin/cat_pfaf_73_MERIT_Hydro_v07_Basins_v01_bugfix1.shp"
 
 # Location of simplified unit catchment boundaries vector data (shapefiles)
 # Download from: https://mghydro.org/watersheds/share/catchments_simplified.zip
-LOWRES_CATCHMENTS_DIR = "data/shp/catchments_simplified"
+LOWRES_CATCHMENTS_DIR = "/Users/thomasgermann/Desktop/NewDelin/cat_pfaf_73_MERIT_Hydro_v07_Basins_v01.shp"
 
 # Folder where you have stored the MERIT-Basins River flowline shapefiles
 # Download from: https://www.reachhydro.org/home/params/merit-basins
-RIVERS_DIR = "C:/Data/GIS/MERITBasins/rivers"
+RIVERS_DIR = "/Users/thomasgermann/Desktop/NewDelin/riv_pfaf_73_MERIT_Hydro_v07_Basins_v01_Bugfix1.shp"
 
 # Folder where the script will write the output GeoJSON files or shapefiles
-OUTPUT_DIR = "output"
+OUTPUT_DIR = "/Users/thomasgermann/Desktop/DestinationforWatersheds"
 
 # The file extension will determine the types of geodata files the script creates.
 #   "gpkg" for GeoPackage (recommended)
@@ -64,15 +64,15 @@ OUTPUT_CSV = True
 # can save time in the future by storing the GeoDataFrame as a .pkl file.
 # Enter a blank string, '' if you do NOT want the script to create .pkl files.
 # Please note that these files can be large! (Up to around 1 GB for large basins.)
-PICKLE_DIR = 'pkl'
+PICKLE_DIR = ''
 
 # Threshold for watershed size in km² above which the script will revert to
 # low-resolution mode 
-LOW_RES_THRESHOLD = 50000
+LOW_RES_THRESHOLD = 500
 
 # If the requested watershed outlet is not inside a catchment, how far away 
 # from the point should we look for the nearest catchment (in degrees). 0.025 recommended
-SEARCH_DIST = 0
+SEARCH_DIST = 0.0025
 
 # Watersheds created with Merit-Hydro data tend to have many "donut holes"
 # ranging from one or two pixels to much larger.
@@ -81,11 +81,11 @@ FILL = True
 # If FILL = True, you many choose to to fill donut holes that are below a
 # certain size. This is the number of pixels, on the 3 arcsecond grid. 
 # Set to 0 to fill ALL holes.
-FILL_THRESHOLD = 100
+FILL_THRESHOLD = 0
 
 # Simplify the watershed boundary? This will remove some vertices 
 # from the watershed boundary and output smaller files.
-SIMPLIFY = False
+SIMPLIFY = True
 
 # If SIMPLIFY is True, set SIMPLIFY_TOLERANCE to a value in decimal degrees.
 SIMPLIFY_TOLERANCE = 0.0008
@@ -96,14 +96,14 @@ MAKE_MAP = True
 
 # Folder where the script should put the map files. (MAKE sure it exists!)
 # The mapping routine will make _viewer.html and .js files for every watershed
-MAP_FOLDER = "map"
+MAP_FOLDER = "/Users/thomasgermann/Desktop/DestinationforWatershedsmaps"
 
 # On the map, do you also want to include the rivers?
 MAP_RIVERS = True
 
 # On the web page map, if MAP_RIVERS is True, how many stream orders shall we display?
 # I recommend 4 or less. More than this and the browser may not display all the rivers in a large watershed.
-NUM_STREAM_ORDERS = 3
+NUM_STREAM_ORDERS = 2
 
 # Set to True to use the experimental match areas feature. 
 # You must include the field `area` in your outlets CSV file to use this feature (in km²)
