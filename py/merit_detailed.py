@@ -14,6 +14,7 @@ from shapely import wkb, ops
 
 from py.raster_plots import *
 from config import *
+from py.util import get_largest
 
 
 def split_catchment(wid: str, basin: int, lat: float, lng: float, catchment_poly: Polygon,
@@ -89,9 +90,8 @@ def split_catchment(wid: str, basin: int, lat: float, lng: float, catchment_poly
     # This took me a while to figure out but was essential to getting results that look correct
     bounds_list[0] = floor(bounds_list[0] * 1200) / 1200 - halfpix
     bounds_list[1] = floor(bounds_list[1] * 1200) / 1200 - halfpix
-    bounds_list[2] = ceil( bounds_list[2] * 1200) / 1200 + halfpix
-    bounds_list[3] = ceil( bounds_list[3] * 1200) / 1200 + halfpix
-
+    bounds_list[2] = ceil(bounds_list[2] * 1200) / 1200 + halfpix
+    bounds_list[3] = ceil(bounds_list[3] * 1200) / 1200 + halfpix
     # The bounding box needs to be a tuple for pysheds.
     bounding_box = tuple(bounds_list)
 
@@ -108,10 +108,10 @@ def split_catchment(wid: str, basin: int, lat: float, lng: float, catchment_poly
     # The first line did not work, but the following does. Took ages to figure this out! :(
     # I think it had to do with when the developer added the ability to use numba, the code forked.
     # You can still use it without numba, but the code is older and has not evolved with the new stuff (?)
-    # Anyhow, the old version worked better for me in my testing.
+    # Anyhow, the old version worked better for me in my testing at first, but I later
     # grid = Grid.from_raster(path=fdir_fname, data=fdir_fname, data_name="myflowdir", window=bounding_box,nodata=0)
     grid = Grid.from_raster(fdir_fname, window=bounding_box, nodata=0)
-    fdir = grid.read_raster(fdir_fname, window=bounding_box, nodata=0)
+
     # Now "clip" the rectangular flow direction grid even further so that it ONLY contains data
     # inside the bounaries of the terminal unit catchment.
     # This prevents us from accidentally snapping the pour point to a neighboring watershed.
@@ -135,18 +135,22 @@ def split_catchment(wid: str, basin: int, lat: float, lng: float, catchment_poly
     mymask = grid.rasterize(polygon_list)
     # grid.add_gridded_data(mymask, data_name="mymask", affine=grid.affine, crs=grid.crs, shape=grid.shape)
 
-    # I believe this step was unnecessary, but it makes the plots look a little nicer
-    m, n = grid.shape
-    for i in range(0, m):
-        for j in range(0, n):
-            if int(mymask[i, j]) == 0:
-                fdir[i, j] = 0
+    # LOAD Flow Direction Grid
+    fdir = grid.read_raster(fdir_fname, window=bounding_box, nodata=0)
+
+    # Not clear if this this step was unnecessary, but it makes the plots look nicer
+    if not SIMPLIFY:
+        m, n = grid.shape
+        for i in range(0, m):
+            for j in range(0, n):
+                if int(mymask[i, j]) == 0:
+                    fdir[i, j] = 0
 
     # Plot the mask that I created from rasterized vector polygon
     if PLOTS:
         plot_mask(mymask, catchment_poly, lat, lng, wid)
 
-    # MERIT-Hydro flow direction uses the old ESRI standard for flow direction...
+    # MERIT-Hydro flow direction uses the ESRI standard for flow direction...
     dirmap = (64, 128, 1, 2, 4, 8, 16, 32)
 
     # Plot the flow-direction raster, for debugging
@@ -161,10 +165,6 @@ def split_catchment(wid: str, basin: int, lat: float, lng: float, catchment_poly
         raise Exception("Could not find accumulation raster: {}".format(accum_fname))
 
     acc = grid.read_raster(accum_fname, data_name="acc", window=bounding_box, window_crs=grid.crs, nodata=0)
-
-    # Clips the flow direction grid to a new rectangular bounding box.
-    # that corresponds to the mask of the unit catchment.
-    grid.clip_to(mymask)
 
     # MASK the accumulation raster to the unit catchment POLYGON. Set any pixel that is not
     # in 'mymask' to zero. That way, the pour point will always snap to a grid cell that is
@@ -236,22 +236,8 @@ def split_catchment(wid: str, basin: int, lat: float, lng: float, catchment_poly
     if VERBOSE: print("Converting to polygon")
     shapes = grid.polygonize(clipped_catch)
 
-
     # The output from pysheds is creating MANY shapes.
     # Dissolve them together with the unary union operation in shapely
-    # (Could not install numba on my web server, but performance does
-    # not seem to suffer too much, presumably because I'm using small
-    # little clipped sections of the rasters.)
-    # I believe that the reason that it sometimes prodcuces many polygons is
-    # because MERIT-Hydro flow-direction grids, while being a very nice dataset,
-    # can produce polygons with dangles, and with donut holes.
-    # The solution "discard all but the largest polygon" is not ideal from a
-    # theoretical standpoint, because we could discard a piece of the drainage
-    # area, but in my testing, it usually only results in the loss of a few pixels
-    # here and there, in other words, trivial differences. The tradeoff seemed
-    # worthwhile -- we lose a bit of accuracy, but in exchange, we gain the simplicity
-    # of working with Polygon geometries, rather than MultiPolygons.
-
     shapely_polygons = []
 
     shape_count = 0
@@ -263,7 +249,6 @@ def split_catchment(wid: str, basin: int, lat: float, lng: float, catchment_poly
     # Convert the result from pysheds into a list of shapely polygons
     for shape, value in shapes:
         pysheds_polygon = shape
-
         shape_count += 1
         # The pyshseds polygon can be converted to a shapely Polygon in this one-liner
         shapely_polygon = Polygon([[p[0], p[1]] for p in pysheds_polygon['coordinates'][0]])
@@ -285,35 +270,7 @@ def split_catchment(wid: str, basin: int, lat: float, lng: float, catchment_poly
         result_polygon = shapely_polygons[0]
 
     if PLOTS:
-        plot_catchment(catch, catchment_poly, result_polygon, lat, lng, lat_snap, lng_snap, wid, dirmap)
+        # plot_catchment(catch, catchment_poly, result_polygon, lat, lng, lat_snap, lng_snap, wid, dirmap)
         plot_clipped(fdir, clipped_catch, catchment_poly, lat, lng, lat_snap, lng_snap, wid, result_polygon)
 
     return result_polygon, lat_snap, lng_snap
-
-
-def get_largest(input_poly: MultiPolygon or Polygon) -> Polygon:
-    """
-    Converts a Shapely MultiPolygon to a Shapely Polygon
-    For multipart polygons, will only keep the largest polygon
-    in terms of area. In my testing, this was usually good enough
-
-    Note: can also do this via PostGIS query... see myqueries_merit.py, query19a and query19b
-          Not sure one approach is better than the other. They both seem to work well.
-    Args:
-        input_poly: A Shapely Polygon or MultiPolygon
-
-    Returns:
-        a shapely Polygon
-    """
-    if input_poly.geom_type == "MultiPolygon":
-        areas = []
-        polygons = list(input_poly.geoms)
-
-        for poly in polygons:
-            areas.append(poly.area)
-
-        max_index = areas.index(max(areas))
-
-        return polygons[max_index]
-    else:
-        return input_poly

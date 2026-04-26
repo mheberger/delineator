@@ -5,28 +5,17 @@ Creates watersheds for outlet points in an input CSV file.
 Interactive demo: https://mghydro.com/watersheds
 
 Usage: Carefully edit the file config.py, then run delineator.py
+See README for more detailed instructions.
 
-Capable of outputting to many formats, and includes a handy viewer for web browsers.
-
-In "low-resolution" mode, creates watersheds that include some area downstream of the outlet, because
-of the way the watershed is created by merging pre-existing unit catchments, from
-MERIT-Hydro vector watersheds GIS data from Princeton Univ. The errors average
-about 20 km², but can occasionally be much larger. For large watersheds, these errors may not be
-important.
-
-Use "high-resolution" mode for greater accuracy, especially for smaller watersheds. This requires
-more input data and takes more time. To use detailed mode, you must first follow the directions
-to download MERIT-Hydro raster data from U. of Tokyo.
-
-For comments or questions, please contact the author: Matthew Heberger, matt@mghydro.com
-or create an Issue on the GitHub repo: https://github.com/mheberger/delineator
+TODO: For a new installation via Github, certain directories will be missing
+  Either create these and add them to the
 """
 import warnings
-
+warnings.simplefilter(action='ignore', category=FutureWarning)
+import time
 import numpy as np
 import pickle
 import pandas as pd
-import os
 import geopandas as gpd
 import re
 from shapely.geometry import Point, Polygon, box
@@ -38,14 +27,13 @@ import pyproj
 from functools import partial
 from config import *
 from py.mapper import make_map, create_folder_if_not_exists
+import os
 
 if PLOTS:
     import matplotlib.pyplot as plt
 
 if HIGH_RES:
     import py.merit_detailed
-
-warnings.simplefilter(action='ignore', category=FutureWarning)
 
 gpd.options.use_pygeos = True
 
@@ -55,8 +43,12 @@ PROJ_WGS84 = 'EPSG:4326'
 
 def validate(gages_df: pd.DataFrame) -> bool:
     """
-    After we have read in the gages CSV, check whether it appears to be OK
-    if so, return True
+    After we have read in the user's input CSV file with their desired delineation locations
+    (I refer to these as gages as that was my original use case), check whether the input
+    data is valid -- required columns are there (at a minimum id, lat, lng) and that the
+    data types are correct and values are in the appropriate range (i.e. lat between -90 and 90).
+
+    returns: True (valid) or throws an Exception
 
     """
     cols = gages_df.columns
@@ -64,7 +56,6 @@ def validate(gages_df: pd.DataFrame) -> bool:
     for col in required_cols:
         if col not in cols:
             raise Exception(f"Missing column in CSV file: {col}")
-
 
     # Check that the ids are all unique
     if len(gages_df['id'].unique()) != len(gages_df):
@@ -109,7 +100,7 @@ def validate_search_distance():
     Does not return anything, just throws an error if it is out of range.
     """
     if not isinstance(SEARCH_DIST, int) and not isinstance(SEARCH_DIST, float):
-       raise Exception(f"SEARCH_DIST must be a number. We got {SEARCH_DIST}")
+        raise Exception(f"SEARCH_DIST must be a number. We got {SEARCH_DIST}")
 
     if SEARCH_DIST < 0.0:
         raise Exception("SEARCH distance in config.py must be a positive number.")
@@ -122,7 +113,7 @@ def validate_search_distance():
 def get_area(poly: Polygon) -> float:
     """
     Projects a Shapely polygon in raw lat, lng coordinates, and calculates its area
-    Argss:
+    Args:
         poly: Shapely polygon
     :return: area in km²
     """
@@ -144,7 +135,7 @@ def get_area(poly: Polygon) -> float:
 
 def delineate():
     """
-    THIS is the Main watershed delineation routine
+    *** MAIN watershed delineation routine ***
     Make sure to set the variables in `config.py` before running.
 
     Reads a list of outlet points from a .csv file,
@@ -152,7 +143,7 @@ def delineate():
     using hybrid of vector- and raster-based methods.
 
     Outputs geodata (.shp, .gpkg, etc.) and optionally a CSV file with a summary of results
-    (shows the watershed id, names, and areas).
+    (including the watershed id, names, and areas).
 
     Optionally creates an HTML page with a handy map viewer to review the results.
     """
@@ -268,6 +259,83 @@ def delineate():
         plt.savefig(f"plots/{wid}_vector_unit_catchments_{suffix}.png")
         plt.close(fig)
 
+    def write_geodata():
+        # SAVE the WATERSHED to disk as a GeoJSON file or a shapefile
+        if VERBOSE: print(f' Writing WATERSHED geodata for watershed {wid}')
+        outfile = f"{OUTPUT_DIR}/wshed_{wid}.{OUTPUT_EXT}"
+
+        # This line rounds all the vertices to fewer digits. For text-like formats GeoJSON or KML, makes smaller
+        # files with minimal loss of precision. For other formats (shp, gpkg), doesn't change file size
+        if OUTPUT_EXT.lower() in ['geojson', 'kml']:
+            mybasin_gdf.geometry = mybasin_gdf.geometry.apply(lambda x: loads(re.sub(simpledec, mround, x.wkt)))
+
+        with warnings.catch_warnings():
+            warnings.simplefilter(action='ignore', category=UserWarning)
+            mybasin_gdf.to_file(outfile)
+
+        # RIVERS
+        if VERBOSE: print(f' Writing RIVERS geodata for watershed {wid}')
+        outfile = f"{OUTPUT_DIR}/rivers_{wid}.{OUTPUT_EXT}"
+
+        # TODO: Clip the little downstream portion of the last river reach? 
+        myrivers_gdf = rivers_gdf.loc[B]
+
+        # This line rounds all the vertices to fewer digits. For text-like formats GeoJSON or KML, makes smaller
+        # files with minimal loss of precision. For other formats (shp, gpkg), doesn't change file size
+        if OUTPUT_EXT.lower() in ['geojson', 'kml']:
+            myrivers_gdf.geometry = rivers_gdf.geometry.apply(
+                lambda x: loads(re.sub(simpledec, mround, x.wkt)))
+
+        with warnings.catch_warnings():
+            warnings.simplefilter(action='ignore', category=UserWarning)
+            myrivers_gdf.to_file(outfile)
+
+    def write_map_data():
+        """
+        Creates the .js files for the interactive .html map.
+        We need to write a second, slightly different version of the GeoJSON files,
+        because we need it in a .js file assigned to a variable, to avoid cross-origin restrictions
+        of modern web browsers. The workaround for this issue would be to use a simple webserver
+        on the local machine instead of just opening the .html file, but that seemed too complicated.
+        """
+        if VERBOSE:
+            print("Writing interactive map data")
+
+        # WATERSHED Boundary Polygon
+        watershed_js = f"{MAP_FOLDER}/{wid}.js"
+        with open(watershed_js, 'w') as f:
+            s = f"gage_coords = [{gages_df.loc[wid, 'lat']}, {gages_df.loc[wid, 'lng']}];\n"
+            f.write(s)
+            s = f"snapped_coords = [{gages_df.loc[wid, 'lat_snap']}, {gages_df.loc[wid, 'lng_snap']}];\n"
+            f.write(s)
+
+            f.write("basin = ")
+            f.write(mybasin_gdf.to_json())
+
+        # RIVERS polylines
+        if MAP_RIVERS:
+            myrivers_gdf = rivers_gdf.loc[B]
+
+            # Keep only the fields lengthkm and order
+            myrivers_gdf = myrivers_gdf[['lengthkm', 'order', 'geometry']]
+
+            # Filter out the little headwater streams in large watersheds.
+            max_order = myrivers_gdf.order.max()
+            min_order = max_order - NUM_STREAM_ORDERS
+            # Drop rows where order < min_order
+            myrivers_gdf = myrivers_gdf[myrivers_gdf.order >= min_order]
+            myrivers_gdf = myrivers_gdf.round(1)
+
+            myrivers_gdf.geometry = myrivers_gdf.geometry.apply(lambda x: loads(re.sub(simpledec, mround, x.wkt)))
+
+            if SIMPLIFY:
+                myrivers_gdf.geometry = myrivers_gdf.geometry.simplify(tolerance=SIMPLIFY_TOLERANCE)
+
+            rivers_js = f"{MAP_FOLDER}/{wid}_rivers.js"
+            with open(rivers_js, 'w') as f:
+                f.write("rivers = ")
+                f.write(myrivers_gdf.to_json())
+
     # Check that the OUTPUT directories are there. If not, try to create them.
     folder_exists = create_folder_if_not_exists(OUTPUT_DIR)
     if not folder_exists:
@@ -319,10 +387,6 @@ def delineate():
     # Convert gages_df to a GeoPandas GeoDataFrame (adds geography, lets us do geo. operations)
     coordinates = [Point(xy) for xy in zip(gages_df['lng'], gages_df['lat'])]
     points_gdf = gpd.GeoDataFrame(gages_df, crs=PROJ_WGS84, geometry=coordinates)
-    # The line above has the surpsising side effect of adding a geometry column to gages_df (!)
-    # Since we don't want or need this, drop the column.
-    # No longer needed with GeoPandas v 0.14
-    #gages_df.drop(['geometry'], axis=1, inplace=True)
 
     if VERBOSE: print("Finding out which Level 2 megabasin(s) your points are in")
     # This file has the merged "megabasins_gdf" in it
@@ -357,7 +421,7 @@ def delineate():
     basins_df = gages_basins_join.groupby("BASIN").id.nunique()
     basins = basins_df.index.tolist()
 
-    if VERBOSE: print(f"Your watershed outlets are in {len(basins)} basin(s)")
+    if VERBOSE: print(f"Your watershed outlets are in {len(basins)} continental-scale megabasin(s)")
 
     # Find any outlet points that are not in any Level 2 basin, and add these to the fail list
     # Look for any rows that are in gages_df that are not in basins_df
@@ -374,21 +438,25 @@ def delineate():
     if bAreas:
         gages_df['perc_diff'] = 0
 
+    if TIMER:
+        gages_df['time'] = np.nan
+
     gages_counter = 0
 
     # Iterate over the basins so that we only have
     # to open up each Level 2 Basin shapefile once, and handle all of the gages in it
     for basin in basins:
+
         # Create a dataframe of the gages_basins_join in that basins
         gages_in_basin = gages_basins_join[gages_basins_join["BASIN"] == basin]
         num_gages_in_basin = len(gages_in_basin)
-        if VERBOSE: print("\nBeginning delineation for %s outlet point(s) in Level 2 Basin #%s." % (num_gages_in_basin, basin))
+        if VERBOSE: print(f"\nStarting delineation for {num_gages_in_basin} outlet point(s) in Level 2 Basin #{basin}.")
 
+        # If the user chooses to simplify the result, load the low-res file (to speed up)
         if HIGH_RES:
-            catchments_gdf = load_gdf("catchments", basin, True)
-            catchments_lowres_gdf = None
-        else:
-            catchments_gdf = load_gdf("catchments", basin, False)
+            catchments_hires_gdf = load_gdf("catchments", basin, True)
+
+        catchments_lowres_gdf = load_gdf("catchments", basin, False)
 
         # The network data is in the RIVERS file rather than the CATCHMENTS file
         # (this is just how the MeritBASIS authors did it)
@@ -402,12 +470,12 @@ def delineate():
         gages_in_basin.drop(['index_right'], axis=1, inplace=True)
         validate_search_distance()
         if SEARCH_DIST == 0:
-            gages_joined = gpd.sjoin(gages_in_basin, catchments_gdf, how="left", predicate="intersects")
+            gages_joined = gpd.sjoin(gages_in_basin, catchments_lowres_gdf, how="left", predicate="intersects")
         else:
             # This line generates a warning about how its bad to use distances in unprojected geodata. OK
             with warnings.catch_warnings():
                 warnings.simplefilter(action='ignore', category=UserWarning)
-                gages_joined = gpd.sjoin_nearest(gages_in_basin, catchments_gdf, max_distance=SEARCH_DIST)
+                gages_joined = gpd.sjoin_nearest(gages_in_basin, catchments_lowres_gdf, max_distance=SEARCH_DIST)
 
         gages_joined.rename(columns={"index_right": "COMID"}, inplace=True)
 
@@ -423,10 +491,14 @@ def delineate():
 
         # Iterate over the gages and assemble the watershed
         for i in range(0, num_gages_in_basin):
+
+            if TIMER: start_time = time.time()
+
             gages_counter += 1
             if VERBOSE: print(f"\n* Delineating watershed {gages_counter} of {n_gages}, with outlet id = {wid}")
 
-            # Reset the local boolean flag for high-res mode. If the watershed is too big, script will switch to low.
+            # Reset the local boolean flag for high-res mode to the user's setting.
+            # (If the watershed is too big, script will switch to lower-resolution)
             bool_high_res = HIGH_RES
 
             # Let wid be the watershed ID. Get the lat, lng coords of the gage.
@@ -442,8 +514,8 @@ def delineate():
 
             # If MATCH_AREAS is True and the user provided the area in the outlets CSV file,
             # the script will check whether the upstream area of the unit catchment is a good match.
-            # If the areas do not match well, look around the neighborhood for another unit catchment
-            # whose area is a closer match to what we think it is.
+            # If the areas do not match well, look around the neighborhood for a unit catchment
+            # whose area is a closer match.
             if bAreas and MATCH_AREAS:
                 area_reported = gages_df.loc[wid].area_reported
                 PD_area = abs((area_reported - up_area) / area_reported)
@@ -468,21 +540,21 @@ def delineate():
             if VERBOSE: print(f"  found {len(B)} unit catchments in the watershed")
 
             # If the watershed is too big, revert to low-precision mode.
-            if HIGH_RES and up_area > LOW_RES_THRESHOLD:
+            if not SIMPLIFY and HIGH_RES and up_area > LOW_RES_THRESHOLD:
                 if VERBOSE: print(f"Watershed for id = {wid} is larger than LOW_RES_THRESHOLD = {LOW_RES_THRESHOLD}. "
                                   "SWITCHING TO LOW-RESOLUTION MODE.")
                 bool_high_res = False
                 # If we just flipped to low-res mode, check if the low-res unit catchment polygons are loaded.
-                if catchments_lowres_gdf is None:
-                    catchments_lowres_gdf = load_gdf("catchments", basin, False)
+                #if catchments_lowres_gdf is None:
+                #    catchments_lowres_gdf = load_gdf("catchments", basin, False)
 
-                subbasins_gdf = catchments_lowres_gdf.loc[B]
+            # Create a new geodataframe containing only the unit catchments_gdf that are in the list B
+            if bool_high_res:
+                subbasins_gdf = catchments_hires_gdf.loc[B]
             else:
-                # Create a new geodataframe containing only the unit catchments_gdf that are in the list B
-                # In high precision mode, we will update the geometry of the terminal unit catchment.
-                subbasins_gdf = catchments_gdf.loc[B]
+                subbasins_gdf = catchments_lowres_gdf.loc[B]
 
-            # Make a plot of the selected unit catchments
+            # Make a plot of the selected unit catchments (this was mostly for debugging!)
             if PLOTS:
                 plot_basins("pre")
 
@@ -492,7 +564,7 @@ def delineate():
                                   "the downstream portion of the watershed")
                 # Let split_catchment_poly be the polygon of the terminal unit catchment
                 assert terminal_comid == B[0]
-                catchment_poly = subbasins_gdf.loc[terminal_comid].geometry
+                catchment_poly = catchments_hires_gdf.loc[terminal_comid].geometry
                 bSingleCatchment = len(B) == 1
                 split_catchment_poly, lat_snap, lng_snap = py.merit_detailed.split_catchment(wid, basin, lat, lng,
                                                                                              catchment_poly,
@@ -507,40 +579,68 @@ def delineate():
                     split_geom = split_gdf.loc[0, 'geometry']
                     subbasins_gdf.loc[terminal_comid, 'geometry'] = split_geom
 
+            # Make a plot of the watersheds unit catchments AFTER we have split the terminal unit catchment
             if PLOTS:
                 plot_basins("post")
 
-            if VERBOSE: print("Dissolving...")
-            # mybasin_gs is a GeoPandas GeoSeries
-            mybasin_gs = dissolve_geopandas(subbasins_gdf)
+            # New feature 2024-04-21: Return the unit catchments *without* merging and dissolving
+            if DISSOLVE:
+                if VERBOSE: print("Dissolving...")
+                # mybasin_gs is a GeoPandas GeoSeries
 
-            if FILL:
-                # Fill donut holes in the watershed polygon
-                # Recall we asked the user for the fill threshold in terms of number of pixels
-                PIXEL_AREA = 0.000000695  # Constant for the area of a single pixel in MERIT-Hydro, in decimal degrees
-                area_max = FILL_THRESHOLD * PIXEL_AREA
-                mybasin_gs = fill_geopandas(mybasin_gs, area_max=area_max)
+                mybasin_gs = dissolve_geopandas(subbasins_gdf)
 
-            if SIMPLIFY:
-                # Simplify the geometry. GeoPandas uses the simple Douglas-Peuker algorithm
-                mybasin_gs = mybasin_gs.simplify(tolerance=SIMPLIFY_TOLERANCE)
+                if TIMER:
+                    # End timer (do not include writing output)
+                    end_time = time.time()
+                    gages_df.at[wid, 'time'] = sigfig.round(end_time - start_time, 4)
 
-            # Let mybasin_gdf be a GeoPandas DataFrame with the geometry, and the id and area of our watershed
-            mybasin_gdf = gpd.GeoDataFrame(geometry=mybasin_gs)
-            mybasin_gdf['id'] = wid
-            basin_poly = mybasin_gdf.geometry.values[0]
-            up_area = get_area(basin_poly)
-            # If the user gave a name and an a priori area to the watershed, include it in the output
-            if bNames:
-                mybasin_gdf['name'] = gages_df.loc[wid, 'name']
-            if bool_high_res:
-                mybasin_gdf['result'] = "High Res"
-                gages_df.at[wid, 'result'] = "high res"
+                if FILL:
+                    # Fill donut holes in the watershed polygon
+                    # Recall we asked the user for the fill threshold in terms of number of pixels
+                    PIXEL_AREA = 0.000000695  # Constant for the area of a single pixel in MERIT-Hydro, in decimal degrees
+                    area_max = FILL_THRESHOLD * PIXEL_AREA
+                    mybasin_gs = fill_geopandas(mybasin_gs, area_max=area_max)
 
+                if SIMPLIFY:
+                    # Simplify the geometry. GeoPandas uses the simple Douglas-Peuker algorithm
+                    mybasin_gs = mybasin_gs.simplify(tolerance=SIMPLIFY_TOLERANCE)
+
+                # Let `mybasin_gdf` be a GeoPandas DataFrame with the geometry, and the id and area of our watershed
+                mybasin_gdf = gpd.GeoDataFrame(geometry=mybasin_gs)
+                mybasin_gdf['id'] = wid
+                basin_poly = mybasin_gdf.geometry.values[0]
+                up_area = get_area(basin_poly)
+                if bNames:
+                    mybasin_gdf['name'] = gages_df.loc[wid, 'name']
+                if bool_high_res:
+                    mybasin_gdf['result'] = "High Res"
+                else:
+                    mybasin_gdf['result'] = "Low Res"
+
+                # Add the upstream area of the delineated watershed to the DataFrame
+                mybasin_gdf['area_calc'] = up_area
+                gages_df.at[wid, 'area_calc'] = up_area
+
+                # If the user provided an a basin area, calculate the percent difference in areas
+                if bAreas:
+                    area_reported = gages_df.loc[wid].area_reported
+                    mybasin_gdf['area_reported'] = area_reported
+                    perc_diff = sigfig.round((up_area - area_reported) / area_reported * 100, 2)
+                    gages_df.at[wid, 'perc_diff'] = perc_diff
+
+            # case where DISSOLVE = False
+            # Handle the case where the user wants to return the unit catchments without merging and dissolving
             else:
-                mybasin_gdf['result'] = "Low Res"
-                gages_df.at[wid, 'result'] = "low res"
+                mybasin_gdf = subbasins_gdf.copy()
 
+            # If the user gave a name and an a priori area to the watershed, include it in the output
+            if bool_high_res:
+                gages_df.at[wid, 'result'] = "high res"
+            else:
+                gages_df.at[wid, 'result'] = "low res"
+                # If we did raster split_catchment, we have lat_snap, lng_snap
+                # if we are in low-res mode, we can return the end of the river reach polyline!
                 snapped_outlet = rivers_gdf.loc[terminal_comid].geometry.coords[0]
                 lat_snap = snapped_outlet[1]
                 lng_snap = snapped_outlet[0]
@@ -552,69 +652,22 @@ def delineate():
             gages_df.at[wid, 'lat_snap'] = round(lat_snap, 3)
             gages_df.at[wid, 'lng_snap'] = round(lng_snap, 3)
 
-            # Add the upstream area of the delineated watershed to the DataFrame
-            up_area = sigfig.round(up_area, 3)
-            mybasin_gdf['area_calc'] = up_area
-            gages_df.at[wid, 'area_calc'] = up_area
-
-            if bAreas:
-                area_reported = gages_df.loc[wid].area_reported
-                mybasin_gdf['area_reported'] = area_reported
-                perc_diff = sigfig.round((up_area - area_reported) / area_reported * 100, 2)
-                gages_df.at[wid, 'perc_diff'] = perc_diff
-
-            # SAVE the Watershed to disk as a GeoJSON file or a shapefile
-            if VERBOSE: print(f' Writing output for watershed {wid}')
-            outfile = f"{OUTPUT_DIR}/{wid}.{OUTPUT_EXT}"
-
-            # This line rounds all the vertices to fewer digits. For text-like formats GeoJSON or KML, makes smaller
-            # files with minimal loss of precision. For other formats (shp, gpkg), doesn't make a difference in file size
-            if OUTPUT_EXT.lower() in ['geojson', 'kml']:
-                mybasin_gdf.geometry = mybasin_gdf.geometry.apply(lambda x: loads(re.sub(simpledec, mround, x.wkt)))
-
             if OUTPUT_EXT != "":
-                with warnings.catch_warnings():
-                    warnings.simplefilter(action='ignore', category=UserWarning)
-                    mybasin_gdf.to_file(outfile)
+                write_geodata()
 
             # Create the HTML Viewer Map?
-            # We have to write a second, slightly different version of the GeoJSON files,
-            # because we need it in a .js file assigned to a variable, to avoid cross-origin restrictions
-            # of modern web browsers.
             if MAKE_MAP:
-                watershed_js = f"{MAP_FOLDER}/{wid}.js"
-                with open(watershed_js, 'w') as f:
-                    s = f"gage_coords = [{lat}, {lng}];\n"
-                    f.write(s)
-                    s = f"snapped_coords = [{lat_snap}, {lng_snap}];\n"
-                    f.write(s)
-
-                    f.write("basin = ")
-                    f.write(mybasin_gdf.to_json())
-
-                if MAP_RIVERS:
-                    myrivers_gdf = rivers_gdf.loc[B]
-
-                    # Keep only the fields lengthkm and order
-                    myrivers_gdf = myrivers_gdf[['lengthkm', 'order', 'geometry']]
-
-                    # Filter out the little headwater streams in large watersheds.
-                    max_order = myrivers_gdf.order.max()
-                    min_order = max_order - NUM_STREAM_ORDERS
-                    # Drop rows where order < min_order
-                    myrivers_gdf = myrivers_gdf[myrivers_gdf.order >= min_order]
-                    myrivers_gdf = myrivers_gdf.round(1)
-                    myrivers_gdf.geometry = myrivers_gdf.geometry.apply(lambda x: loads(re.sub(simpledec, mround, x.wkt)))
-                    rivers_js = f"{MAP_FOLDER}/{wid}_rivers.js"
-                    with open(rivers_js, 'w') as f:
-                        f.write("rivers = ")
-                        f.write(myrivers_gdf.to_json())
+                write_map_data()
 
     # CREATE OUTPUT.CSV, a data table of the outputs
     # id, status (hi, low, failed), name, area_reported, area_calculated
     if OUTPUT_CSV:
-        output_csv_filename = f"{OUTPUT_DIR}/OUTPUT.csv"
-        gages_df.to_csv(output_csv_filename)
+        if OUTPUT_FNAME == '':
+            output_fname = f"{OUTPUT_DIR}/OUTPUT.csv"
+        else:
+            output_fname = OUTPUT_FNAME
+
+        gages_df.to_csv(output_fname)
 
     # FAILED.csv: If there were any failures, write this to a separate CSV file
     if len(failed) > 0:
@@ -632,7 +685,7 @@ def delineate():
         make_map(gages_df)
 
     # Finished, print a little status message
-    if VERBOSE: print(f"It's over! See results in {output_csv_filename}")
+    if VERBOSE: print(f"It's over! See results in {output_fname}")
 
 
 def get_pickle_filename(geotype: str, basin: int, high_resolution: bool) -> str:

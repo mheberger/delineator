@@ -79,6 +79,10 @@ def plot_streams(streams, catchment_poly, lat, lng, lat_snap, lng_snap, wid, num
 
 
 def plot_catchment(fdir, catchment_poly, result_polygon, lat, lng, lat_snap, lng_snap, wid, dirmap):
+    """
+    Needs work, doesn't look right.
+    Plus, redundant with plot_clipped below
+    """
     # Plot the catchment
     fig = plt.figure(figsize=(10, 8))
     fig.patch.set_alpha(0)  # Need this line to make the background pixels not show?
@@ -104,17 +108,20 @@ def plot_clipped(fdir, clipped_catch, catchment_poly, lat, lng, lat_snap, lng_sn
     # Plot the clipped catchment AND the polygonized result
     fig = plt.figure(figsize=(10, 8))
     fig.patch.set_alpha(0)
-
+    dirmap = (64, 128, 1, 2, 4, 8, 16, 32)
+    boundaries = ([0] + sorted(list(dirmap)))
     clipped = np.where(clipped_catch, 1, np.nan)
-    plt.imshow(clipped, extent=fdir.extent, zorder=0, cmap='Reds', alpha=0.6)
+    plt.plot(*catchment_poly.exterior.xy, color='red')
+    plt.imshow(fdir, extent=fdir.extent,  cmap='viridis', zorder=0, norm=LogNorm(), alpha=0.6)
+    plt.colorbar(label="Flow Direction", boundaries=boundaries, values=sorted(dirmap), fraction=0.06, pad=0.06)
     plt.plot(*catchment_poly.exterior.xy, color='red')
     plt.plot(*result_polygon.exterior.xy, color='black')
     plt.xlabel('Longitude')
     plt.ylabel('Latitude')
-    plt.colorbar(label="Clipped Catchment", fraction=0.06, pad=0.06)
+
     plt.scatter(x=lng, y=lat, c='red', edgecolors='black')
     plt.scatter(x=lng_snap, y=lat_snap, c='cyan', edgecolors='black', zorder=10)
-    plt.title('Delineated Raster Catchment for watershed id = {}'.format(wid))
+    plt.title('Clipped Catchment for watershed id = {}'.format(wid))
     plt.savefig("plots/{}_raster_catchment_and_poly.jpg".format(wid))
     plt.close(fig)
 

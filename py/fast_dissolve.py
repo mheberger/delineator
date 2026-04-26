@@ -16,10 +16,12 @@ with no internal rings or "donut holes," which is what I was looking for
 with my watershed boundaries. 
 
 """
-
+import os
+os.environ['USE_PYGEOS'] = '0'
 import geopandas as gpd
 from shapely.geometry import Polygon, MultiPolygon
-gpd.options.use_pygeos = True
+import shapely
+
 
 
 def buffer(poly: Polygon) -> Polygon:
@@ -76,7 +78,6 @@ def close_holes(poly: Polygon or MultiPolygon, area_max: float) -> Polygon or Mu
         raise ValueError("Unsupported geometry type")
 
 
-
 def dissolve_shp(shp: str) -> gpd.GeoDataFrame:
     """
     input is the path to a shapefile on disk. 
@@ -125,4 +126,71 @@ def dissolve_geopandas(df: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     clipped = clipped.geometry.apply(lambda p: buffer(p))
 
     return clipped
-    
+
+
+def dissolve_alt(gdf: gpd.GeoDataFrame):
+    """Trying the new Shapely 2.0 method of dissolving polygons.
+    Does not work with my data due to gaps!!
+
+    """
+    geoms = gdf.geometry.values
+
+    # Snap to a precision grid — forces near-coincident edges to match exactly
+    geoms_snapped = shapely.set_precision(geoms, grid_size=1e-6)
+
+    result = shapely.coverage_union_all(geoms_snapped)
+    return result
+
+
+if __name__ == "__main__":
+    # Simple benchmarking
+
+    import time
+
+    shp = r"C:\Users\mheberger\Documents\delineator\data\shp\merit_catchments\cat_pfaf_27_MERIT_Hydro_v07_Basins_v01.shp"
+    gdf = gpd.read_file(shp)
+
+    # 1. Standard unary_union
+    start = time.time()
+    result1 = shapely.unary_union(gdf.geometry.values)
+    end = time.time()
+    print(f"1. Standard unary_union took {end - start} seconds")
+
+    #2. My custome dissolve
+    start = time.time()
+    result2 = dissolve_geopandas(gdf)
+    end = time.time()
+    print(f"2. My dissolve took {end - start} seconds")
+
+    #3. Shapely 2.0 dissolve
+
+    #gdf['geometry'] = gdf.geometry.buffer(0)
+    # Snap to a precision grid — forces near-coincident edges to match exactly
+
+    #start = time.time()
+    #result3 = dissolve_alt(gdf)
+    #end = time.time()
+    #print(f"3. Shapely 2.0 dissolve took {end - start} seconds")
+
+    # Finally, assert that the results are the same
+    #assert result1.geom_equals(result2).all() # Does not work.
+    #assert result2 == result3
+
+    from matplotlib import pyplot as plt
+    s1 = result1
+    s2 = result2
+
+    fig, axes = plt.subplots(2, 1, figsize=(10, 6))
+
+    axes[0].plot(s1, label='s1', alpha=0.7)
+    axes[0].plot(s2, label='s2', alpha=0.7)
+    axes[0].legend()
+    axes[0].set_title('Overlay')
+
+    diff = s1 - s2
+    axes[1].plot(diff, color='red')
+    axes[1].axhline(0, color='black', linewidth=0.8, linestyle='--')
+    axes[1].set_title(f'Difference (max={diff.abs().max():.4g}, mean={diff.abs().mean():.4g})')
+
+    plt.tight_layout()
+    plt.show()

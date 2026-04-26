@@ -10,19 +10,24 @@ outside of the sample data provided for Iceland.
 """
 
 # Path to your CSV file with the watershed outlet data
-OUTLETS_CSV = 'outlets_sample.csv'
+OUTLETS_CSV = 'samples2.csv'
 
 # Set to True for "higher resolution" mode or False for "lower resolution."
 HIGH_RES = True
 
+# Set DISSOLVE to False to return the MERIT unit catchments geometries without merging and dissolving
+DISSOLVE = True
+
 # Directory containing the merged, basin-scale MERIT-Hydro flow direction rasters (.tif)
 # Download from https://mghydro.com/watersheds/rasters
 # For all paths, do not include a trailing slash.
-MERIT_FDIR_DIR = "data/raster/flowdir_basins"
+#MERIT_FDIR_DIR = "data/raster/flowdir_basins"
+MERIT_FDIR_DIR = r"C:\Data\GIS\MERITHydro\flow_dir_basins"
 
 # Directory containing the merged, basin-scale MERIT-Hydro flow accumulation rasters (.tif)
 # Download from https://mghydro.com/watersheds/rasters
-MERIT_ACCUM_DIR = "data/raster/accum_basins"
+#MERIT_ACCUM_DIR = "data/raster/accum_basins"
+MERIT_ACCUM_DIR = r"C:\Data\GIS\MERITHydro\accum_basins"
 
 # Set to True if you want the script to write status messages to the console
 VERBOSE = True
@@ -33,11 +38,13 @@ PLOTS = True
 
 # Folder where you have stored the Merit-BASINS catchment shapefiles.
 # These files need to be downloaded from: https://www.reachhydro.org/home/params/merit-basins
-HIGHRES_CATCHMENTS_DIR = "data/shp/merit_catchments"
+#HIGHRES_CATCHMENTS_DIR = "data/shp/merit_catchments"
+HIGHRES_CATCHMENTS_DIR = r"C:\Data\GIS\MERITBasins\catchments\src"
 
 # Location of simplified unit catchment boundaries vector data (shapefiles)
 # Download from: https://mghydro.org/watersheds/share/catchments_simplified.zip
-LOWRES_CATCHMENTS_DIR = "data/shp/catchments_simplified"
+#LOWRES_CATCHMENTS_DIR = "data/shp/catchments_simplified"
+LOWRES_CATCHMENTS_DIR = r"C:\Data\GIS\MERITBasins\catchments\simplified"
 
 # Folder where you have stored the MERIT-Basins River flowline shapefiles
 # Download from: https://www.reachhydro.org/home/params/merit-basins
@@ -54,37 +61,46 @@ OUTPUT_DIR = "output"
 # you are only making the interactive map and don't need geodata).
 # Other file formats are available;
 # see: https://geopandas.org/en/stable/docs/user_guide/io.html#writing-spatial-data
-OUTPUT_EXT = "gpkg"
+OUTPUT_EXT = "geojson"
 
 # Set to True to ouput a summary of the delineation in OUTPUT.CSV
 OUTPUT_CSV = True
+OUTPUT_FNAME = "results.csv"
 
 # Directory to store Python pickle files. Because it can be slow for Python to
 # read shapefiles and create a GeoDataFrame. Once you have done this once, you
-# can save time in the future by storing the GeoDataFrame as a .pkl file.
+# can save time in future runs by storing the GeoDataFrame as a .pkl file.
 # Enter a blank string, '' if you do NOT want the script to create .pkl files.
 # Please note that these files can be large! (Up to around 1 GB for large basins.)
 PICKLE_DIR = 'pkl'
 
 # Threshold for watershed size in km² above which the script will revert to
 # low-resolution mode 
-LOW_RES_THRESHOLD = 50000
+LOW_RES_THRESHOLD = 80000
 
 # If the requested watershed outlet is not inside a catchment, how far away 
 # from the point should we look for the nearest catchment (in degrees). 0.025 recommended
+
 SEARCH_DIST = 0
 
 # Watersheds created with Merit-Hydro data tend to have many "donut holes"
-# ranging from one or two pixels to much larger.
+# ranging from one or two pixels to much larger. Setting FILL = True, will
+# fill in these donut holes, and generally result in a better appearance
+# and smaller output files.
 FILL = True
 
-# If FILL = True, you many choose to to fill donut holes that are below a
-# certain size. This is the number of pixels, on the 3 arcsecond grid. 
-# Set to 0 to fill ALL holes.
+# If FILL = True, you many choose to to fill only those donut holes that are below a
+# certain size. In other words, it will keep the big holes and fill in the small
+# ones. This is the number of pixels, on the 3 arcsecond grid.
+# Set to 0 to fill ALL holes. Setting FILL_THRESHOLD = 100 will fill all the holes
+# that are less than 100 pixels in size. (Little ones are usually minor topological
+# errors in the input data, while larger holes may be more meaningful.)
 FILL_THRESHOLD = 100
 
 # Simplify the watershed boundary? This will remove some vertices 
 # from the watershed boundary and output smaller files.
+# NEW 2023-11-21: Setting SIMPLIFY = True will also tell the script
+# to use simplified vector data, speeding up delineation, esp. for large watersheds.
 SIMPLIFY = False
 
 # If SIMPLIFY is True, set SIMPLIFY_TOLERANCE to a value in decimal degrees.
@@ -124,3 +140,5 @@ MAX_DIST = 0.075
 # outlet is not getting snapped to a river centerline properly
 THRESHOLD_SINGLE = 500
 THRESHOLD_MULTIPLE = 5000
+
+TIMER = True

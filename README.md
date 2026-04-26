@@ -8,6 +8,22 @@ Online demo: [https://mghydro.com/watersheds/](https://mghydro.com/watersheds/)
 
 (The web app is free and easy to use, and probably good enough for most users.)
 
+Capable of outputting to many formats, and includes a handy viewer for web browsers.
+
+In "low-resolution" mode, creates watersheds that include some area downstream of the outlet, because
+of the way the watershed is created by merging pre-existing unit catchments, from
+MERIT-Hydro vector watersheds GIS data from Princeton Univ. The errors average
+about 20 km², but can occasionally be much larger. For large watersheds, the area errors are trivial.
+However you may not like the "look" of the watershed -- when you zoom in, the 
+boundary will not intersect the outlet as expected.
+
+Use "high-resolution" mode for greater accuracy, especially for smaller watersheds. This requires
+more input data and takes more time. To use detailed mode, you must first follow the directions
+to download MERIT-Hydro raster data from U. of Tokyo.
+
+For comments or questions, please contact the author: Matthew Heberger, matt@mghydro.com
+or create an Issue on the GitHub repo: https://github.com/mheberger/delineator
+
 # Using these scripts
 
 This repository includes sample data covering Iceland. To delineate watersheds in other locations, you will need to download datasets from MERIT-Hydro and MERIT-Basins. Instructions on how to get the data and run the script are provided below.
