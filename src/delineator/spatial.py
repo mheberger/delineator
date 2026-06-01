@@ -157,7 +157,6 @@ def _find_with_geopandas(
     point: Point,
     table: str,
     geom_col: str,
-    id_col: str,
     scan_threshold: int,
 ) -> Optional[int | str]:
     """
@@ -199,8 +198,8 @@ def _find_with_geopandas(
             )
 
     # GDAL resolves the bbox against the R*Tree (if present), returning only
-    # candidates whose envelopes intersect the point.  All columns — including
-    # id_col — are present in the resulting GeoDataFrame.
+    # candidates whose envelopes intersect the point.  All columns
+    # are present in the resulting GeoDataFrame.
     px, py = point.x, point.y
     gdf = gpd.read_file(db_path, layer=table, bbox=(px, py, px, py), fid_as_index=True)
 

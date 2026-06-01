@@ -14,7 +14,7 @@ from typing import Tuple
 
 from delineator.constants import MEGABASINS_DB_FILE, VALID_MEGABASINS
 from delineator.data import _find_data_file
-from delineator.util import validate_outlet_coordinates, close_holes
+from delineator.util import _validate_outlet_coordinates, _close_holes
 from delineator.spatial import point_in_polygon_analysis
 from delineator.queries import get_upstream_comids, get_home_unit_catchment_geom, get_hiearchical_basins, \
     get_upstream_geometries, \
@@ -55,7 +55,7 @@ def delineate(lat: float, lng: float, config: DelineatorConfig|None = None) -> T
     megabasins_db_conn = sqlite3.connect(MEGABASINS_DB_FILE)
 
     # Step 1: Validate the input coordinates
-    if not validate_outlet_coordinates(lat, lng):
+    if not _validate_outlet_coordinates(lat, lng):
         return None, None, None
 
     # Step 2: Determine the megabasin
@@ -130,7 +130,7 @@ def delineate(lat: float, lng: float, config: DelineatorConfig|None = None) -> T
         watershed_polygon = unary_union(upstream_polygons)
 
         if config.fill:
-            watershed_polygon = close_holes(watershed_polygon, config.fill_threshold)
+            watershed_polygon = _close_holes(watershed_polygon, config.fill_threshold)
 
         watershed_gdf = gpd.GeoDataFrame(geometry=[watershed_polygon], crs='epsg:4326')
 
@@ -166,7 +166,7 @@ def downloader(basin: int, data_dir: str | None = None):
     Utility function to download the data files for a given basin.
 
     Parameters:
-    ----------
+    -----------
     basin: int
         The megabasin ID, and integer from 11 to 86
         For example, megabasin 56 covers Australia
@@ -177,7 +177,8 @@ def downloader(basin: int, data_dir: str | None = None):
         C:\\Users\\<username>\\AppData\\Local\\delineator
 
     Usage:
-        downloader(basin=11, data_dir="path/to/data/directory")
+    ------
+        `downloader(basin=11, data_dir="path/to/data/directory")`
 
         This will download the data files for megabasin 11 to the specified directory,
         including the vector data (unit catchments, rivers) and raster data (flow direction, accumulation)

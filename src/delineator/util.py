@@ -7,7 +7,7 @@ from delineator.settings import DelineatorConfig
 logger = logging.getLogger(__name__)
 
 
-def get_overlap_lines(line: LineString | MultiLineString, polygon: Polygon | MultiPolygon) -> list[LineString | MultiLineString]:
+def _get_overlap_lines(line: LineString | MultiLineString, polygon: Polygon | MultiPolygon) -> list[LineString | MultiLineString]:
     """Return the portion of a line that falls within a polygon, always as a list of LineStrings.
     Uses shapely library functions only, no spatialite queries.
     Params:
@@ -28,35 +28,7 @@ def get_overlap_lines(line: LineString | MultiLineString, polygon: Polygon | Mul
         return []  # Pure Point result — no real overlap
 
 
-def get_largest(input_poly: MultiPolygon | Polygon) -> Polygon:
-    """
-    Converts a Shapely MultiPolygon to a Shapely Polygon
-    For multipart polygons, will only keep the largest polygon
-    in terms of area. In my testing, this was usually good enough
-
-    Note: can also do this via PostGIS query... see myqueries_merit.py, query19a and query19b
-          Not sure one approach is better than the other. They both seem to work well.
-    Args:
-        input_poly: A Shapely Polygon or MultiPolygon
-
-    Returns:
-        a shapely Polygon
-    """
-    if input_poly.geom_type == "MultiPolygon":
-        areas = []
-        polygons = list(input_poly.geoms)
-
-        for poly in polygons:
-            areas.append(poly.area)
-
-        max_index = areas.index(max(areas))
-
-        return polygons[max_index]
-    else:
-        return input_poly
-
-
-def validate_outlet_coordinates(lat: float, lng: float) -> bool:
+def _validate_outlet_coordinates(lat: float, lng: float) -> bool:
     """
     Validates the geographical coordinates (latitude and longitude) of an outlet
      ensuring they fall within acceptable ranges.
@@ -99,7 +71,7 @@ def validate_outlet_coordinates(lat: float, lng: float) -> bool:
     return True
 
 
-def close_holes(poly: Polygon | MultiPolygon, area_max: float) -> Polygon | MultiPolygon:
+def _close_holes(poly: Polygon | MultiPolygon, area_max: float) -> Polygon | MultiPolygon:
     """
     Close polygon holes by limitation to the exterior ring.
     Updated to accept a MultiPolygon as input
@@ -136,7 +108,7 @@ def close_holes(poly: Polygon | MultiPolygon, area_max: float) -> Polygon | Mult
         # Handle MultiPolygon case
         result_polygons = []
         for sub_poly in poly.geoms:
-            new_sub_poly = close_holes(sub_poly, area_max)
+            new_sub_poly = _close_holes(sub_poly, area_max)
             result_polygons.append(new_sub_poly)
         return MultiPolygon(result_polygons)
     else:
@@ -153,7 +125,6 @@ def write_outputs(watershed_gdf, rivers_gdf, outlets_gdf, config: DelineatorConf
     - geojson: geojson, json
     - parquet: parquet
     - kml: kml
-    - and other vector formats supported by the installed GeoPandas/Fiona/Pyogrio stack.
     """
     output_dir = config.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -181,6 +152,11 @@ def write_outputs(watershed_gdf, rivers_gdf, outlets_gdf, config: DelineatorConf
             tolerance=config.simplify_tolerance,
             preserve_topology=True
         )
+        if rivers_gdf is not None:
+            rivers_gdf['geometry'] = rivers_gdf.geometry.simplify(
+                tolerance=config.simplify_tolerance,
+                preserve_topology=True
+            )
 
     if output_format in {"parquet", "geoparquet"}:
         for layer_name, gdf in layers.items():

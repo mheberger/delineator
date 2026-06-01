@@ -18,7 +18,7 @@ from shapely import wkb, ops
 from delineator.constants import THRESHOLD_SINGLE, THRESHOLD_MULTIPLE, HALF_PIXEL, DIRMAP
 from delineator.data import _find_data_file
 from delineator.settings import DelineatorConfig
-from delineator.util import close_holes
+from delineator.util import _close_holes
 
 logger = logging.getLogger(__name__)
 
@@ -99,13 +99,13 @@ def split_catchment(
     poly = wkb.loads(hexpoly, hex=True)
 
     # Fix any holes in the polygon by taking the exterior coordinates.
-    filled_poly = close_holes(poly, area_max=0)
+    filled_poly = _close_holes(poly, area_max=0)
 
     # It needs to be of type MultiPolygon to work with rasterio apparently
     if isinstance(filled_poly, Polygon):
-        multi_poly = MultiPolygon([filled_poly])
+        filled_poly = MultiPolygon([filled_poly])
 
-    polygon_list = list(multi_poly.geoms)
+    polygon_list = list(filled_poly.geoms)
 
     # Convert the polygon into a pixelized raster "mask".
     mymask = grid.rasterize(polygon_list)

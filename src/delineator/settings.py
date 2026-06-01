@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from platformdirs import user_data_dir
 
+from delineator.constants import SUPPORTED_OUTPUT_FORMATS
+
 
 def _default_data_dir() -> Path:
     """Return the default data directory, respecting DELINEATOR_DATADIR env var."""
@@ -121,3 +123,75 @@ class DelineatorConfig:
     search_dist: float = 0.025
     simplify: bool = True
     simplify_tolerance: float = 0.0008
+
+    def __post_init__(self) -> None:
+        self.data_dir = self._coerce_path(self.data_dir, "data_dir")
+        self.output_dir = self._coerce_path(self.output_dir, "output_dir")
+
+        self.output_format = self.output_format.lower().lstrip(".")
+
+        self._validate_bool("auto_download", self.auto_download)
+        self._validate_bool("clean", self.clean)
+        self._validate_bool("fill", self.fill)
+        self._validate_bool("high_res", self.high_res)
+        self._validate_bool("outlets", self.outlets)
+        self._validate_bool("rivers", self.rivers)
+        self._validate_bool("simplify", self.simplify)
+
+        if not isinstance(self.fill_threshold, int):
+            raise TypeError("fill_threshold must be an int.")
+        if self.fill_threshold < 0:
+            raise ValueError("fill_threshold must be greater than or equal to 0.")
+
+        if not isinstance(self.num_stream_orders, int):
+            raise TypeError("num_stream_orders must be an int.")
+        if self.num_stream_orders < 1:
+            raise ValueError("num_stream_orders must be greater than or equal to 1.")
+
+        self.low_res_threshold = self._coerce_float(
+            self.low_res_threshold,
+            "low_res_threshold",
+        )
+        if self.low_res_threshold <= 0:
+            raise ValueError("low_res_threshold must be greater than 0.")
+
+        self.search_dist = self._coerce_float(self.search_dist, "search_dist")
+        if self.search_dist <= 0:
+            raise ValueError("search_dist must be greater than 0.")
+
+        self.simplify_tolerance = self._coerce_float(
+            self.simplify_tolerance,
+            "simplify_tolerance",
+        )
+        if self.simplify_tolerance < 0:
+            raise ValueError("simplify_tolerance must be greater than or equal to 0.")
+
+        if not isinstance(self.output_format, str):
+            raise TypeError("output_format must be a string.")
+        if self.output_format not in SUPPORTED_OUTPUT_FORMATS:
+            valid_formats = ", ".join(sorted(SUPPORTED_OUTPUT_FORMATS))
+            raise ValueError(
+                f"Unsupported output_format: {self.output_format!r}. "
+                f"Supported formats are: {valid_formats}."
+            )
+
+    @staticmethod
+    def _coerce_path(value: Path | str, name: str) -> Path:
+        if isinstance(value, Path):
+            return value
+        if isinstance(value, str):
+            return Path(value)
+        raise TypeError(f"{name} must be a pathlib.Path or string.")
+
+    @staticmethod
+    def _coerce_float(value: float | int, name: str) -> float:
+        if isinstance(value, bool):
+            raise TypeError(f"{name} must be a number, not bool.")
+        if isinstance(value, int | float):
+            return float(value)
+        raise TypeError(f"{name} must be a number.")
+
+    @staticmethod
+    def _validate_bool(name: str, value: bool) -> None:
+        if not isinstance(value, bool):
+            raise TypeError(f"{name} must be a bool.")

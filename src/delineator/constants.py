@@ -21,6 +21,10 @@ VALID_MEGABASINS = [11, 12, 13, 14, 15, 16, 17, 18, 21, 22, 23, 24, 25, 26, 27, 
 
 MEGABASINS_DB_FILE = files('delineator').joinpath('data', 'megabasins.db')
 
+# List of *possible* output formats. Not all formats may be supported by the user's system
+# and installed libraries.'
+SUPPORTED_OUTPUT_FORMATS = ["shp", "gpkg", "geojson", "json", "kml", "parquet", "geoparquet"]
+
 HASHES = {
     "raster/accum11.tif": "3cbd439b5e661ca2f6d4418e812fb6ea733929e8c6863d2ae57e2b0fa75edb1d",
     "raster/accum12.tif": "643171b96cefaf367f394fd0c953b09e1fb1787b334be5c3d043f4ab13e7dc4a",

@@ -5,7 +5,6 @@ import shapely
 from shapely.geometry import Polygon
 
 from delineator.data import _find_data_file
-from delineator.util import get_largest
 from delineator.settings import DelineatorConfig
 
 
@@ -142,8 +141,8 @@ def get_home_unit_catchment_geom(db_path: str, unit_catchment: int) -> shapely.g
     """
     table = "l0_basins"
     multi_poly = gpd.read_file(db_path, layer=table, where=f"comid = {unit_catchment}").geometry.iloc[0]
-    poly = get_largest(multi_poly)
-    return poly
+    #poly = get_largest(multi_poly)
+    return multi_poly
 
 
 def get_upstream_area(home_unit_catchment: int, config: DelineatorConfig) -> float:

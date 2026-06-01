@@ -6,24 +6,24 @@ import logging
 from .core import delineate, downloader
 from .data import _get_data_dir
 from .settings import DelineatorConfig
-from .util import write_outputs
-from .validation import _validate_and_normalize_df
-
-
 @click.command()
-@click.option("--csv", "outlets_csv", type=click.Path(exists=True), help="CSV file of outlet points")
 @click.option("--point", nargs=2, type=float, metavar="LAT LON", help="Single outlet point")
 @click.option("--id", default=None, help="ID for the watershed (used with --point)")
-@click.option("--high-res/--low-res", default=True, help="Use high-resolution MERIT-Basins data")
+@click.option("--csv", "outlets_csv", type=click.Path(exists=True), help="CSV file of outlet points")
+@click.option("--high-res/--low-res", default=True, help="In higher-resolution mode, uses raster methods"
+                                                         " to find the watershed boundary around the outlet point."
+                                                         " In lower-resolution mode, the script runs faster but"
+                                                         " produces boundary with less accuracy near the outlet point."
+                                                         " Default is True (high-res mode).")
 @click.option("--output-dir", default=None, help="Directory for output files. Defaults to ./output/")
 @click.option("--output-format", default="gpkg",
               help="Output format: geojson, shp, kml, gpkg. Default is gpkg (Geopackage).")
-@click.option("--fill", is_flag=True, help="Fill interior donut holes in the watershed")
+@click.option("--fill", is_flag=True, help="Fill interior gaps or \"donut holes\" in the watershed")
 @click.option("--rivers", is_flag=True, help="Output the river network")
 @click.option("--outlets", is_flag=True, help="Output the outlet points")
 @click.option("--simplify", is_flag=True, help="Simplify the geometry of the watershed and rivers")
-@click.option("--verbose", is_flag=True, default=False, help="Show debug logging output")
-def main(outlets_csv, point, id, high_res, output_dir, output_format, fill, rivers, outlets, simplify, verbose):
+@click.option("--verbose", is_flag=True, default=False, help="Show more information on the script's progress")
+def main(point, id, outlets_csv, high_res, output_dir, output_format, fill, rivers, outlets, simplify, verbose):
     """Delineate watersheds from a CSV file or a single lat/lon point."""
     if verbose:
         handler = logging.StreamHandler()
@@ -65,8 +65,12 @@ def main(outlets_csv, point, id, high_res, output_dir, output_format, fill, rive
                               fill=fill, rivers=rivers, outlets=outlets, auto_download=True, simplify=simplify)
 
     # Run delineation
-    result = _delineate_dataframe(outlets_df, config)
+    _delineate_dataframe(outlets_df, config)
     click.echo(f"Done. Output written to {output_path}/")
+from .util import write_outputs
+
+
+from .validation import _validate_and_normalize_df
 
 
 @click.command()
