@@ -1,0 +1,86 @@
+from pathlib import Path
+import click
+import pandas as pd
+import logging
+
+from .core import delineate
+from .data import _get_data_dir
+from .settings import DelineatorConfig
+from .util import write_outputs
+from .validation import _validate_and_normalize_df
+
+
+@click.command()
+@click.option("--csv", "outlets_csv", type=click.Path(exists=True), help="CSV file of outlet points")
+@click.option("--point", nargs=2, type=float, metavar="LAT LON", help="Single outlet point")
+@click.option("--id", default=None, help="ID for the watershed (used with --point)")
+@click.option("--high-res/--low-res", default=True, help="Use high-resolution MERIT-Basins data")
+@click.option("--output-dir", default=None, help="Directory for output files. Defaults to ./output/")
+@click.option("--output-format", default="gpkg",
+              help="Output format: geojson, shp, kml, gpkg. Default is gpkg (Geopackage).")
+@click.option("--fill", is_flag=True, help="Fill interior donut holes in the watershed")
+@click.option("--rivers", is_flag=True, help="Output the river network")
+@click.option("--verbose", is_flag=True, default=False, help="Show debug logging output")
+def main(outlets_csv, point, id, high_res, output_dir, output_format, fill, rivers, verbose):
+    """Delineate watersheds from a CSV file or a single lat/lon point."""
+    if verbose:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
+        logger = logging.getLogger("delineator")
+        logger.setLevel(logging.INFO)
+        logger.addHandler(handler)
+        logger.propagate = False
+
+    if outlets_csv and point:
+        raise click.UsageError("Specify either --csv or --point, not both.")
+    if not outlets_csv and not point:
+        raise click.UsageError("Specify either --csv or --point.")
+
+    # Resolve output directory
+    output_path = Path(output_dir) if output_dir else Path.cwd() / "output"
+    if not output_path.exists():
+        click.echo(f"Creating output directory: {output_path}")
+        output_path.mkdir(parents=True, exist_ok=True)
+
+    # Normalize input
+    if point:
+        lat, lon = point
+        outlets_df = pd.DataFrame([{"id": id, "lat": lat, "lon": lon}])
+    else:
+        # Verify that the CSV file exists
+        if not Path(outlets_csv).exists():
+            click.echo(f"Error: CSV file not found: {outlets_csv}")
+            return
+        outlets_df = pd.read_csv(outlets_csv)
+
+    # Validate input
+    outlets_df = _validate_and_normalize_df(outlets_df)
+    if outlets_df is None:
+        click.echo("Invalid input. See above for details.")
+        return
+
+    config = DelineatorConfig(high_res=high_res, output_dir=output_path)
+
+    # Run delineation
+    result = _delineate_dataframe(outlets_df, config)
+    click.echo(f"Done. Output written to {output_path}/")
+
+
+@click.command()
+def show_data_dir():
+    """Show the location of the cached data directory."""
+    click.echo(_get_data_dir())
+
+
+def _delineate_dataframe(outlets_df, config: DelineatorConfig):
+    """
+    For the command line interface, delineates watersheds based on a
+    dataframe of outlet points, derived from the user's CSV file or lat/lon point.
+    """
+
+    for _, row in outlets_df.iterrows():
+        lat, lon = row["lat"], row["lon"]
+        id = row["id"]
+        watershed_gdf, rivers_gdf, outlets_gdf = delineate(lat, lon, config)
+
+        write_outputs(watershed_gdf, rivers_gdf, outlets_gdf, config, id=id)

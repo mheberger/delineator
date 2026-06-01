@@ -1,9 +1,0 @@
-geopandas~=0.13.2
-shapely~=2.0.2
-pandas~=2.1.3
-Jinja2~=3.1.2
-matplotlib~=3.8.1
-numpy~=1.26.2
-pysheds~=0.3.5
-sigfig~=1.3.3
-pyproj~=3.6.1
