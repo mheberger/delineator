@@ -2,7 +2,8 @@
 Performs a detailed, raster-based watershed delineation with `pysheds`,
 but only inside of a *single* unit catchment.
 This is my implementation of the *hybrid* method that I "invented" -- but which was actually
-first described in a a paper by Djokic and Ye at the 1999 ESRI User Conference.
+first described in a a paper by Djokic and Ye at the 1999 ESRI User Conference
+and is used by the USGS as part of their watershed delineation API in the NLDI.
 Raster-based delineation is slow and requires a lot of memory. So we only do the bare minimum,
 and use vector data for the rest of the upstream watershed.
 """
@@ -14,15 +15,22 @@ from pysheds.grid import Grid
 from shapely.geometry import Polygon, MultiPolygon
 from shapely import wkb, ops
 
-from delineator.constants import THRESHOLD_SINGLE, THRESHOLD_MULTIPLE
+from delineator.constants import THRESHOLD_SINGLE, THRESHOLD_MULTIPLE, HALF_PIXEL, DIRMAP
 from delineator.data import _find_data_file
 from delineator.settings import DelineatorConfig
-from delineator.util import get_largest
+from delineator.util import close_holes
 
 logger = logging.getLogger(__name__)
 
-def split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon,
-                    bSingleCatchment: bool, config:DelineatorConfig) -> (Polygon or None, float, float):
+
+def split_catchment(
+    basin: int,
+    lat: float,
+    lng: float,
+    catchment_poly: Polygon | MultiPolygon,
+    bSingleCatchment: bool,
+    config: DelineatorConfig,
+) -> tuple[Polygon | MultiPolygon | None, float | None, float | None]:
     """
     Performs the detailed pixel-scale raster-based delineation for a watershed.
 
@@ -39,38 +47,14 @@ def split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon,
         catchment_poly: a Shapely polygon; we'll use it to clip the flow accumulation raster to get an accurate snap
         bSingleCatchment: is the watershed small, i.e. there is only one unit catchment in it?
             If so, we'll use a lower snap threshold for the outlet.
+        config: a DelineatorConfig dataclass object
 
     Returns:
-        poly: a shapely polygon representing the part of the terminal unit catchment that is upstream of the
-            outlet point
+        poly: a shapely Polygon or MultiPolygon representing the part of the terminal unit catchment
+            that is upstream of the outlet point
         lat_snap:  latitude of the outlet, snapped to the river centerline in the accumulation raster
         lng_snap: longitude of the outlet, snapped to the river centerline in the accumulation raster
 
-    For HIGH PRECISION, we will discard the most downstream catchment
-    polygon, and replace it with a more detailed delineation.
-    For this, we will use a small piece of the flow direction raster
-    that fully contains the terminal unit catchment's boundaries,
-    and do a raster-based delineation.
-    This finds all of the pixels in the unit catchments that contribute flow to our
-    pour point. Then, we will convert that collection of pixels to a polygon,
-    and merge it with the upstream unit catchment polygons.
-
-    Read the flow direction raster, but use "Windowed Reading",
-    where we only read in the portion
-    of interest, surrounding our catchment. See:
-    https://mattbartos.com/pysheds/file-io.html
-    There is no need to read the whole file into memory, because we are only
-    interested in delineating a watershed within our little most-downstream unit catchment.
-    Upstream of that, we used vector-based data
-    For the window, get the bounding box for our catchment
-    a tuple with 4 floats: (Left, Bottom, Right, Top)
-    Note pysheds lets you read in a rectangular portion (and not a portion based
-    on polygon geometry. We will clip the accumulation raster with the unit catchment
-    polygon in a separate step below. (Not a clip per se, but we will replace the values
-    in cells that are outside the unit catchment with NaN. This way, these cells will be
-    ignored during the "snap pour point" routine, and we will only find rivers that are
-    inside our unit catchment. It took me a while to figure out this workflow, but it is
-    the key to getting accurate results!
     """
 
     # Get a bounding box for the unit catchment
@@ -82,9 +66,6 @@ def split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon,
     # We need to round them to the nearest whole pixel and then
     # adjust them by a half-pixel width to get good results in pysheds.
 
-    # Distance of a half-pixel
-    halfpix = 0.000416667
-
     # Bounding box is xmin, ymin, xmax, ymax
     # round the elements DOWN, DOWN, UP, UP
     # The number 1200 is because the MERIT-Hydro rasters have 3 arsecond resolution, or 1/1200 of a decimal degree.
@@ -92,10 +73,10 @@ def split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon,
     # to put it back in its regular units of decimal degrees. Then, since pysheds wants the *center*
     # of the pixel, not its edge, add or subtract a half-pixel width as appropriate.
     # This took me a while to figure out but was essential to getting results that look correct
-    bounds_list[0] = floor(bounds_list[0] * 1200) / 1200 - halfpix
-    bounds_list[1] = floor(bounds_list[1] * 1200) / 1200 - halfpix
-    bounds_list[2] = ceil(bounds_list[2] * 1200) / 1200 + halfpix
-    bounds_list[3] = ceil(bounds_list[3] * 1200) / 1200 + halfpix
+    bounds_list[0] = floor(bounds_list[0] * 1200) / 1200 - HALF_PIXEL
+    bounds_list[1] = floor(bounds_list[1] * 1200) / 1200 - HALF_PIXEL
+    bounds_list[2] = ceil(bounds_list[2] * 1200) / 1200 + HALF_PIXEL
+    bounds_list[3] = ceil(bounds_list[3] * 1200) / 1200 + HALF_PIXEL
     # The bounding box needs to be a tuple for pysheds.
     bounding_box = tuple(bounds_list)
 
@@ -116,14 +97,14 @@ def split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon,
     # inside the boundaries of the terminal unit catchment.
     hexpoly = catchment_poly.wkb_hex
     poly = wkb.loads(hexpoly, hex=True)
-    # coerce this into a single-part polygon, in case the geometry is a MultiPolygon
-    poly = get_largest(poly)
 
     # Fix any holes in the polygon by taking the exterior coordinates.
-    filled_poly = Polygon(poly.exterior.coords)
+    filled_poly = close_holes(poly, area_max=0)
 
     # It needs to be of type MultiPolygon to work with rasterio apparently
-    multi_poly = MultiPolygon([filled_poly])
+    if isinstance(filled_poly, Polygon):
+        multi_poly = MultiPolygon([filled_poly])
+
     polygon_list = list(multi_poly.geoms)
 
     # Convert the polygon into a pixelized raster "mask".
@@ -134,9 +115,6 @@ def split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon,
 
     # Not clear if this this step was unnecessary, but it makes the plots look nicer
     fdir[mymask == 0] = 0
-
-    # MERIT-Hydro flow direction uses the ESRI standard for flow direction...
-    dirmap = (64, 128, 1, 2, 4, 8, 16, 32)
 
     logger.info("Snapping pour point")
 
@@ -176,7 +154,7 @@ def split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon,
     # Finally, here is the raster based watershed delineation with pysheds!
     logger.info("Splitting home unit catchment")
     try:
-        catch = grid.catchment(fdir=fdir, x=lng_snap, y=lat_snap, dirmap=dirmap,
+        catch = grid.catchment(fdir=fdir, x=lng_snap, y=lat_snap, dirmap=DIRMAP,
                                xytype='coordinate', recursionlimit=15000)
 
         # Clip the bounding box to the catchment
@@ -184,7 +162,7 @@ def split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon,
         grid.clip_to(catch)
         clipped_catch = grid.view(catch, dtype=np.uint8)
     except Exception as e:
-        logger.error("ERROR: something went wrong during pysheds grid.catchment(). Error: {e}")
+        logger.error(f"ERROR: something went wrong during pysheds grid.catchment(). Error: {e}")
         return None, lng_snap, lat_snap
 
     # Convert high-precision raster subcatchment to a polygon using pysheds method .polygonize()
@@ -198,8 +176,8 @@ def split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon,
     shape_count = 0
 
     # The snapped vertices need to be nudged down and right by one half pixel
-    lng_snap += halfpix
-    lat_snap -= halfpix
+    lng_snap += HALF_PIXEL
+    lat_snap -= HALF_PIXEL
 
     # Convert the result from pysheds into a list of shapely polygons
     for shape, value in shapes:
@@ -214,8 +192,6 @@ def split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon,
         # Note that this can sometimes return a MultiPolygon, which we'll need to fix later
         result_polygon = ops.unary_union(shapely_polygons)
 
-        if result_polygon.geom_type == "MultiPolygon":
-            result_polygon = get_largest(result_polygon)
     else:
         # If pysheds generated a single polygon, that is our answer
         result_polygon = shapely_polygons[0]

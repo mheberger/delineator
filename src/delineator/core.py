@@ -4,18 +4,20 @@ and the "hierarchical nested" set of catchment boundaries to speed up vector ope
 """
 
 import logging
+from pathlib import Path
+
 import geopandas as gpd
-from shapely.set_operations import unary_union
 from shapely.ops import unary_union
 from shapely.geometry import Point
 import sqlite3
 from typing import Tuple
 
-from delineator.constants import MEGABASINS_DB_FILE
+from delineator.constants import MEGABASINS_DB_FILE, VALID_MEGABASINS
 from delineator.data import _find_data_file
-from delineator.util import validate_outlet_coordinates, close_holes, write_outputs
+from delineator.util import validate_outlet_coordinates, close_holes
 from delineator.spatial import point_in_polygon_analysis
-from delineator.queries import get_upstream_comids, get_home_unit_catchment_geom, get_hiearchical_basins, get_upstream_geometries, \
+from delineator.queries import get_upstream_comids, get_home_unit_catchment_geom, get_hiearchical_basins, \
+    get_upstream_geometries, \
     get_rivers, get_upstream_area
 from delineator.merit_detailed import split_catchment
 from delineator.settings import DelineatorConfig
@@ -24,7 +26,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 
-def delineate(lat: float, lng:float, config: DelineatorConfig=None, **kwargs) -> Tuple[
+def delineate(lat: float, lng: float, config: DelineatorConfig|None = None, **kwargs) -> Tuple[
     gpd.GeoDataFrame | None, gpd.GeoDataFrame | None, gpd.GeoDataFrame | None]:
     """
     Main watershed delineation routine.
@@ -88,27 +90,26 @@ def delineate(lat: float, lng:float, config: DelineatorConfig=None, **kwargs) ->
     logger.info(f"Your watershed is in unit catchment {home_unit_catchment}")
 
     # Step 4: Get the collection of upstream catchment polygons
-    upstream_unit_catchments = get_upstream_comids(basins_db_conn, home_unit_catchment)
+    upstream_unit_catchments = get_upstream_comids(basins_db_conn, int(home_unit_catchment))
     is_singleton = len(upstream_unit_catchments) == 1
 
     # Step 4.5 Determine if the watershed is so huge that the user would prefer to use the low-res mode
     if config.high_res:
         # Get the area of the home unit catchment
-        upstream_area = get_upstream_area(home_unit_catchment, config)
+        upstream_area = get_upstream_area(int(home_unit_catchment), config)
         if upstream_area > config.low_res_threshold:
             logger.info(f"Switching to low-resolution mode; watershed area = {upstream_area:.2f} km²")
-            bHighRes = False
-        else:
-            bHighRes = True
+            config.high_res = False
 
     # Step 5: Split the home unit catchment at the outlet
-    if bHighRes:
+    if config.high_res:
         # First, we need to get the home unit catchment geometry as a shapely Polygon
         home_unit_catchment_polygon = get_home_unit_catchment_geom(basins_db_path, home_unit_catchment)
 
         # Perform the split
         split_catchment_polygon, lat_snapped, lon_snapped = split_catchment(megabasin, lat, lng,
-                                                                            home_unit_catchment_polygon, is_singleton, config)
+                                                                            home_unit_catchment_polygon, is_singleton,
+                                                                            config)
     else:
         split_catchment_polygon = None
 
@@ -121,14 +122,15 @@ def delineate(lat: float, lng:float, config: DelineatorConfig=None, **kwargs) ->
         # First, we need to get the hierarchical nested set of catchments
         basins_dict = get_hiearchical_basins(basins_db_conn, upstream_unit_catchments[1:])
 
-        # In high-res mode, do not include the geoometries of the home unit catchment, as we will use the split geometry obtained in step 5
-        # But in low-res mode, we do need to include the home unit catchment, as we will use the original geometry
-        if not bHighRes:
+        # In low-res mode, we do need to include the home unit catchment, as we will use the original geometry
+        if not config.high_res:
             basins_dict['L0'].append(home_unit_catchment)
 
         upstream_polygons = get_upstream_geometries(basins_db_path, basins_dict)
 
-        if bHighRes:
+        # In high-res mode, do not include the geoometries of the home unit catchment, as we will use the
+        # split unit catchment polygon obtained in step 5
+        if config.high_res:
             upstream_polygons.append(split_catchment_polygon)
 
         # Step 7: Merge and dissolve the polygons
@@ -140,19 +142,16 @@ def delineate(lat: float, lng:float, config: DelineatorConfig=None, **kwargs) ->
         watershed_gdf = gpd.GeoDataFrame(geometry=[watershed_polygon], crs='epsg:4326')
 
     # Step 8: Get the rivers if requested by the user
-    if not config.rivers:
-        return watershed_gdf, None, None
+    if config.rivers:
+        logger.info("Getting rivers")
+        rivers_gdf = get_rivers(upstream_unit_catchments, split_catchment_polygon, config)
+    else:
+        rivers_gdf = None
 
-    logger.info("Getting rivers")
-    rivers_gdf = get_rivers(upstream_unit_catchments, split_catchment_polygon, config)
-
-    # Step 8.1: Simplify or beautify the results
 
     # Step 9: Create a GeoDataFrame of the requested and snapped outlet point
-    if config.outlet_points:
-        if not bHighRes:
-            outlets_gdf = gpd.GeoDataFrame([{'type': 'requested', 'geometry': requested_outlet}], crs='epsg:4326')
-        else:
+    if config.outlets:
+        if config.high_res:
             snapped_outlet = Point(lon_snapped, lat_snapped)
             outlets_gdf = gpd.GeoDataFrame(
                 [
@@ -161,15 +160,28 @@ def delineate(lat: float, lng:float, config: DelineatorConfig=None, **kwargs) ->
                 ],
                 crs='EPSG:4326'
             )
+        else:
+            outlets_gdf = gpd.GeoDataFrame([{'type': 'requested', 'geometry': requested_outlet}], crs='epsg:4326')
     else:
         outlets_gdf = None
 
     return watershed_gdf, rivers_gdf, outlets_gdf
 
 
-def downloader(basin: int, data_dir:str = None):
+def downloader(basin: int, data_dir: str | None = None):
     """
     Utility function to download the data files for a given basin.
+
+    Parameters:
+    ----------
+    basin: int
+        The megabasin ID, and integer from 11 to 86
+        For example, megabasin 56 covers Australia
+
+    data_dir: str, optional
+        Location where the data files will be downloaded. If not provided,
+        defaults to your system's default data directory, for example, on Windows:
+        C:\\Users\\<username>\\AppData\\Local\\delineator
 
     Usage:
         downloader(basin=11, data_dir="path/to/data/directory")
@@ -181,7 +193,11 @@ def downloader(basin: int, data_dir:str = None):
     config = DelineatorConfig()
 
     if data_dir is not None:
-        config.data_dir = data_dir
+        config.data_dir = Path(data_dir)
+
+    # Check that the megabasin is valid
+    if basin not in VALID_MEGABASINS:
+        raise ValueError(f"Invalid megabasin ID. Must be one of: {VALID_MEGABASINS}")
 
     files = {
         "Unit catchments": f"vector/basins{basin}.db",

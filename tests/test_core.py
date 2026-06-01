@@ -1,82 +1,105 @@
-"""
-Simple test script to run the delineator.
-Plan to build this out into a proper test suite later.
-"""
-
+from pathlib import Path
 import pandas as pd
-import logging
+
+from delineator.util import write_outputs
 from delineator.core import delineate, downloader
 from delineator.settings import DelineatorConfig
-from delineator.util import write_outputs
 
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+TESTS_DIR = Path(__file__).parent
 
 
-def test_one():
-    test_coords = {
-        "Iceland": (64.71072, -21.60337),
-    }
+def test_delineate_iceland_returns_watershed(tmp_path):
+    config = DelineatorConfig(
+        high_res=True,
+        output_dir=tmp_path,
+        output_format="geojson",
+    )
 
-    config = DelineatorConfig(high_res=True, output_format="geojson")
-    for name, (lat, lng) in test_coords.items():
-        print(f"Delineating {name}")
-        watershed_gdf, rivers_gdf, outlets_gdf = delineate(lat, lng, config)
-        if watershed_gdf is None:
-            print("No watershed found.")
-        else:
-            write_outputs(watershed_gdf, rivers_gdf, outlets_gdf, config, id=name)
-
-
-def test_several():
-    test_coords = {
-        "Amazon": (-0.63717, -51.01179),
-        "Chatahoochee": (31.123, -85.055),
-        "uMngeni": (-29.763, 30.934),
-        "Ikopa": (-18.829, 47.333),
-        "Iceland": (64.71072, -21.60337),
-    }
-
-    config = DelineatorConfig(high_res=True, output_format="geojson")
-    for name, (lat, lng) in test_coords.items():
-        print(f"Delineating {name}")
-        watershed_gdf, rivers_gdf, outlets_gdf = delineate(lat, lng, config)
-        if watershed_gdf is None:
-            print("No watershed found.")
-        else:
-            write_outputs(watershed_gdf, rivers_gdf, outlets_gdf, config, id=name)
+    watershed_gdf, rivers_gdf, outlets_gdf = delineate(
+        64.71072,
+        -21.60337,
+        config,
+    )
+    assert watershed_gdf is not None
+    assert not watershed_gdf.empty
+    assert watershed_gdf.crs is not None
 
 
-def test_csv():
-    # Outlets all in Iceland -- should work out of the box
-    fname = "iceland_outlets.csv"
+def test_delineate_invalid_coordinates_returns_none(tmp_path):
+    config = DelineatorConfig(
+        high_res=True,
+        output_dir=tmp_path,
+        output_format="geojson",
+    )
 
-    # Contains outlets around the world -- may trigger downloads if data files not already present
-    #fname = "sample_outlets.csv"
-    config = DelineatorConfig(high_res=True)
+    watershed_gdf, rivers_gdf, outlets_gdf = delineate(
+        999.0,
+        999.0,
+        config,
+    )
 
-    df = pd.read_csv(fname)
-
-    for i in range(len(df)):
-        lat = df.iloc[i]['lat']
-        lng = df.iloc[i]['lon']
-        id = df.iloc[i]['id']
-        name = df.iloc[i]['name']
-        print(f"Delineating {name} ({id})")
-
-        watershed_gdf, rivers_gdf, outlets_gdf = delineate(lat, lng, config)
-        if watershed_gdf is None:
-            print("No watershed found.")
-        else:
-            write_outputs(watershed_gdf, rivers_gdf, outlets_gdf, config, id=id)
+    assert watershed_gdf is None
+    assert rivers_gdf is None
+    assert outlets_gdf is None
 
 
-def test_downloader():
-    downloader(11)
+def test_write_outputs_creates_file_for_iceland(tmp_path):
+    config = DelineatorConfig(
+        high_res=True,
+        output_dir=tmp_path,
+        output_format="geojson",
+    )
+
+    watershed_gdf, rivers_gdf, outlets_gdf = delineate(
+        64.71072,
+        -21.60337,
+        config,
+    )
+
+    assert watershed_gdf is not None
+
+    write_outputs(
+        watershed_gdf,
+        rivers_gdf,
+        outlets_gdf,
+        config,
+        id="iceland",
+    )
+
+    output_files = list(tmp_path.glob("*iceland*.geojson"))
+    assert output_files
 
 
-if __name__ == "__main__":
-    test_one()
-    test_several()
-    test_csv()
-    test_downloader()
+def test_iceland_csv_outlets_can_be_delineated(tmp_path):
+    config = DelineatorConfig(
+        high_res=True,
+        output_dir=tmp_path,
+        output_format="geojson",
+    )
+
+    df = pd.read_csv(TESTS_DIR / "iceland_outlets.csv")
+
+    for row in df.itertuples(index=False):
+        watershed_gdf, rivers_gdf, outlets_gdf = delineate(
+            float(row.lat),
+            float(row.lng),
+            config,
+        )
+
+        assert watershed_gdf is not None
+        assert not watershed_gdf.empty
+
+
+def test_downloader_accepts_bundled_iceland_data(tmp_path, capsys):
+    downloader(27, data_dir=str(tmp_path))
+
+    captured = capsys.readouterr()
+
+    assert "Unit catchments file is at:" in captured.out
+    assert "Rivers file is at:" in captured.out
+    assert "Flow Direction file is at:" in captured.out
+    assert "Flow Accumulation file is at:" in captured.out
+    assert "basins27.db" in captured.out
+    assert "rivers27.db" in captured.out
+    assert "flowdir27.tif" in captured.out
+    assert "accum27.tif" in captured.out

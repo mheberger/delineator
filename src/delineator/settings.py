@@ -105,7 +105,7 @@ class DelineatorConfig:
     num_stream_orders: int = 4
     output_dir: Path = field(default_factory=_default_output_dir)
     output_format: str = "gpkg"
-    outlet_points: bool = True
+    outlets: bool = True
     rivers: bool = True
     search_dist: float = 0.025
 

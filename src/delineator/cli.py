@@ -3,7 +3,7 @@ import click
 import pandas as pd
 import logging
 
-from .core import delineate
+from .core import delineate, downloader
 from .data import _get_data_dir
 from .settings import DelineatorConfig
 from .util import write_outputs
@@ -20,8 +20,9 @@ from .validation import _validate_and_normalize_df
               help="Output format: geojson, shp, kml, gpkg. Default is gpkg (Geopackage).")
 @click.option("--fill", is_flag=True, help="Fill interior donut holes in the watershed")
 @click.option("--rivers", is_flag=True, help="Output the river network")
+@click.option("--outlets", is_flag=True, help="Output the outlet points")
 @click.option("--verbose", is_flag=True, default=False, help="Show debug logging output")
-def main(outlets_csv, point, id, high_res, output_dir, output_format, fill, rivers, verbose):
+def main(outlets_csv, point, id, high_res, output_dir, output_format, fill, rivers, outlets, verbose):
     """Delineate watersheds from a CSV file or a single lat/lon point."""
     if verbose:
         handler = logging.StreamHandler()
@@ -59,7 +60,8 @@ def main(outlets_csv, point, id, high_res, output_dir, output_format, fill, rive
         click.echo("Invalid input. See above for details.")
         return
 
-    config = DelineatorConfig(high_res=high_res, output_dir=output_path)
+    config = DelineatorConfig(high_res=high_res, output_dir=output_path, output_format=output_format,
+                              fill=fill, rivers=rivers, outlets=outlets, auto_download=True, )
 
     # Run delineation
     result = _delineate_dataframe(outlets_df, config)
@@ -70,6 +72,23 @@ def main(outlets_csv, point, id, high_res, output_dir, output_format, fill, rive
 def show_data_dir():
     """Show the location of the cached data directory."""
     click.echo(_get_data_dir())
+
+@click.command()
+@click.option("--basin", type=int, required=True, help="The megabasin ID, an integer from 11 to 86")
+@click.option("--data-dir", default=None, help="Directory for delineator's data files. "
+                                               "Defaults to the system default data directory.")
+def download_data(basin, data_dir):
+    """Download the data files needed for delineation in a megabasin"""
+    # Resolve output directory
+    if data_dir is None:
+        data_dir = _get_data_dir()
+
+    output_path = Path(data_dir) if data_dir else Path.cwd() / "output"
+    if not output_path.exists():
+        click.echo(f"Creating output directory: {output_path}")
+        output_path.mkdir(parents=True, exist_ok=True)
+
+    downloader(int(basin), str(output_path))
 
 
 def _delineate_dataframe(outlets_df, config: DelineatorConfig):

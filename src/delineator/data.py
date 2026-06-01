@@ -1,10 +1,14 @@
 from importlib.resources import files
 import os
+import logging
 from pathlib import Path
 from platformdirs import user_data_dir
 
 from delineator.download import _download_file
 from delineator.settings import DelineatorConfig
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 
 def _find_data_file(relative_path: str, config: DelineatorConfig) -> Path:
@@ -41,12 +45,13 @@ def _find_data_file(relative_path: str, config: DelineatorConfig) -> Path:
     if filepath is not None:
         return filepath
 
-    raise FileNotFoundError(
-        f"Data file not found: {relative_path}\n"
-        f"and could not be downloaded."
-        f"Run 'delineate --download' to fetch required data files, "
-        f"or check your data directory: {config.data_dir}"
-    )
+    else:
+        logger.warning(
+            f"Data file not found: {relative_path}\n"
+            f"and could not be downloaded."
+            f"Run 'download_data --basin ##' to fetch required data files, "
+            f"or check your data directory: {config.data_dir}"
+        )
 
 
 def _get_data_dir() -> Path:

@@ -17,8 +17,17 @@ dependencies = [
     "click>=8.0",
     "pooch>=1.7",
     "platformdirs>=3.0",
+    "tqdm>4.67.0",
+]
+
+[tool.setuptools.package-data]
+delineator = [
+    "data/*.db",
+    "data/raster/*.tif",
+    "data/vector/*.db",
 ]
 
 [project.scripts]
 delineate = "delineator.cli:main"
 show_data_dir = "delineator.cli:show_data_dir"
+download_data = "delineator.cli:download_data"

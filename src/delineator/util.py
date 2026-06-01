@@ -107,8 +107,9 @@ def close_holes(poly: Polygon | MultiPolygon, area_max: float) -> Polygon | Mult
         poly: Input shapely Polygon
         area_max: keep holes that are larger than this.
                   Fill any holes less than or equal to this.
+                  Enter 0 to fill all holes.
                   We're working with unprojected lat, lng
-                  so this needs to be in square decimal degrees...
+                  so this needs to be in square decimal degrees.
     Example:
         df.geometry.apply(lambda p: close_holes(p))
     """
