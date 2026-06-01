@@ -93,6 +93,17 @@ class DelineatorConfig:
         search for the nearest catchment within this distance (in decimal degrees).
         Default is 0.025°, which is roughly 2-3 km near the equator.
 
+    simplify : bool
+        Used by the `write_outputs` utility function to simplify the output
+        before saving it to disk. If True, the output will be simplified using
+        Douglas-Peucker algorithm. This will result in a smaller file size,
+        and also less of a jagged "staircase" appearance in the output.
+
+    simplify_tolerance: bool
+        If `simplify=True`, this is the tolerance value for the simplification.
+        With the Douglas-Peucker algorithm, the tolerance value is the maximum
+        distance (in decimal degrees) that a vertex can be from the original.
+
     """
 
     auto_download: bool = True
@@ -108,4 +119,5 @@ class DelineatorConfig:
     outlets: bool = True
     rivers: bool = True
     search_dist: float = 0.025
-
+    simplify: bool = True
+    simplify_tolerance: float = 0.0008

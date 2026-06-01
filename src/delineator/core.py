@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 
-def delineate(lat: float, lng: float, config: DelineatorConfig|None = None, **kwargs) -> Tuple[
+def delineate(lat: float, lng: float, config: DelineatorConfig|None = None) -> Tuple[
     gpd.GeoDataFrame | None, gpd.GeoDataFrame | None, gpd.GeoDataFrame | None]:
     """
     Main watershed delineation routine.
@@ -37,9 +37,6 @@ def delineate(lat: float, lng: float, config: DelineatorConfig|None = None, **kw
         Coordinates of the outlet point in decimal degrees.
     config : DelineatorConfig, optional
         Configuration object. If not provided, one is created from kwargs.
-    **kwargs
-        Any DelineatorConfig field can be passed as a keyword argument,
-        overriding the config object.
 
     Returns
     -------
@@ -52,11 +49,7 @@ def delineate(lat: float, lng: float, config: DelineatorConfig|None = None, **kw
     Will print a warning if the watershed cannot be created.
     """
     if config is None:
-        config = DelineatorConfig(**kwargs)
-    elif kwargs:
-        # Allow kwargs to override specific fields in a provided config
-        for key, value in kwargs.items():
-            setattr(config, key, value)
+        config = DelineatorConfig()
 
     # Set up database connection
     megabasins_db_conn = sqlite3.connect(MEGABASINS_DB_FILE)

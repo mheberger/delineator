@@ -3,6 +3,10 @@
 Fast, accurate watershed delineation nearly anywhere on Earth, using 
 state-of-the-art datasets and a combination of vector and raster methods.
 
+  - uses state-of-the-art datasets from MERIT-Hydro and MERIT-Basins
+  - near global coverage (excludes Greenland, Antarctica, and some small islands)
+  - uses a hybrid of vector and raster methods for speed and accuracy
+
 ## Installation
 
 ```
@@ -25,7 +29,7 @@ For more control and flexibility, you can use the `delineator` package in your o
 Python scripts or notebooks.
 
 ```python
-from delineator.core import delineate, write_outputs
+from delineator import delineate, write_outputs
 
 # The basic delineate function returns three GeoDataFrames
 watershed_gdf, rivers_gdf, outlets_gdf = delineate(63.938, -21.004)

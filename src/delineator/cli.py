@@ -21,8 +21,9 @@ from .validation import _validate_and_normalize_df
 @click.option("--fill", is_flag=True, help="Fill interior donut holes in the watershed")
 @click.option("--rivers", is_flag=True, help="Output the river network")
 @click.option("--outlets", is_flag=True, help="Output the outlet points")
+@click.option("--simplify", is_flag=True, help="Simplify the geometry of the watershed and rivers")
 @click.option("--verbose", is_flag=True, default=False, help="Show debug logging output")
-def main(outlets_csv, point, id, high_res, output_dir, output_format, fill, rivers, outlets, verbose):
+def main(outlets_csv, point, id, high_res, output_dir, output_format, fill, rivers, outlets, simplify, verbose):
     """Delineate watersheds from a CSV file or a single lat/lon point."""
     if verbose:
         handler = logging.StreamHandler()
@@ -61,7 +62,7 @@ def main(outlets_csv, point, id, high_res, output_dir, output_format, fill, rive
         return
 
     config = DelineatorConfig(high_res=high_res, output_dir=output_path, output_format=output_format,
-                              fill=fill, rivers=rivers, outlets=outlets, auto_download=True, )
+                              fill=fill, rivers=rivers, outlets=outlets, auto_download=True, simplify=simplify)
 
     # Run delineation
     result = _delineate_dataframe(outlets_df, config)

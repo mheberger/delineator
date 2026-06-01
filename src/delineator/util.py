@@ -176,6 +176,12 @@ def write_outputs(watershed_gdf, rivers_gdf, outlets_gdf, config: DelineatorConf
 
     suffix = "" if id is None else f"_{id}"
 
+    if config.simplify:
+        watershed_gdf['geometry'] = watershed_gdf.geometry.simplify(
+            tolerance=config.simplify_tolerance,
+            preserve_topology=True
+        )
+
     if output_format in {"parquet", "geoparquet"}:
         for layer_name, gdf in layers.items():
             if gdf is not None:
@@ -186,7 +192,7 @@ def write_outputs(watershed_gdf, rivers_gdf, outlets_gdf, config: DelineatorConf
         return
 
     if output_format == "gpkg":
-        output_path = output_dir / f"outputs{suffix}.gpkg"
+        output_path = output_dir / f"watershed{suffix}.gpkg"
 
         for layer_name, gdf in layers.items():
             if gdf is not None:
