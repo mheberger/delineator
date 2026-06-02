@@ -1,25 +1,4 @@
 
-## Global Datasets
-
-To delineate a watershed outside Iceland, you will need datasets covering 
-your region. The `delineator` package can download these datasets for you as they are needed,
-if your computer is connected to the internet. Alternatively, you can download 
-the datasets in advance so that they are staged and ready. The `delineator` package has a
-utility function to download the datasets: `download_data()`. For example, to download 
-the datasets for the Amazon Basin:
-
-```bash
-download_data(62)
-```
-
-By default, the datasets will be downloaded to your system's default data directory.
-The usual locations are: 
-
-  - Windows: `C:\Users\<username>\AppData\Local\delineator`.
-  - Linux: `~/.local/share/delineator`.
-  - Mac: `~/Library/Application Support/delineator`.
-
-You can change this by setting the `data_dir` option. See below for more options.
 
 ## Batch Processing
 
@@ -43,7 +22,9 @@ id,lat,lng,name,area
 
 ## Configuration Options
 
-The `delineate` function accepts a number of options to customize the output.
+The `delineate` function accepts a number of options to customize the output. A
+limited set of options are available for the command line interface, and a more
+complete set of options are available for the Python API.
 
 To see a list of all options for the command line interface, run:
 
@@ -51,19 +32,31 @@ To see a list of all options for the command line interface, run:
 delineate --help
 ```
 
-For a list of all options for the Python API, see the `DelineatorConfig` dataclass
-in `delineator.settings`. Any of the options can be passed to the `delineate` function. 
-For example:
+When using the Python API, options are set via the `DelineatorConfig` object, 
+which is passed to the `delineate` function, as shown below.
 
 ```python
 from delineator import DelineatorConfig, delineate
 
 config = DelineatorConfig(
     data_dir="/path/to/data",
-    rivers=False,
-    fill=False
+    rivers=False,  # the delineate function will not return rivers
+    fill=False,    # do not fill in the gaps in the watersheds
+    output_dir=r"C:\Users\user\Desktop\output"  # Set a custom output directory
+    # Default output directory is the current working directory + "output"
 )
 
 watershed_gdf, rivers_gdf, outlets_gdf = delineate(63.938, -21.004, config)
 
+# Update the config object to change options
+config.rivers = True
+watershed_gdf, rivers_gdf, outlets_gdf = delineate(63.938, -21.59, config)
 ```
+
+## The Importance of Reviewing the Output
+
+Automated watershed delineation often makes mistakes. The good news is that 
+these errors can often be fixed by slightly 
+moving the location of your watershed outlet. But not always! 
+I recommend carefully reviewing every watershed you delineate to ensure  
+that it appears correct.

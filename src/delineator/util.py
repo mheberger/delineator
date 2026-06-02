@@ -1,5 +1,10 @@
 import math
 import logging
+from functools import partial
+from pyproj import Transformer
+from shapely.ops import transform
+import pyproj
+import shapely
 from shapely.geometry import MultiPolygon, Polygon, LineString, MultiLineString
 
 from delineator.settings import DelineatorConfig
@@ -115,6 +120,21 @@ def _close_holes(poly: Polygon | MultiPolygon, area_max: float) -> Polygon | Mul
         raise ValueError("Unsupported geometry type")
 
 
+def get_polygon_area(poly: Polygon) -> float:
+    """
+    Projects a Shapely polygon in raw lat, lng coordinates, and calculates its area
+    Args:
+        poly: Shapely polygon
+    :return: area in km²
+    """
+    transformer = Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
+
+    projected_poly = transform(transformer.transform, poly)
+
+    # Get the area in m^2
+    return projected_poly.area / 1e6
+
+
 def write_outputs(watershed_gdf, rivers_gdf, outlets_gdf, config: DelineatorConfig, id=None):
     """
     Writes the watershed, rivers, and outlets to disk in the specified format.
@@ -130,12 +150,6 @@ def write_outputs(watershed_gdf, rivers_gdf, outlets_gdf, config: DelineatorConf
     output_dir.mkdir(parents=True, exist_ok=True)
 
     output_format = config.output_format.lower().lstrip(".")
-
-    layers = {
-        "outlets": outlets_gdf,
-        "watershed": watershed_gdf,
-        "rivers": rivers_gdf,
-    }
 
     drivers = {
         "shp": "ESRI Shapefile",
@@ -157,6 +171,18 @@ def write_outputs(watershed_gdf, rivers_gdf, outlets_gdf, config: DelineatorConf
                 tolerance=config.simplify_tolerance,
                 preserve_topology=True
             )
+
+    # Round coordinates to 6 decimal places
+    grid_size = 10 ** -6
+    watershed_gdf["geometry"] = shapely.set_precision(watershed_gdf.geometry, grid_size=grid_size)
+    if rivers_gdf is not None:
+        rivers_gdf["geometry"] = shapely.set_precision(rivers_gdf.geometry, grid_size=grid_size)
+
+    layers = {
+        "outlets": outlets_gdf,
+        "watershed": watershed_gdf,
+        "rivers": rivers_gdf,
+    }
 
     if output_format in {"parquet", "geoparquet"}:
         for layer_name, gdf in layers.items():

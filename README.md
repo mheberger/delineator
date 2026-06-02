@@ -53,6 +53,28 @@ watershed_gdf, rivers_gdf, outlets_gdf = delineate(63.938, -21.004)
 write_outputs(watershed_gdf, rivers_gdf, outlets_gdf, id="test")
 
 ```
+## Delineating watersheds in other regions
+
+To delineate a watershed outside Iceland, you will need datasets covering 
+your region. The `delineator` package can download these datasets for you as they are needed,
+if your computer is connected to the internet. Alternatively, you can download 
+the datasets in advance so that they are staged and ready. The `delineator` package has a
+utility function to download the datasets: `download_data()`. For example, to download 
+the datasets for the Amazon Basin:
+
+```bash
+download_data(62)
+```
+
+By default, the datasets will be downloaded to your system's default data directory.
+The usual locations are: 
+
+  - Windows: `C:\Users\<username>\AppData\Local\delineator`.
+  - Linux: `~/.local/share/delineator`.
+  - Mac: `~/Library/Application Support/delineator`.
+
+You can change this by setting the `data_dir` option. See below for more configuration
+options.
 
 ## Read the Docs
 

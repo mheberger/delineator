@@ -14,9 +14,9 @@ from typing import Tuple
 
 from delineator.constants import MEGABASINS_DB_FILE, VALID_MEGABASINS
 from delineator.data import _find_data_file
-from delineator.util import _validate_outlet_coordinates, _close_holes
+from delineator.util import _validate_outlet_coordinates, _close_holes, get_polygon_area
 from delineator.spatial import point_in_polygon_analysis
-from delineator.queries import get_upstream_comids, get_home_unit_catchment_geom, get_hiearchical_basins, \
+from delineator.queries import get_upstream_comids, get_home_unit_catchment_geom_and_area, get_hiearchical_basins, \
     get_upstream_geometries, \
     get_rivers, get_upstream_area
 from delineator.merit_detailed import split_catchment
@@ -86,23 +86,25 @@ def delineate(lat: float, lng: float, config: DelineatorConfig|None = None) -> T
     upstream_unit_catchments = get_upstream_comids(basins_db_conn, int(home_unit_catchment))
     is_singleton = len(upstream_unit_catchments) == 1
 
+    upstream_area = get_upstream_area(int(home_unit_catchment), config)
+
     # Step 4.5 Determine if the watershed is so huge that the user would prefer to use the low-res mode
     if config.high_res:
         # Get the area of the home unit catchment
-        upstream_area = get_upstream_area(int(home_unit_catchment), config)
         if upstream_area > config.low_res_threshold:
             logger.info(f"Switching to low-resolution mode; watershed area = {upstream_area:.2f} km²")
             config.high_res = False
 
     # Step 5: Split the home unit catchment at the outlet
+    # First, we need to get the home unit catchment geometry as a shapely Polygon
+    home_unit_catchment_polygon, home_catchment_area = get_home_unit_catchment_geom_and_area(basins_db_path, home_unit_catchment)
     if config.high_res:
-        # First, we need to get the home unit catchment geometry as a shapely Polygon
-        home_unit_catchment_polygon = get_home_unit_catchment_geom(basins_db_path, home_unit_catchment)
-
         # Perform the split
         split_catchment_polygon, lat_snapped, lon_snapped = split_catchment(megabasin, lat, lng,
                                                                             home_unit_catchment_polygon, is_singleton,
                                                                             config)
+        split_catchment_area = get_polygon_area(split_catchment_polygon)
+
     else:
         split_catchment_polygon = None
 
@@ -135,6 +137,16 @@ def delineate(lat: float, lng: float, config: DelineatorConfig|None = None) -> T
             watershed_polygon = _close_holes(watershed_polygon, config.fill_threshold)
 
         watershed_gdf = gpd.GeoDataFrame(geometry=[watershed_polygon], crs='epsg:4326')
+        watershed_gdf["outlet_lat"] = round(lat_snapped, 4)
+        watershed_gdf["outlet_lng"] = round(lon_snapped, 4)
+
+    # Calculate the area of the watershed
+    if config.high_res:
+        watershed_area = upstream_area + split_catchment_area
+    else:
+        watershed_area = upstream_area + home_catchment_area
+
+    watershed_gdf["area_km2"] = round(watershed_area, 1)
 
     # Step 7.5: optionally clean and simplify the watershed
     if config.simplify:
@@ -149,7 +161,6 @@ def delineate(lat: float, lng: float, config: DelineatorConfig|None = None) -> T
         rivers_gdf = get_rivers(upstream_unit_catchments, split_catchment_polygon, config)
     else:
         rivers_gdf = None
-
 
     # Step 9: Create a GeoDataFrame of the requested and snapped outlet point
     if config.outlets:

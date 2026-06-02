@@ -129,7 +129,7 @@ def get_hiearchical_basins(conn: sqlite3.Connection, upstream_catchment_list: li
     return basin_collection
 
 
-def get_home_unit_catchment_geom(db_path: str, unit_catchment: int) -> shapely.geometry.Polygon:
+def get_home_unit_catchment_geom_and_area(db_path: str, unit_catchment: int) -> tuple[shapely.geometry.Polygon, float]:
     """
     Retrieves the geometry of a specified unit catchment based on its `comid`.
     Gets the geometry from the 'l0_basins' table in the sqlite database `basins##.db`
@@ -137,18 +137,20 @@ def get_home_unit_catchment_geom(db_path: str, unit_catchment: int) -> shapely.g
         db_path: str, path to the sqlite database
         unit_catchment: int, the comid of the unit catchment to retrieve the geometry for
     returns:
-        a shapely Polygon object representing the geometry of the unit catchment
+        geom: a shapely Polygon object representing the geometry of the unit catchment
+        area: the area of the unit catchment, in km²
     """
     table = "l0_basins"
-    multi_poly = gpd.read_file(db_path, layer=table, where=f"comid = {unit_catchment}").geometry.iloc[0]
-    #poly = get_largest(multi_poly)
-    return multi_poly
+    catchment_gdf = gpd.read_file(db_path, layer=table, where=f"comid = {unit_catchment}")
+    multi_poly = catchment_gdf.geometry.iloc[0]
+    area = catchment_gdf.area_km2.iloc[0]
+    return multi_poly, area
 
 
 def get_upstream_area(home_unit_catchment: int, config: DelineatorConfig) -> float:
     """
     Retrieves the upstream area of a specified home unit catchment.
-    Connects to the rivers sqlite database and queries the table 'rivers'
+    Connects to the _rivers_ sqlite database and queries the table 'rivers'
     and the 'uparea' column.
 
     Parameters:

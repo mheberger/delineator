@@ -120,7 +120,7 @@ class DelineatorConfig:
     output_format: str = "gpkg"
     outlets: bool = True
     rivers: bool = True
-    search_dist: float = 0.025
+    search_dist: float = 0.1
     simplify: bool = False
     simplify_tolerance: float = 0.0008
 
