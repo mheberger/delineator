@@ -87,7 +87,6 @@ def delineate(lat: float, lng: float, config: DelineatorConfig|None = None) -> T
     is_singleton = len(upstream_unit_catchments) == 1
 
     # Step 4.5 Determine if the watershed is so huge that the user would prefer to use the low-res mode
-    # TODO: this does not work as expected for coastal catchments, because their COMID does not begin with the megabasin number
     if config.high_res:
         # Get the area of the home unit catchment
         upstream_area = get_upstream_area(int(home_unit_catchment), config)

@@ -161,7 +161,7 @@ def get_upstream_area(home_unit_catchment: int, config: DelineatorConfig) -> flo
     Returns:
         float: The upstream area of the specified catchment, in km²
     """
-    if len(str(home_unit_catchment)) < 6:
+    if len(str(home_unit_catchment)) < 7:
         return 0
 
     megabasin = str(home_unit_catchment)[0:2]
