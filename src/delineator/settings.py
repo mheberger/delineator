@@ -121,7 +121,7 @@ class DelineatorConfig:
     outlets: bool = True
     rivers: bool = True
     search_dist: float = 0.025
-    simplify: bool = True
+    simplify: bool = False
     simplify_tolerance: float = 0.0008
 
     def __post_init__(self) -> None:

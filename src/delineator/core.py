@@ -87,6 +87,7 @@ def delineate(lat: float, lng: float, config: DelineatorConfig|None = None) -> T
     is_singleton = len(upstream_unit_catchments) == 1
 
     # Step 4.5 Determine if the watershed is so huge that the user would prefer to use the low-res mode
+    # TODO: this does not work as expected for coastal catchments, because their COMID does not begin with the megabasin number
     if config.high_res:
         # Get the area of the home unit catchment
         upstream_area = get_upstream_area(int(home_unit_catchment), config)
@@ -109,6 +110,8 @@ def delineate(lat: float, lng: float, config: DelineatorConfig|None = None) -> T
     # Step 6: Find the set of upstream catchments
     # If the watershed is a singleton, we don't need to do anything
     if is_singleton:
+        if split_catchment_polygon is None:
+            return None, None, None
         watershed_gdf = gpd.GeoDataFrame(geometry=[split_catchment_polygon], crs='epsg:4326')
     else:
         # Otherwise, we need to find the set of upstream catchments
@@ -133,6 +136,13 @@ def delineate(lat: float, lng: float, config: DelineatorConfig|None = None) -> T
             watershed_polygon = _close_holes(watershed_polygon, config.fill_threshold)
 
         watershed_gdf = gpd.GeoDataFrame(geometry=[watershed_polygon], crs='epsg:4326')
+
+    # Step 7.5: optionally clean and simplify the watershed
+    if config.simplify:
+        watershed_gdf = watershed_gdf.simplify(tolerance=config.simplify_tolerance, preserve_topology=True)
+
+    if config.clean:
+        watershed_gdf.geometry = watershed_gdf.geometry.buffer(0.0001).buffer(-0.0001)
 
     # Step 8: Get the rivers if requested by the user
     if config.rivers:

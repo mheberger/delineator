@@ -161,6 +161,9 @@ def get_upstream_area(home_unit_catchment: int, config: DelineatorConfig) -> flo
     Returns:
         float: The upstream area of the specified catchment, in km²
     """
+    if len(str(home_unit_catchment)) < 6:
+        return 0
+
     megabasin = str(home_unit_catchment)[0:2]
     rivers_db_file = f"vector/rivers{megabasin}.db"
     rivers_db_path = _find_data_file(rivers_db_file, config)
@@ -217,7 +220,7 @@ def get_upstream_geometries(db_path: str, basins_dict: dict) -> list:
 
 def get_rivers(upstream_catchment_list: list,
                split_catchment_polygon: Polygon,
-               config: DelineatorConfig) -> gpd.GeoDataFrame:
+               config: DelineatorConfig) -> gpd.GeoDataFrame | None:
     """
     Retrieves river data for the specified catchments, optionally splitting the geometry of the most downstream
     river reach using a provided polygon.
@@ -235,6 +238,12 @@ def get_rivers(upstream_catchment_list: list,
     Raises:
         None
     """
+    home_unit_catchment = upstream_catchment_list[0]
+
+    # Coastal catchments have a short comid; they have no river polylines associated with them
+    if len(str(home_unit_catchment)) < 6:
+        return None
+
     megabasin = str(upstream_catchment_list[0])[0:2]
     rivers_db_file = f"vector/rivers{megabasin}.db"
     rivers_db_path = _find_data_file(rivers_db_file, config)

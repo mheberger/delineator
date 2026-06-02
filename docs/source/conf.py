@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 
 project = 'delineator'
+copyright = '2026, Matthew Heberger'
 author = 'Matthew Heberger'
 release = '2.0'
 
@@ -31,8 +32,6 @@ extensions = [
 
 templates_path = ['_templates']
 exclude_patterns = []
-
-
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
