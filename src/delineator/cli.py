@@ -6,6 +6,10 @@ import logging
 from .core import delineate, downloader
 from .data import _get_data_dir
 from .settings import DelineatorConfig
+from .util import write_outputs
+from .validation import _validate_and_normalize_df
+
+
 @click.command()
 @click.option("--point", nargs=2, type=float, metavar="LAT LON", help="Single outlet point")
 @click.option("--id", default=None, help="ID for the watershed (used with --point)")
@@ -67,22 +71,19 @@ def main(point, id, outlets_csv, high_res, output_dir, output_format, fill, rive
     # Run delineation
     _delineate_dataframe(outlets_df, config)
     click.echo(f"Done. Output written to {output_path}/")
-from .util import write_outputs
-
-
-from .validation import _validate_and_normalize_df
 
 
 @click.command()
-def show_data_dir():
-    """Show the location of the cached data directory."""
+def delineator_dir():
+    """Show the location of the data directory used by the delineator Python package."""
     click.echo(_get_data_dir())
+
 
 @click.command()
 @click.option("--basin", type=int, required=True, help="The megabasin ID, an integer from 11 to 86")
 @click.option("--data-dir", default=None, help="Directory for delineator's data files. "
                                                "Defaults to the system default data directory.")
-def download_data(basin, data_dir):
+def delineator_download(basin, data_dir):
     """Download the data files needed for delineation in a megabasin"""
     # Resolve output directory
     if data_dir is None:

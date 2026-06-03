@@ -6,7 +6,7 @@ from importlib.resources import files
 # Threshold for number of upstream pixels that defines a stream
 # These values worked will in my testing, but you might try changing if the
 # outlet is not getting snapped to a river centerline properly
-THRESHOLD_SINGLE = 500
+THRESHOLD_SINGLE = 300
 THRESHOLD_MULTIPLE = 5000
 
 # The width of half a pixel on the MERIT-Hydro grid, in decimal degrees

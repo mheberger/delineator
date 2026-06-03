@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "delineator"
-version = "2.0"
-requires-python = ">=3.13"
+version = "2.0.0"
+requires-python = ">=3.12"
 dependencies = [
     "geopandas>=0.13",
     "shapely>=2.0",
@@ -29,5 +29,5 @@ delineator = [
 
 [project.scripts]
 delineate = "delineator.cli:main"
-show_data_dir = "delineator.cli:show_data_dir"
-download_data = "delineator.cli:download_data"
+delineator_dir = "delineator.cli:delineator_dir"
+delineator_download = "delineator.cli:delineator_download"
