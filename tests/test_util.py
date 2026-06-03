@@ -5,7 +5,6 @@ Written by the PyCharm AI Assistant.
 
 import math
 from pathlib import Path
-
 import pytest
 from shapely.geometry import LineString, MultiLineString, MultiPolygon, Polygon
 
@@ -83,24 +82,22 @@ def test_delineator_config_validation_errors(kwargs, error_type, message):
 
 
 def test_validate_outlet_coordinates_accepts_valid_float_coordinates():
-    assert _validate_outlet_coordinates(45.0, -120.0) is True
+    assert _validate_outlet_coordinates(45.0, -120.0) == (45.0, -120.0)
 
 
 @pytest.mark.parametrize(
-    ("lat", "lng", "message"),
+    ("lat", "lng", "error_type", "message"),
     [
-        (45, -120.0, "Latitude must be a float"),
-        (45.0, -120, "Longitude must be a float"),
-        (math.inf, -120.0, "Latitude must be finite"),
-        (45.0, math.nan, "Longitude must be finite"),
-        (-60.0, -120.0, "Latitude must be greater than -60"),
-        (85.0, -120.0, "Latitude must be less than 85"),
-        (45.0, -180.0, "Longitude must be greater than -180"),
-        (45.0, 180.0, "Longitude must be less than 180"),
+        (math.inf, -120.0, ValueError, "Latitude must be finite"),
+        (45.0, math.nan, ValueError, "Longitude must be finite"),
+        (-60.0, -120.0, ValueError, "Latitude must be greater than -60"),
+        (85.0, -120.0, ValueError, "Latitude must be less than 85"),
+        (45.0, -180.0, ValueError, "Longitude must be greater than -180"),
+        (45.0, 180.0, ValueError, "Longitude must be less than 180"),
     ],
 )
-def test_validate_outlet_coordinates_rejects_invalid_coordinates(lat, lng, message):
-    with pytest.raises(Warning, match=message):
+def test_validate_outlet_coordinates_rejects_invalid_coordinates(lat, lng, error_type, message):
+    with pytest.raises(error_type, match=message):
         _validate_outlet_coordinates(lat, lng)
 
 

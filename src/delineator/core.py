@@ -55,7 +55,10 @@ def delineate(lat: float, lng: float, config: DelineatorConfig|None = None) -> T
     megabasins_db_conn = sqlite3.connect(MEGABASINS_DB_FILE)
 
     # Step 1: Validate the input coordinates
-    if not _validate_outlet_coordinates(lat, lng):
+    try:
+        lat, lng = _validate_outlet_coordinates(lat, lng)
+    except Exception as e:
+        print(f"ERROR: Invalid coordinates: {e}")
         return None, None, None
 
     # Step 2: Determine the megabasin

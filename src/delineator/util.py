@@ -33,7 +33,7 @@ def _get_overlap_lines(line: LineString | MultiLineString,
         return []  # Pure Point result — no real overlap
 
 
-def _validate_outlet_coordinates(lat: float, lng: float) -> bool:
+def _validate_outlet_coordinates(lat: float, lng: float) -> tuple[float, float]:
     """
     Validates the geographical coordinates (latitude and longitude) of an outlet
      ensuring they fall within acceptable ranges.
@@ -46,34 +46,38 @@ def _validate_outlet_coordinates(lat: float, lng: float) -> bool:
     :type lng: float
     :return: True if the latitude and longitude are valid geographical coordinates.
     :rtype: bool
-    :raises Exception: If latitude or longitude are not finite float values or
-        fall outside the allowed range.
+    :raises TypeError: If latitude or longitude are not float values.
+    :raises ValueError: If latitude or longitude are not finite or fall outside
+        the allowed range.
     """
+    lat = float(lat)
+    lng = float(lng)
+
     if not isinstance(lat, float):
-        raise Warning(f"Latitude must be a float. Got {type(lat).__name__}: {lat}")
+        raise TypeError(f"Latitude must be a float. Got {type(lat).__name__}: {lat}")
 
     if not isinstance(lng, float):
-        raise Warning(f"Longitude must be a float. Got {type(lng).__name__}: {lng}")
+        raise TypeError(f"Longitude must be a float. Got {type(lng).__name__}: {lng}")
 
     if not math.isfinite(lat):
-        raise Warning(f"Latitude must be finite. Got {lat}")
+        raise ValueError(f"Latitude must be finite. Got {lat}")
 
     if not math.isfinite(lng):
-        raise Warning(f"Longitude must be finite. Got {lng}")
+        raise ValueError(f"Longitude must be finite. Got {lng}")
 
     if lat <= -60:
-        raise Warning("Latitude must be greater than -60°")
+        raise ValueError("Latitude must be greater than -60°")
 
     if lat >= 85:
-        raise Warning("Latitude must be less than 85°")
+        raise ValueError("Latitude must be less than 85°")
 
     if lng <= -180:
-        raise Warning("Longitude must be greater than -180°")
+        raise ValueError("Longitude must be greater than -180°")
 
     if lng >= 180:
-        raise Warning("Longitude must be less than 180°")
+        raise ValueError("Longitude must be less than 180°")
 
-    return True
+    return lat, lng
 
 
 def _close_holes(poly: Polygon | MultiPolygon, area_max: float) -> Polygon | MultiPolygon:
