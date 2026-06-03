@@ -10,7 +10,7 @@ from delineator.settings import DelineatorConfig
 
 def get_upstream_comids(conn: sqlite3.Connection, home_unit_catchment: int) -> list:
     # Query #1, gets a complete list of upstream basins comids
-    sql = f"""
+    sql = """
     WITH RECURSIVE upstream(comid) AS (
         SELECT comid FROM l0_basins WHERE comid = ?
         UNION ALL

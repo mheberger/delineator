@@ -62,9 +62,9 @@ def _get_data_dir() -> Path:
         Windows:  set DELINEATOR_DATA=D:\\GIS\\delineator_data
         macOS/Linux: export DELINEATOR_DATA=~/gis/delineator_data
     """
-    custom = os.environ.get("DELINEATOR_DATA_DATA")
-    if custom:
-        data_dir = Path(custom).expanduser()
+    custom_path = os.environ.get("DELINEATOR_DATA")
+    if custom_path:
+        data_dir = Path(custom_path).expanduser()
     else:
         data_dir = Path(user_data_dir("delineator", appauthor=False))
 

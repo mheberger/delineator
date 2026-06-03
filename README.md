@@ -73,7 +73,7 @@ watershed outlet (point). Here these data are displayed in QGIS:
 
 The `delineator` package uses state-of-the art global hydrogrphy datasets from
 [MERIT-Hydro](https://global-hydrodynamics.github.io/MERIT_Hydro/) and 
-[MERIT-Basins](https://www.reachhydro.org/home/params/merit-basins) , 
+[MERIT-Basins](https://www.reachhydro.org/home/params/merit-basins), 
 and comes bundled with data files for Iceland. 
 
 For allother regions, `delineator` will attempt to automaticallydownload the datasets
@@ -323,8 +323,8 @@ The script allows you to fill in small holes and keep big ones.
 If you have set `fill` to True, the configuration variable `fill_threshold` 
 controls what size holes get filled in. 
 
-The size threshold is roughly the number of pixels on a 3 arcsecond grid. 
-In the source data, a pixels is a 0.000833° square. This is about 90m x 90m 
+The size threshold is roughly the number of pixels on a 3-arcsecond grid. 
+In the source data, a pixel is a 0.000833° square. This is about 90m x 90m 
 near the equator, or about 0.0081 km². The pixels get smaller in terms of 
 surface area as you move north or south away from the equator.
 
@@ -382,7 +382,7 @@ refer to as Level 0 (for the smallest unit catchments) to Level 4. The goal is t
 "interior" of your delineated watershed with the largest possible pre-computed polygons, 
 leaving only a thin outer shell of smaller unit catchments to be processed.
 
-This map shows the nested catchments in the southern end of Madagascar. 
+This map shows the nested catchments at the southern end of Madagascar. 
 
 ![](docs/nested_basins.jpg)
 
@@ -412,6 +412,6 @@ package in your research, please cite this GitHub repository:
 ## Contributing
 
 This project is open source and welcomes contributions. 
-If you have comments or suggestions, please open an issue or pull request, 
+If you have comments or suggestions, please open an issue or pull request 
 or simply drop me an email.
 

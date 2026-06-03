@@ -2,7 +2,7 @@ from pathlib import Path
 
 from click.testing import CliRunner
 
-from delineator.cli import download_data, main, show_data_dir
+from delineator.cli import delineator_download, main, delineator_dir
 
 
 TESTS_DIR = Path(__file__).parent
@@ -11,7 +11,7 @@ TESTS_DIR = Path(__file__).parent
 def test_show_data_dir_exits_successfully():
     runner = CliRunner()
 
-    result = runner.invoke(show_data_dir)
+    result = runner.invoke(delineator_dir)
 
     assert result.exit_code == 0
     assert result.output.strip()
@@ -21,7 +21,7 @@ def test_download_data_for_bundled_iceland_data_succeeds():
     runner = CliRunner()
 
     with runner.isolated_filesystem():
-        result = runner.invoke(download_data, ["--basin", "27", "--data-dir", "data"])
+        result = runner.invoke(delineator_download, ["--basin", "27", "--data-dir", "data"])
 
     assert result.exit_code == 0
     assert "Unit catchments file is at:" in result.output
@@ -37,7 +37,7 @@ def test_download_data_for_bundled_iceland_data_succeeds():
 def test_download_data_rejects_invalid_basin():
     runner = CliRunner()
 
-    result = runner.invoke(download_data, ["--basin", "999"])
+    result = runner.invoke(delineator_download, ["--basin", "999"])
 
     assert result.exit_code != 0
     assert isinstance(result.exception, ValueError)

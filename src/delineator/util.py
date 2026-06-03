@@ -1,9 +1,7 @@
 import math
 import logging
-from functools import partial
 from pyproj import Transformer
 from shapely.ops import transform
-import pyproj
 import shapely
 from shapely.geometry import MultiPolygon, Polygon, LineString, MultiLineString
 
@@ -12,7 +10,9 @@ from delineator.settings import DelineatorConfig
 logger = logging.getLogger(__name__)
 
 
-def _get_overlap_lines(line: LineString | MultiLineString, polygon: Polygon | MultiPolygon) -> list[LineString | MultiLineString]:
+def _get_overlap_lines(line: LineString | MultiLineString,
+                       polygon: Polygon | MultiPolygon) \
+        -> (list)[LineString | MultiLineString]:
     """Return the portion of a line that falls within a polygon, always as a list of LineStrings.
     Uses shapely library functions only, no spatialite queries.
     Params:
