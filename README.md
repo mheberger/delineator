@@ -1,6 +1,9 @@
 # delineator: Global Watershed Delineation with Python
 
-Fast, accurate watershed delineation for any point on Earth's land surface, using a hybrid of vector- and raster-based methods with data from [MERIT-Hydro](https://global-hydrodynamics.github.io/MERIT_Hydro/) and [MERIT-Basins](https://www.reachhydro.org/home/params/merit-basins).
+Fast, accurate watershed delineation for any point on Earth's land surface, 
+using a hybrid of vector- and raster-based methods with data from 
+[MERIT-Hydro](https://global-hydrodynamics.github.io/MERIT_Hydro/) 
+and [MERIT-Basins](https://www.reachhydro.org/home/params/merit-basins).
 
 - Near-global coverage (excludes Greenland, Antarctica, and some small islands)
 - Bundled sample data for Iceland; other regions download automatically on first use
@@ -92,11 +95,13 @@ id,lat,lon,name
 ## Environment variables
 
 Instead of passing options to the command line, you can set environment variables
-for the default data directory and the output director. There are three environment variables:
+for the default data directory and the output director. There are three 
+environment variables:
 
 - `DELINEATOR_DATA_DIR`: directory where input data files are saved
 - `DELINEATOR_OUTPUT_DIR`: directory where output files will be saved
-- `DELINEATOR_AUTO_DOWNLOAD`: whether to automatically download data files as they are needed
+- `DELINEATOR_AUTO_DOWNLOAD`: whether to automatically download data files as 
+  they are needed
 
 Environment variables add are useful when you want configuration 
 that is global, repeatable, automatable, or sensitive, 
@@ -143,7 +148,9 @@ The globe is divided into 59 **megabasins** (integer IDs 11–86, data for Green
 
 ![Megabasins map](docs/megabasins.jpg)
 
-Each megabasin requires four data files (vector catchments, vector rivers, flow-direction raster, accumulation raster). These download automatically on first use and are cached in your system's default data directory:
+Each megabasin requires four data files (vector catchments, vector rivers, 
+flow-direction raster, accumulation raster). These download automatically 
+on first use and are cached in your system's default data directory:
 
 - **Windows:** `C:\Users\<username>\AppData\Local\delineator`
 - **Linux:** `~/.local/share/delineator`
@@ -155,7 +162,8 @@ delineator_download --basin 62    # e.g. basin 62 = Amazon
 delineator_dir                    # show the cache location
 ```
 
-Some regional datasets are up to 3 GB, so pre-downloading is recommended for large basins.
+Some regional datasets are up to 3 GB, so pre-downloading is recommended for 
+large basins.
 
 Override the cache location with an environment variable:
 ```bash
@@ -213,148 +221,111 @@ All options with their defaults:
 
 ### Filling holes
 
-Setting `fill=True` removes small interior gaps in the watershed polygon. These arise from slivers between unit catchments in the source data and are almost always unwanted. The `fill_threshold` parameter (in pixels) controls which holes are filled — larger holes representing genuine endorheic (internally draining) basins can be preserved by setting a threshold.
+Setting `fill=True` removes small interior gaps in the watershed polygon. These 
+arise from slivers between unit catchments in the source data and are usually unwanted. 
+The `fill_threshold` parameter (in pixels) controls which holes are filled — 
+larger  holes representing genuine endorheic (internally draining) basins can 
+be preserved by setting a threshold.
 
-For example, the Rio Grande watershed contains a large endorheic basin between the main stem and the Pecos River that should *not* be filled:
+For example, the Rio Grande watershed contains a large endorheic basin between 
+the main stem and the Pecos River that should *not* be filled:
 
 ![Rio Grande Watershed](docs/rio_grande.jpg)
 
 ### Search distance
 
-If the outlet point falls just offshore, in an estuary, or in a gap between unit catchments, `search_dist` controls how far (in decimal degrees) the script searches for the nearest catchment. A value of at least `0.005` is recommended for coastal outlets.
+If the outlet point falls just offshore, in an estuary, or in a gap between unit
+ catchments, `search_dist` controls how far (in decimal degrees) the script 
+ searches for the nearest catchment. A value of at least `0.005` is recommended 
+ for coastal outlets.
 
 ### Simplify
 
-The watershed boundary inherits the staircase pattern of the underlying raster grid (pixel edge length ≈ 0.000833°). Setting `simplify=True` with `simplify_tolerance ≈ 0.0004` or higher removes this artifact and reduces file size.
+The watershed boundary inherits the staircase pattern of the underlying raster 
+grid (pixel edge length ≈ 0.000833°). Setting `simplify=True` with 
+`simplify_tolerance ≈ 0.0004` or higher removes this artifact and reduces file size.
 
 
 ## Examples
 
-The `examples/` directory contains ready-to-run scripts.
-
-### Interactive web map (`examples/webapp.py`)
-
-A self-contained Flask application that spins up a local delineation service and serves an interactive Leaflet map. Click anywhere on the map and the watershed, river network, and outlet points appear within seconds.
-
-![Webapp screenshot](docs/webapp_screenshot.png)
-
-**Install Flask and launch:**
-```bash
-pip install flask
-python examples/webapp.py
-```
-
-Then open **http://localhost:5000** in your browser. The app is a single file — the Flask backend handles delineation via a `/delineate` POST endpoint, and the HTML/JS frontend is served inline.
-
-The Iceland data is bundled, so clicking anywhere in Iceland works immediately. Clicking elsewhere in the world triggers an automatic data download for that megabasin on first use.
-
-### Batch delineation from a CSV file with live results table and a Leaflet map viewer 
- (`examples/batch_app.py`)
-
-Usage:
-
-```python
-pip install flask
-python batch_app.py iceland_outlets.csv
-
-# Or to use a different CSV:
-python batch_app.py path/to/my_outlets.csv
-```
-
-Then open http://localhost:5001 in your browser.
- 
-Expected CSV columns: id, lat, lng, name, area
-
-  - id   : unique identifier (will become a clickable link)
-  - lat  : outlet latitude  (decimal degrees)
-  - lng  : outlet longitude (decimal degrees)
-  - name : human-readable label
-  - area : a priori watershed area (km²), used to compute % difference
- 
-Results are saved to disk as each watershed completes:
-
-  - `output/<id>/watershed.geojson`
-  - `output/<id>/rivers.geojson`      (if rivers were returned)
-  - `output/<id>/outlets.geojson`     (if outlets were returned)
-  - `output/results.csv`              (summary table, appended row by row)
- 
-On restart, any outlet whose output directory already exists is skipped and its
-previously computed results are loaded from results.csv instead of re-running
-delineation. Delete the output directory (or a specific subdirectory) to force
-a re-run.
-
-
-### Python API demos (`examples/demo_core.py`)
-
-Shows how to call `delineate()` directly for a single point or a batch of named outlets across different continents:
-
-```python
-from delineator.core import delineate
-from delineator.settings import DelineatorConfig
-from delineator.util import write_outputs
-
-# Single point — Seine River at Paris
-lat, lng = 48.834, 2.263
-config = DelineatorConfig(high_res=True, output_format="geojson")
-watershed_gdf, rivers_gdf, outlets_gdf = delineate(lat, lng, config)
-write_outputs(watershed_gdf, rivers_gdf, outlets_gdf, config)
-```
-
-A set of named test points (Amazon, Chattahoochee, Madagascar, Iceland, and others) is also defined in the script, useful for verifying that downloads and delineation work correctly across different megabasins.
-
-### Sample outlet CSV (`examples/sample_outlets.csv`)
-
-A ready-made CSV with ten outlet points spanning six continents, useful for testing batch delineation:
-
-```bash
-delineate --csv examples/sample_outlets.csv --rivers --output-dir output/
-```
+The `examples/` directory on the project's GigHub page contains ready-to-run scripts.
 
 ## Output files
 
-In GeoPackage mode (default), all layers are written to a single file (`watershed_<id>.gpkg`) with three layers: `watershed`, `rivers`, and `outlets`. For other formats, each layer is written to a separate file.
+In GeoPackage mode (default), all layers are written to a single file 
+(`watershed_<id>.gpkg`) with three layers: `watershed`, `rivers`, and `outlets`. 
+For other formats, each layer is written to a separate file.
 
 
 ## ⚠️ Always review your results
 
 **No automated watershed delineation software can replace human judgment. Always visually inspect every watershed you create with this package — there is no guarantee the output is correct.**
 
-Errors are common and often easy to miss without inspection. The good news is that many mistakes can be fixed by slightly adjusting the outlet coordinates and re-running. An experienced analyst can usually identify and resolve problems quickly, especially with an interactive map display.
+Errors are common and often easy to miss without inspection. The good news is 
+that many mistakes can be fixed by slightly adjusting the outlet coordinates 
+and re-running. An experienced analyst can usually identify and resolve problems 
+quickly, especially with an interactive map display.
 
 ### Where delineation is most likely to fail
 
 Certain landscapes are inherently difficult for any automated tool:
 
-- **Flat terrain** — where flow direction is ambiguous. Examples: Florida, the Netherlands, the Ganges-Brahmaputra Delta.
-- **Arid and semi-arid areas** — where channels are sparse or ephemeral. Examples: North Africa, Central China, the American Southwest.
-- **Frozen environments** — glaciers, tundra, and permafrost. Examples: Iceland, Greenland, northern Canada, northern Russia.
-- **Karst and highly permeable terrain** — where surface drainage boundaries are poorly defined because water moves through the subsurface. Examples: the Yucatán Peninsula, parts of the Deschutes basin in Oregon, the Karst Plateau along the Italy–Slovenia border.
-- **Urban areas** — where impervious surfaces, curbs, storm sewers, and drains alter or override natural flow paths.
-- **Heavily engineered basins** — irrigation canals, inter-basin transfers, and pipelines can reroute water in ways that no terrain-based algorithm can detect.
+- **Flat terrain** — where flow direction is ambiguous. Examples: Florida, 
+  the Netherlands, the Ganges-Brahmaputra Delta.
+- **Arid and semi-arid areas** — where channels are sparse or ephemeral. 
+  Examples: North Africa, Central China, the American Southwest.
+- **Frozen environments** — glaciers, tundra, and permafrost. Examples: Iceland,
+   Greenland, northern Canada, northern Russia.
+- **Karst and highly permeable terrain** — where surface drainage boundaries are
+   poorly defined because water moves through the subsurface. Examples: the 
+   Yucatán Peninsula, parts of the Deschutes basin in Oregon, the Karst Plateau 
+   along the Italy–Slovenia border.
+- **Urban areas** — where impervious surfaces, curbs, storm sewers, and drains 
+  alter or override natural flow paths.
+- **Heavily engineered basins** — irrigation canals, inter-basin transfers, and 
+pipelines can reroute water in ways that no terrain-based algorithm can detect.
 
 ### The most common error: incorrect pour point snapping
 
-Even in well-behaved terrain, the most frequent source of error is pour point snapping — the outlet being snapped to the wrong river reach, often a nearby tributary. This produces a watershed on a completely different branch of the river network. Such errors are not correlated with watershed size or geography and can be subtle if you are not looking carefully.
+Even in well-behaved terrain, the most frequent source of error is pour point 
+snapping — the outlet being snapped to the wrong river reach, often a nearby 
+tributary. This produces a watershed on a completely different branch of the 
+river network. Such errors are not correlated with watershed size or geography 
+and can be subtle if you are not looking carefully.
 
-If a result looks wrong, try nudging the outlet coordinates toward the river centerline and re-running. Overlaying the MERIT-Basins river network on your map makes this much easier. The [`examples/webapp.py`](examples/demo_webapp.py) interactive map is useful for this kind of iterative review.
+If a result looks wrong, try nudging the outlet coordinates toward the river 
+centerline and re-running. Overlaying the MERIT-Basins river network on your 
+map makes this much easier. The [`examples/webapp.py`](examples/demo_webapp.py) 
+interactive map is useful for this kind of iterative review.
 
 ### Areas with no data
 
-MERIT-Hydro does not cover Greenland, Antarctica, or some small islands (e.g., Hawaii, the Azores). Delineation will fail silently for outlet points in these areas.
+MERIT-Hydro does not cover Greenland, Antarctica, or some small islands 
+(e.g., Hawaii, the Azores). Delineation will fail silently for outlet points in 
+these areas.
 
 `delineator` combines three techniques to achieve speed and low memory use:
 
-1. **Hybrid raster/vector approach**: vector unit catchments handle the bulk of the upstream area; raster flow-direction grids refine only the home catchment around the outlet.
-2. **Hierarchical Spatial Aggregation**: pre-computed nested catchments at five size levels (L0–L4) minimize the number of polygons that must be dissolved at runtime.
-3. **SQLite-backed geodata**: vector data is stored in relational SQLite databases with spatial indexes, enabling fast SQL lookups rather than loading entire datasets into memory.
+1. **Hybrid raster/vector approach**: vector unit catchments handle the bulk of 
+  the upstream area; raster flow-direction grids refine only the home catchment 
+  around the outlet.
+2. **Hierarchical Spatial Aggregation**: pre-computed nested catchments at five 
+  size levels (L0–L4) minimize the number of polygons that must be dissolved at 
+  runtime.
+3. **SQLite-backed geodata**: vector data is stored in relational SQLite 
+  databases with spatial indexes, enabling fast SQL lookups rather than loading 
+  entire datasets into memory.
 
 ![Method diagram](docs/method.jpg)
 
-The nested catchments at the southern end of Madagascar illustrate the aggregation levels:
+The nested catchments at the southern end of Madagascar illustrate the 
+aggregation levels:
 
 ![Nested basins](docs/nested_basins.jpg)
 
-For a full description, see the manuscript: [Fast, accurate watershed delineation with a hybrid of raster and vector methods](https://mghydro.com/pages/Heberger_delineation_2025.pdf).
+For a full description, see the manuscript: [Fast, accurate watershed delineation 
+with a hybrid of raster and vector methods]
+(https://mghydro.com/pages/Heberger_delineation_2025.pdf).
 
 
 ## Citation
@@ -375,7 +346,8 @@ If you use `delineator` in your research, please cite:
 
 ## Contributing
 
-This project is open source and welcomes contributions. If you have comments or suggestions, please open an issue or pull request, or drop the author an email.
+This project is open source and welcomes contributions. If you have comments 
+or suggestions, please open an issue or pull request, or drop the author an email.
 
 
 ## License

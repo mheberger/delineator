@@ -7,6 +7,7 @@ from delineator.core import delineate, downloader
 from delineator.data import _get_data_dir
 from delineator.settings import DelineatorConfig
 from delineator.util import write_outputs
+from delineator.data import _get_data_dir
 from delineator.validation import _validate_and_normalize_df
 
 
@@ -101,7 +102,12 @@ def main(point, id, outlets_csv, data_dir, auto_download, high_res, output_dir,
 
 @click.command()
 def delineator_dir():
-    """Show the location of the data directory used by the delineator Python package."""
+    """Show the location of the data directory used by the delineator Python package.
+
+    Will display the path to the data directory, which is either the default
+    and depends on the operating system, or the custom location specified by the user,
+    which can be set by setting the DELINEATOR_DATA environment variable.
+    """
     click.echo(_get_data_dir())
 
 
@@ -111,16 +117,8 @@ def delineator_dir():
                                                "Defaults to the system default data directory.")
 def delineator_download(basin, data_dir):
     """
-    Download the data files needed for delineation in a megabasin
-
-    Parameters
-    ----------
-    basin: int
-        The megabasin ID, an integer from 11 to 86
-
-    data_dir: str, optional
-        Directory for delineator's data files. Defaults to the system default
-        data directory.
+    Download the data files needed for delineation in a megabasin.
+    Use the command `delineator_dir` to get the location of the data directory.
     """
     # Resolve output directory
     if data_dir is None:
