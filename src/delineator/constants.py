@@ -1,5 +1,5 @@
 """
-Constants for the delineator package.
+Constants for the delineator PYthon package.
 """
 from importlib.resources import files
 

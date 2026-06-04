@@ -3,17 +3,19 @@ import click
 import pandas as pd
 import logging
 
-from .core import delineate, downloader
-from .data import _get_data_dir
-from .settings import DelineatorConfig
-from .util import write_outputs
-from .validation import _validate_and_normalize_df
+from delineator.core import delineate, downloader
+from delineator.data import _get_data_dir
+from delineator.settings import DelineatorConfig
+from delineator.util import write_outputs
+from delineator.validation import _validate_and_normalize_df
 
 
 @click.command()
 @click.option("--point", nargs=2, type=float, metavar="LAT LON", help="Single outlet point")
 @click.option("--id", default=None, help="ID for the watershed (used with --point)")
 @click.option("--csv", "outlets_csv", type=click.Path(exists=True), help="CSV file of outlet points")
+@click.option("--data-dir", default=None, help="Directory for delineator's input data files. ")
+@click.option("--auto-download", is_flag=True, help="Automatically download data files if needed")
 @click.option("--high-res/--low-res", default=True, help="In higher-resolution mode, uses raster methods"
                                                          " to find the watershed boundary around the outlet point."
                                                          " In lower-resolution mode, the script runs faster but"
@@ -27,8 +29,15 @@ from .validation import _validate_and_normalize_df
 @click.option("--outlets", is_flag=True, help="Output the outlet points")
 @click.option("--simplify", is_flag=True, help="Simplify the geometry of the watershed and rivers")
 @click.option("--verbose", is_flag=True, default=False, help="Show more information on the script's progress")
-def main(point, id, outlets_csv, high_res, output_dir, output_format, fill, rivers, outlets, simplify, verbose):
-    """Delineate watersheds from a CSV file or a single lat/lon point."""
+def main(point, id, outlets_csv, data_dir, auto_download, high_res, output_dir,
+         output_format, fill, rivers, outlets, simplify, verbose):
+    """Delineate watersheds from a CSV file or a single lat/lon point.
+
+    Usage:
+        delineate --help
+        delineate --point 48.834 2.263
+        delineate --csv outlets.csv
+    """
     if verbose:
         handler = logging.StreamHandler()
         handler.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
@@ -41,12 +50,6 @@ def main(point, id, outlets_csv, high_res, output_dir, output_format, fill, rive
         raise click.UsageError("Specify either --csv or --point, not both.")
     if not outlets_csv and not point:
         raise click.UsageError("Specify either --csv or --point.")
-
-    # Resolve output directory
-    output_path = Path(output_dir) if output_dir else Path.cwd() / "output"
-    if not output_path.exists():
-        click.echo(f"Creating output directory: {output_path}")
-        output_path.mkdir(parents=True, exist_ok=True)
 
     # Normalize input
     if point:
@@ -65,8 +68,31 @@ def main(point, id, outlets_csv, high_res, output_dir, output_format, fill, rive
         click.echo("Invalid input. See above for details.")
         return
 
-    config = DelineatorConfig(high_res=high_res, output_dir=output_path, output_format=output_format,
-                              fill=fill, rivers=rivers, outlets=outlets, auto_download=True, simplify=simplify)
+    config_kwargs = {
+        "high_res": high_res,
+        "output_format": output_format,
+        "fill": fill,
+        "rivers": rivers,
+        "outlets": outlets,
+        "auto_download": True,
+        "simplify": simplify,
+    }
+    if data_dir is not None:
+        config_kwargs["data_dir"] = Path(data_dir)
+
+    print(f"Output directory: {output_dir}")
+
+    if output_dir is not None:
+        config_kwargs["output_dir"] = Path(output_dir)
+    if auto_download is not None:
+        config_kwargs["auto_download"] = auto_download
+
+    config = DelineatorConfig(**config_kwargs)
+
+    output_path = config.output_dir
+    if not output_path.exists():
+        click.echo(f"Creating output directory: {output_path}")
+        output_path.mkdir(parents=True, exist_ok=True)
 
     # Run delineation
     _delineate_dataframe(outlets_df, config)
@@ -84,7 +110,18 @@ def delineator_dir():
 @click.option("--data-dir", default=None, help="Directory for delineator's data files. "
                                                "Defaults to the system default data directory.")
 def delineator_download(basin, data_dir):
-    """Download the data files needed for delineation in a megabasin"""
+    """
+    Download the data files needed for delineation in a megabasin
+
+    Parameters
+    ----------
+    basin: int
+        The megabasin ID, an integer from 11 to 86
+
+    data_dir: str, optional
+        Directory for delineator's data files. Defaults to the system default
+        data directory.
+    """
     # Resolve output directory
     if data_dir is None:
         data_dir = _get_data_dir()
@@ -101,6 +138,18 @@ def _delineate_dataframe(outlets_df, config: DelineatorConfig):
     """
     For the command line interface, delineates watersheds based on a
     dataframe of outlet points, derived from the user's CSV file or lat/lon point.
+
+    Parameters
+    ----------
+    outlets_df : DataFrame
+        DataFrame containing the outlet points. Must have columns "lat", "lon", and "id".
+
+    config : DelineatorConfig
+
+    Returns
+    -------
+    Noting is returned, but the function writes the output files to disk.
+
     """
 
     for _, row in outlets_df.iterrows():

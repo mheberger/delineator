@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 
-def _find_data_file(relative_path: str, config: DelineatorConfig) -> Path:
+def _find_data_file(relative_path: str, config: DelineatorConfig) -> Path | None:
     """
     Locate a data file in the data directory.
     Includes special handling for the data files for Iceland, megabasin 27,
@@ -52,6 +52,7 @@ def _find_data_file(relative_path: str, config: DelineatorConfig) -> Path:
             f"Run 'download_data --basin ##' to fetch required data files, "
             f"or check your data directory: {config.data_dir}"
         )
+        return None
 
 
 def _get_data_dir() -> Path:

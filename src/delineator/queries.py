@@ -9,7 +9,22 @@ from delineator.settings import DelineatorConfig
 
 
 def get_upstream_comids(conn: sqlite3.Connection, home_unit_catchment: int) -> list:
-    # Query #1, gets a complete list of upstream basins comids
+    """
+    Query #1, gets a complete list of upstream basins comids
+
+    Parameters
+    ----------
+    conn: a sqlite3 connection to the database
+    home_unit_catchment: the comid of the home unit catchment, e.g. 23016159
+
+    Returns
+    -------
+    the list of upstream basins comids. The first element is the home unit catchment.
+
+    Example:
+
+        [23016159, 23016160, 23016603, .. , 23020142]
+    """
     sql = """
     WITH RECURSIVE upstream(comid) AS (
         SELECT comid FROM l0_basins WHERE comid = ?
@@ -30,8 +45,27 @@ def get_upstream_comids(conn: sqlite3.Connection, home_unit_catchment: int) -> l
     return upstream_comids
 
 
-def get_hiearchical_basins(conn: sqlite3.Connection, upstream_catchment_list: list) -> dict:
-    # Conver the list of integer comids to a comma-delimited string
+def get_hiearchical_basins(conn: sqlite3.Connection, upstream_catchment_list: list[int]) -> dict:
+    """
+    Converts the list of unit catchment comids to a dictionary of nested hiearchical catchments
+
+    Parameters
+    ---------
+    conn: a sqlite3 connection to the database
+    upstream_catchment_list: integer list of unit catchment comids that are upstream of the home unit catchment
+
+    Returns
+    -------
+    a dictionary of nested hiearchical catchments, where the keys are the level names ('L0', 'L1', ... 'L4')
+    and the values are lists of basin comids.
+
+    Example:
+
+        {
+            'L2': [23016162, 23016170, 23016215, 23016306, 23017387, 23017390, 23018599],
+            'L0': [23016160, 23016161, 23016603, 23017101, 23017136, 23017189]
+        }
+    """
     placeholders = ", ".join([str(i) for i in upstream_catchment_list])
 
     # Query #2, gets the nested upstream basins
@@ -120,12 +154,13 @@ def get_hiearchical_basins(conn: sqlite3.Connection, upstream_catchment_list: li
     cur.execute(sql)
     rows = cur.fetchall()
 
-    # Convert the results to a dictionary (mostly for my convenience -- easier to inspect and debug!)
+    # Convert the results to a dictionary (mostly for my convenience -- easier to inspect and debug)
     basin_collection = defaultdict(list)
     for match_level, comid in rows:
         basin_collection[match_level].append(comid)
 
     basin_collection = dict(basin_collection)
+
     return basin_collection
 
 
@@ -237,8 +272,6 @@ def get_rivers(upstream_catchment_list: list,
         gpd.GeoDataFrame: A GeoDataFrame containing the queried river records, optionally with updated geometry for
         the downstream river reach. Returns None if no river data is found.
 
-    Raises:
-        None
     """
     home_unit_catchment = upstream_catchment_list[0]
 

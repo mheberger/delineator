@@ -1,9 +1,17 @@
 """
-webapp.py — Interactive watershed delineation web map (local Flask server)
+demo_webapp.py — Demo of spinning up a simple interactive watershed
+delineation web map with a local Flask server.
+
+A lightweight web app inspired by Global Watersheds web app,
+https://mghydro.com/watersheds, but able to run locally without
+a server or even a web connection.
+
+Created with Gemini, by Matt H, June 2026.
 
 Usage:
+    pip install delineator
     pip install flask
-    python app.py
+    python demo_webapp.py
 
 Then open http://localhost:5000 in your browser.
 Click anywhere on the map to delineate the upstream watershed.
@@ -19,7 +27,7 @@ from delineator.core import delineate
 from delineator.settings import DelineatorConfig
 
 app = Flask(__name__)
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.CRITICAL)
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -40,10 +48,19 @@ HTML = """<!DOCTYPE html>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
+    :root {
+      --bg:      #f5f6f8;
+      --panel:   #ffffff;
+      --border:  #dde1e7;
+      --accent:  #2a7fd4;
+      --text:    #1a1f2e;
+      --muted:   #6b7894;
+    }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #1a1a2e;
-      color: #e0e0e0;
+      background: var(--bg);
+      color: var(--text);
       height: 100vh;
       display: flex;
       flex-direction: column;
@@ -55,28 +72,28 @@ HTML = """<!DOCTYPE html>
       align-items: center;
       gap: 12px;
       padding: 10px 16px;
-      background: #16213e;
-      border-bottom: 1px solid #0f3460;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
       flex-shrink: 0;
       z-index: 1000;
     }
     header h1 {
       font-size: 1.1rem;
       font-weight: 600;
-      color: #e0e0e0;
+      color: var(--text);
       letter-spacing: 0.02em;
     }
     header .subtitle {
       font-size: 0.78rem;
-      color: #8899aa;
+      color: var(--muted);
     }
 
     /* ── Status bar ── */
     #status-bar {
       padding: 6px 16px;
-      background: #0f3460;
+      background: #e8edf4;
       font-size: 0.8rem;
-      color: #a0c4ff;
+      color: var(--accent);
       flex-shrink: 0;
       display: flex;
       align-items: center;
@@ -86,8 +103,8 @@ HTML = """<!DOCTYPE html>
     #status-bar .spinner {
       display: none;
       width: 14px; height: 14px;
-      border: 2px solid #a0c4ff44;
-      border-top-color: #a0c4ff;
+      border: 2px solid #2a7fd433;
+      border-top-color: var(--accent);
       border-radius: 50%;
       animation: spin 0.7s linear infinite;
       flex-shrink: 0;
@@ -108,22 +125,49 @@ HTML = """<!DOCTYPE html>
       bottom: 30px;
       right: 10px;
       z-index: 1000;
-      background: rgba(22, 33, 62, 0.92);
-      border: 1px solid #0f3460;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid var(--border);
       border-radius: 8px;
       padding: 12px 16px;
       font-size: 0.78rem;
       max-width: 240px;
       display: none;
       backdrop-filter: blur(6px);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     }
     #info-panel h3 {
       font-size: 0.85rem;
-      color: #a0c4ff;
+      color: var(--accent);
       margin-bottom: 8px;
     }
-    #info-panel .stat { margin-bottom: 4px; color: #c8d8e8; }
-    #info-panel .stat span { color: #ffffff; font-weight: 600; }
+    #info-panel .stat { margin-bottom: 4px; color: var(--muted); }
+    #info-panel .stat span { color: var(--text); font-weight: 600; }
+
+    /* ── Download links ── */
+    #download-links {
+      margin-top: 10px;
+      padding-top: 9px;
+      border-top: 1px solid var(--border);
+      display: none;
+      gap: 8px;
+    }
+    .dl-btn {
+      flex: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 4px 0;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--accent);
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: background 0.12s, border-color 0.12s;
+    }
+    .dl-btn:hover { background: #ddeeff; border-color: var(--accent); }
 
     /* ── Legend ── */
     #legend {
@@ -131,12 +175,14 @@ HTML = """<!DOCTYPE html>
       bottom: 30px;
       left: 10px;
       z-index: 1000;
-      background: rgba(22, 33, 62, 0.88);
-      border: 1px solid #0f3460;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid var(--border);
       border-radius: 8px;
       padding: 10px 14px;
       font-size: 0.75rem;
+      color: var(--text);
       backdrop-filter: blur(4px);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     }
     #legend .legend-row {
       display: flex; align-items: center; gap: 8px; margin-bottom: 5px;
@@ -146,21 +192,21 @@ HTML = """<!DOCTYPE html>
       width: 28px; height: 12px; border-radius: 2px; flex-shrink: 0;
     }
     .swatch.watershed {
-      background: rgba(230, 92, 92, 0.3);
+      background: rgba(245, 10, 10, 0.18);
       border: 2px solid #f50a0a;
     }
     .swatch.river {
-      background: #00bfff;
+      background: #0e6fad;
       height: 3px; border-radius: 2px;
     }
     .swatch.outlet-requested {
       width: 12px; height: 12px; border-radius: 50%;
-      background: #fdce0b; border: 2px solid #fff;
+      background: #c47c00; border: 2px solid #fff;
       flex-shrink: 0;
     }
     .swatch.outlet-snapped {
       width: 12px; height: 12px; border-radius: 50%;
-      background: #ff6b35; border: 2px solid #fff;
+      background: #e05c1a; border: 2px solid #fff;
       flex-shrink: 0;
     }
 
@@ -177,7 +223,7 @@ HTML = """<!DOCTYPE html>
       display: none;
       max-width: 90%;
       text-align: center;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
     }
   </style>
 </head>
@@ -212,6 +258,10 @@ HTML = """<!DOCTYPE html>
   <div class="stat">Outlet Lng: <span id="info-lng">—</span></div>
   <div class="stat">Watershed area: <span id="info-area">—</span> km²</div>
   <div class="stat">River reaches returned: <span id="info-rivers">—</span></div>
+  <div id="download-links">
+    <a id="dl-watershed" class="dl-btn" download="watershed.geojson">⬇ Watershed</a>
+    <a id="dl-rivers"   class="dl-btn" download="rivers.geojson">⬇ Rivers</a>
+  </div>
 </div>
 
 <!-- Error toast -->
@@ -266,11 +316,47 @@ function showError(msg) {
 }
 
 function updateInfoPanel(lat, lng, watershedArea, riverCount) {
-  document.getElementById('info-lat').textContent    = lat.toFixed(5);
-  document.getElementById('info-lng').textContent    = lng.toFixed(5);
+  document.getElementById('info-lat').textContent     = lat.toFixed(3);
+  document.getElementById('info-lng').textContent     = lng.toFixed(3);
   document.getElementById('info-area').textContent    = watershedArea;
   document.getElementById('info-rivers').textContent = riverCount !== null ? riverCount : 'none';
   infoPanel.style.display = 'block';
+}
+
+// ── Download helpers ──────────────────────────────────────────────────────
+let _prevBlobUrls = [];
+
+function setDownloadLinks(watershedGeojson, riversGeojson) {
+  // Revoke any blob URLs from the previous delineation to free memory
+  _prevBlobUrls.forEach(u => URL.revokeObjectURL(u));
+  _prevBlobUrls = [];
+
+  const dlRow = document.getElementById('download-links');
+  const dlW   = document.getElementById('dl-watershed');
+  const dlR   = document.getElementById('dl-rivers');
+
+  function makeBlob(geojson) {
+    const blob = new Blob([JSON.stringify(geojson, null, 2)], { type: 'application/geo+json' });
+    const url  = URL.createObjectURL(blob);
+    _prevBlobUrls.push(url);
+    return url;
+  }
+
+  if (watershedGeojson) {
+    dlW.href = makeBlob(watershedGeojson);
+    dlW.style.display = '';
+  } else {
+    dlW.style.display = 'none';
+  }
+
+  if (riversGeojson) {
+    dlR.href = makeBlob(riversGeojson);
+    dlR.style.display = '';
+  } else {
+    dlR.style.display = 'none';
+  }
+
+  dlRow.style.display = 'flex';
 }
 
 // ── Delineation ───────────────────────────────────────────────────────────
@@ -280,6 +366,7 @@ map.on('click', async (e) => {
   clearLayers();
   setLoading(`Delineating watershed at (${lat.toFixed(4)}, ${lng.toFixed(4)})…`);
   infoPanel.style.display = 'none';
+  document.getElementById('download-links').style.display = 'none';
 
   try {
     const resp = await fetch('/delineate', {
@@ -309,7 +396,7 @@ map.on('click', async (e) => {
           fillOpacity: 0.22,
         },
       }).addTo(map);
-      map.fitBounds(watershedLayer.getBounds(), { padding: [40, 40] });
+      map.flyToBounds(watershedLayer.getBounds(), { padding: [40, 40], duration: 1.5 });
     }
 
     // ── Rivers ──
@@ -319,7 +406,7 @@ map.on('click', async (e) => {
       riverCount = features.length - 1;
       riversLayer = L.geoJSON(data.rivers, {
         style: {
-          color:   '#00bfff',
+          color:   '#0e6fad',
           weight:  1.5,
           opacity: 0.85,
         },
@@ -333,7 +420,7 @@ map.on('click', async (e) => {
           const isSnapped = feature.properties?.type === 'snapped';
           return L.circleMarker(latlng, {
             radius:      isSnapped ? 6 : 5,
-            fillColor:   isSnapped ? '#ff6b35' : '#ffcc00',
+            fillColor:   isSnapped ? '#e05c1a' : '#c47c00',
             color:       '#fff',
             weight:      2,
             opacity:     1,
@@ -349,6 +436,7 @@ map.on('click', async (e) => {
     }
 
     updateInfoPanel(lat, lng, watershedArea, riverCount);
+    setDownloadLinks(data.watershed, data.rivers);
     setReady(`Done — click elsewhere to delineate another watershed`);
 
   } catch (err) {
@@ -387,7 +475,7 @@ def delineate_endpoint() -> Response:
     except (TypeError, ValueError):
         return jsonify({"error": "'lat' and 'lng' must be numeric."}), 400
 
-    logger.info(f"Delineating watershed at lat={lat:.5f}, lng={lng:.5f}")
+    logger.info(f"Delineating watershed at lat={lat:.3f}, lng={lng:.3f}")
 
     config = DelineatorConfig(
         rivers=True,

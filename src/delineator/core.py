@@ -1,6 +1,8 @@
 """
-New version of delineator that uses sqlite files instead of shapefiles
-and the "hierarchical nested" set of catchment boundaries to speed up vector operations.
+Version 2.0 of `delineator` Global Watershed Delineation with Python
+  - refactored from a collection of scripts to a single Python package
+  - uses sqlite .db files instead of shapefiles
+  - implements "hierarchical nested" set of catchment boundaries to speed up vector operations.
 """
 
 import logging
@@ -14,7 +16,7 @@ from typing import Tuple
 
 from delineator.constants import MEGABASINS_DB_FILE, VALID_MEGABASINS
 from delineator.data import _find_data_file
-from delineator.util import _validate_outlet_coordinates, _close_holes, get_polygon_area
+from delineator.util import _validate_outlet_coordinates, _close_holes, _get_polygon_area
 from delineator.spatial import point_in_polygon_analysis
 from delineator.queries import get_upstream_comids, get_home_unit_catchment_geom_and_area, get_hiearchical_basins, \
     get_upstream_geometries, \
@@ -58,7 +60,7 @@ def delineate(lat: float, lng: float, config: DelineatorConfig|None = None) -> T
     try:
         lat, lng = _validate_outlet_coordinates(lat, lng)
     except Exception as e:
-        print(f"ERROR: Invalid coordinates: {e}")
+        logger.warning(f"ERROR: Invalid coordinates: {e}")
         return None, None, None
 
     # Step 2: Determine the megabasin
@@ -106,7 +108,10 @@ def delineate(lat: float, lng: float, config: DelineatorConfig|None = None) -> T
         split_catchment_polygon, lat_snapped, lon_snapped = split_catchment(megabasin, lat, lng,
                                                                             home_unit_catchment_polygon, is_singleton,
                                                                             config)
-        split_catchment_area = get_polygon_area(split_catchment_polygon)
+        if split_catchment_polygon is None:
+            return None, None, None
+
+        split_catchment_area = _get_polygon_area(split_catchment_polygon)
 
     else:
         split_catchment_polygon = None
@@ -206,6 +211,9 @@ def downloader(basin: int, data_dir: str | None = None):
         This will download the data files for megabasin 11 to the specified directory,
         including the vector data (unit catchments, rivers) and raster data (flow direction, accumulation)
 
+    Returns:
+    --------
+    Nothing. Raises an error if something goes wrong.
     """
     config = DelineatorConfig()
 

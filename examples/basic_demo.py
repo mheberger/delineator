@@ -1,6 +1,9 @@
 """
-Simple test script to run the delineator.
-Plan to build this out into a proper test suite later.
+Demonstration methods for delineating single coordinates,
+multiple coordinates, processing CSV data, and using the
+utility functions to download data files and write outputs.
+
+Matthew Heberger, June 2026
 """
 
 import pandas as pd
@@ -10,14 +13,22 @@ from delineator.settings import DelineatorConfig
 from delineator.util import write_outputs
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.CRITICAL)
 
 
 def try_one():
-    lat, lng = 48.834, 2.263
+    "Delineate a single watershed"
+    lat, lng = 48.863, 2.314  # Seine River at the Pont Alexandre III, Paris
 
-    config = DelineatorConfig(high_res=True, output_format="geojson")
+    lat, lng = 42.557, 8.788
+
+    config = DelineatorConfig(high_res=True,
+                              output_format="geojson",
+                              outlets=False  # Skip outlets; will create watershed and rivers only
+                              )
+
     watershed_gdf, rivers_gdf, outlets_gdf = delineate(lat, lng, config)
+
     if watershed_gdf is None:
         print("No watershed found.")
     else:
@@ -33,14 +44,13 @@ def try_several():
         "Iceland": (64.71072, -21.60337),
     }
 
-    config = DelineatorConfig(high_res=True, output_format="geojson")
     for name, (lat, lng) in test_coords.items():
         print(f"Delineating {name}")
-        watershed_gdf, rivers_gdf, outlets_gdf = delineate(lat, lng, config)
+        watershed_gdf, rivers_gdf, outlets_gdf = delineate(lat, lng)
         if watershed_gdf is None:
             print("No watershed found.")
         else:
-            write_outputs(watershed_gdf, rivers_gdf, outlets_gdf, config, id=name)
+            write_outputs(watershed_gdf, rivers_gdf, outlets_gdf, id=name)
 
 
 def try_csv():
@@ -49,6 +59,7 @@ def try_csv():
 
     # Contains outlets around the world -- may trigger downloads if data files not already present
     #fname = "sample_outlets.csv"
+
     config = DelineatorConfig(high_res=True)
 
     df = pd.read_csv(fname)
@@ -68,11 +79,18 @@ def try_csv():
 
 
 def try_downloader():
+    """
+    Download the data files for megabasin 11 (East Africa)
+    and save them to the default data directory.
+    """
     downloader(11)
+
+    # To download to a specific directory:
+    downloader(11, r"D:\data\delineator")
 
 
 if __name__ == "__main__":
-    #try_downloader()
     try_one()
+    #try_downloader()
     #try_several()
     #try_csv()

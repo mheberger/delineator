@@ -1,6 +1,5 @@
-# src/delineator/__init__.py
 import logging
-from .core import delineate as delineate
+from .core import delineate as delineate, downloader as downloader
 from .settings import DelineatorConfig as DelineatorConfig
 from .util import write_outputs as write_outputs
 

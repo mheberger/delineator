@@ -1,11 +1,6 @@
 """
-Performs a detailed, raster-based watershed delineation with `pysheds`,
+Performs detailed raster-based watershed delineation with `pysheds`,
 but only inside of a *single* unit catchment.
-This is my implementation of the *hybrid* method that I "invented" -- but which was actually
-first described in a a paper by Djokic and Ye at the 1999 ESRI User Conference
-and is used by the USGS as part of their watershed delineation API in the NLDI.
-Raster-based delineation is slow and requires a lot of memory. So we only do the bare minimum,
-and use vector data for the rest of the upstream watershed.
 """
 import os
 import logging
@@ -40,7 +35,6 @@ def split_catchment(
     on a laptop computer.
 
     Args:
-        wid: the watershed id, a string
         basin: 2-digit Pfafstetter code for the level 2 basin we're in (tells us which raster files to open)
         lat: latitude
         lng: longitude

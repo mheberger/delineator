@@ -1,3 +1,8 @@
+"""
+Validation function for user-supplied CSV files.
+Ensures that the CSV has the required fields and that the id field is unique.
+"""
+
 import logging
 import pandas as pd
 import click

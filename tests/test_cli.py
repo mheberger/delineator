@@ -2,6 +2,7 @@ from pathlib import Path
 
 from click.testing import CliRunner
 
+from delineator import DelineatorConfig
 from delineator.cli import delineator_download, main, delineator_dir
 
 
@@ -128,3 +129,30 @@ def test_main_delineates_single_iceland_point_to_output_directory(tmp_path):
     assert "Done. Output written to" in result.output
     assert output_dir.exists()
     assert list(output_dir.glob("*.geojson"))
+
+
+def test_delineator_config_uses_output_dir_environment_variable(monkeypatch, tmp_path):
+    output_dir = tmp_path / "env-output"
+
+    monkeypatch.setenv("DELINEATOR_OUTPUT_DIR", str(output_dir))
+
+    config = DelineatorConfig(
+        low_res_threshold=100,
+        search_dist=1,
+        simplify_tolerance=0,
+    )
+
+    assert config.output_dir == output_dir
+
+def test_delineator_config_uses_data_dir_environment_variable(monkeypatch, tmp_path):
+    data_dir = tmp_path / "env-data"
+
+    monkeypatch.setenv("DELINEATOR_DATA_DIR", str(data_dir))
+
+    config = DelineatorConfig(
+        low_res_threshold=100,
+        search_dist=1,
+        simplify_tolerance=0,
+    )
+
+    assert config.data_dir == data_dir

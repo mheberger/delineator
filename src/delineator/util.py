@@ -1,9 +1,10 @@
 import math
 import logging
-from pyproj import Transformer
+from pyproj import Transformer, CRS
 from shapely.ops import transform
 import shapely
 from shapely.geometry import MultiPolygon, Polygon, LineString, MultiLineString
+import geopandas as gpd
 
 from delineator.settings import DelineatorConfig
 
@@ -12,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 def _get_overlap_lines(line: LineString | MultiLineString,
                        polygon: Polygon | MultiPolygon) \
-        -> (list)[LineString | MultiLineString]:
+        -> list[LineString | MultiLineString]:
     """Return the portion of a line that falls within a polygon, always as a list of LineStrings.
     Uses shapely library functions only, no spatialite queries.
     Params:
@@ -44,8 +45,8 @@ def _validate_outlet_coordinates(lat: float, lng: float) -> tuple[float, float]:
     :param lng: Longitude of the outlet in decimal degrees. Must be a finite
         float value between -180 and 180 (exclusive).
     :type lng: float
-    :return: True if the latitude and longitude are valid geographical coordinates.
-    :rtype: bool
+    :return: Validated latitude and longitude.
+    :rtype: tuple[float, float]
     :raises TypeError: If latitude or longitude are not float values.
     :raises ValueError: If latitude or longitude are not finite or fall outside
         the allowed range.
@@ -124,24 +125,48 @@ def _close_holes(poly: Polygon | MultiPolygon, area_max: float) -> Polygon | Mul
         raise ValueError("Unsupported geometry type")
 
 
-def get_polygon_area(poly: Polygon) -> float:
+def _get_polygon_area(poly: Polygon | MultiPolygon) -> float:
     """
-    Projects a Shapely polygon in raw lat, lng coordinates, and calculates its area
+    Calculates the area of a Shapely Polygon (or MultiPolygon) in km²
+
+    Assumes the input is in unprojected raw lat, lng coordinates (CRS 4326)
+       and projects it first to  a locally-centered azimuthal equal-area projection.
+
+    Works accurately anywhere on Earth.
+
     Args:
-        poly: Shapely polygon
-    :return: area in km²
+        poly: Shapely Polygon or MultiPolygon
+
+    Returns:
+         area in km²
     """
-    transformer = Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
+
+    # Use the polygon centroid to define a custom LAEA projection
+    lon, lat = poly.centroid.x, poly.centroid.y
+
+    crs_laea = CRS.from_proj4(
+        f"+proj=laea +lat_0={lat} +lon_0={lon} +datum=WGS84 +units=m"
+    )
+    crs_wgs84 = CRS.from_epsg(4326)
+
+    transformer = Transformer.from_crs(crs_wgs84, crs_laea, always_xy=True)
 
     projected_poly = transform(transformer.transform, poly)
 
-    # Get the area in m^2
+    # Get the area in km²
     return projected_poly.area / 1e6
 
 
-def write_outputs(watershed_gdf, rivers_gdf, outlets_gdf, config: DelineatorConfig, id=None):
+def write_outputs(watershed_gdf: gpd.GeoDataFrame | None,
+                  rivers_gdf: gpd.GeoDataFrame | None,
+                  outlets_gdf: gpd.GeoDataFrame | None,
+                  config: DelineatorConfig,
+                  id: str | int | None = None) -> None:
     """
     Writes the watershed, rivers, and outlets to disk in the specified format.
+
+    With geopackage, will write a single file with up to 3 layers.
+    Other formats will result in up to 3 files.
 
     Supports common GeoPandas output formats, including:
     - shapefile: shp

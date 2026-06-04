@@ -1,4 +1,17 @@
-# src/delineator/settings.py
+"""
+Configuration settings for the `delineator` package
+
+The `DelineatorConfig` is used by several functions in the `delineator` package
+including:
+
+  - `delineator.core.delineate_watershed`
+  - `delineator.core.downloder`
+  - `delineator.util.write_outputs`
+  - `delineator.cli.delineate_dataframe`
+
+Allows the user to specify various options for the watershed delineation process
+such as the output format, whether to include rivers, directory locations, etc.
+"""
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -7,16 +20,24 @@ from platformdirs import user_data_dir
 from delineator.constants import SUPPORTED_OUTPUT_FORMATS
 
 
+def _default_auto_download() -> bool:
+    custom = os.environ.get("DELINEATOR_AUTO_DOWNLOAD")
+    if custom:
+        return custom.lower() == "true"
+    return True
+
+
 def _default_data_dir() -> Path:
     """Return the default data directory, respecting DELINEATOR_DATADIR env var."""
-    custom = os.environ.get("DELINEATOR_DATADIR")
+    custom = os.environ.get("DELINEATOR_DATA_DIR")
     if custom:
         return Path(custom).expanduser()
     return Path(user_data_dir("delineator", appauthor=False))
 
 
 def _default_output_dir() -> Path:
-    custom = os.environ.get("DELINEATOR_OUTDIR")
+    custom = os.environ.get("DELINEATOR_OUTPUT_DIR")
+    print(custom)
     if custom:
         return Path(custom).expanduser()
     output_dir = Path.cwd() / "output"
@@ -108,15 +129,15 @@ class DelineatorConfig:
 
     """
 
-    auto_download: bool = True
+    auto_download: bool = field(default_factory=_default_auto_download)
     clean: bool = False
-    data_dir: Path = field(default_factory=_default_data_dir)
+    data_dir: Path | str = field(default_factory=_default_data_dir)
     fill: bool = True
     fill_threshold: int = 100
     high_res: bool = True
     low_res_threshold: float = 6e6
     num_stream_orders: int = 4
-    output_dir: Path = field(default_factory=_default_output_dir)
+    output_dir: Path | str = field(default_factory=_default_output_dir)
     output_format: str = "gpkg"
     outlets: bool = True
     rivers: bool = True

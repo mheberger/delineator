@@ -1,5 +1,4 @@
 """
-Point-in-polygon analysis
 Geospatial database utilities for working with SQLite3 and SpatiaLite.
 
 Provides helper functions to load SpatiaLite extensions, query R*Tree spatial

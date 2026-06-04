@@ -1,4 +1,3 @@
-# src/delineator/download.py
 import logging
 from pathlib import Path
 from urllib.parse import quote
