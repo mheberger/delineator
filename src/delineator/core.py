@@ -17,10 +17,10 @@ from typing import Tuple
 from delineator.constants import MEGABASINS_DB_FILE, VALID_MEGABASINS
 from delineator.data import _find_data_file
 from delineator.util import _validate_outlet_coordinates, _close_holes, _get_polygon_area
+
 from delineator.spatial import point_in_polygon_analysis
 from delineator.queries import get_upstream_comids, get_home_unit_catchment_geom_and_area, get_hiearchical_basins, \
-    get_upstream_geometries, \
-    get_rivers, get_upstream_area
+    get_upstream_geometries, get_rivers, get_upstream_area
 from delineator.merit_detailed import split_catchment
 from delineator.settings import DelineatorConfig
 
@@ -121,6 +121,7 @@ def delineate(lat: float, lng: float, config: DelineatorConfig|None = None) -> T
     if is_singleton:
         if split_catchment_polygon is None:
             return None, None, None
+
         watershed_gdf = gpd.GeoDataFrame(geometry=[split_catchment_polygon], crs='epsg:4326')
     else:
         # Otherwise, we need to find the set of upstream catchments
@@ -145,6 +146,7 @@ def delineate(lat: float, lng: float, config: DelineatorConfig|None = None) -> T
             watershed_polygon = _close_holes(watershed_polygon, config.fill_threshold)
 
         watershed_gdf = gpd.GeoDataFrame(geometry=[watershed_polygon], crs='epsg:4326')
+        
         watershed_gdf["outlet_lat"] = round(lat_snapped, 4)
         watershed_gdf["outlet_lng"] = round(lon_snapped, 4)
 
@@ -158,7 +160,7 @@ def delineate(lat: float, lng: float, config: DelineatorConfig|None = None) -> T
 
     # Step 7.5: optionally clean and simplify the watershed
     if config.simplify:
-        watershed_gdf = watershed_gdf.simplify(tolerance=config.simplify_tolerance, preserve_topology=True)
+        watershed_gdf.geometry = watershed_gdf.geometry.simplify(tolerance=config.simplify_tolerance, preserve_topology=True)
 
     if config.clean:
         watershed_gdf.geometry = watershed_gdf.geometry.buffer(0.0001).buffer(-0.0001)

@@ -1,7 +1,7 @@
 import math
 import logging
 from pyproj import Transformer, CRS
-from shapely.ops import transform
+from shapely.ops import transform, unary_union
 import shapely
 from shapely.geometry import MultiPolygon, Polygon, LineString, MultiLineString
 import geopandas as gpd
@@ -157,10 +157,22 @@ def _get_polygon_area(poly: Polygon | MultiPolygon) -> float:
     return projected_poly.area / 1e6
 
 
+def safe_simplify(geom, tolerance):
+    if geom is None or geom.is_empty:
+        return geom
+    # Flatten GeometryCollections to just polygonal parts
+    if geom.geom_type == 'GeometryCollection':
+        polys = [g for g in geom.geoms if g.geom_type in ('Polygon', 'MultiPolygon')]
+        if not polys:
+            return geom  # or return None
+        geom = unary_union(polys)
+    return geom.simplify(tolerance, preserve_topology=True)
+
+
 def write_outputs(watershed_gdf: gpd.GeoDataFrame | None,
-                  rivers_gdf: gpd.GeoDataFrame | None,
-                  outlets_gdf: gpd.GeoDataFrame | None,
-                  config: DelineatorConfig,
+                  rivers_gdf: gpd.GeoDataFrame | None = None,
+                  outlets_gdf: gpd.GeoDataFrame | None = None,
+                  config: DelineatorConfig | None = None,
                   id: str | int | None = None) -> None:
     """
     Writes the watershed, rivers, and outlets to disk in the specified format.
@@ -175,6 +187,9 @@ def write_outputs(watershed_gdf: gpd.GeoDataFrame | None,
     - parquet: parquet
     - kml: kml
     """
+    if config is None:
+        config = DelineatorConfig()
+
     output_dir = config.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -189,17 +204,6 @@ def write_outputs(watershed_gdf: gpd.GeoDataFrame | None,
     }
 
     suffix = "" if id is None else f"_{id}"
-
-    if config.simplify:
-        watershed_gdf['geometry'] = watershed_gdf.geometry.simplify(
-            tolerance=config.simplify_tolerance,
-            preserve_topology=True
-        )
-        if rivers_gdf is not None:
-            rivers_gdf['geometry'] = rivers_gdf.geometry.simplify(
-                tolerance=config.simplify_tolerance,
-                preserve_topology=True
-            )
 
     # Round coordinates to 6 decimal places
     grid_size = 10 ** -6

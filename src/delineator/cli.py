@@ -4,7 +4,6 @@ import pandas as pd
 import logging
 
 from delineator.core import delineate, downloader
-from delineator.data import _get_data_dir
 from delineator.settings import DelineatorConfig
 from delineator.util import write_outputs
 from delineator.data import _get_data_dir
@@ -39,13 +38,16 @@ def main(point, id, outlets_csv, data_dir, auto_download, high_res, output_dir,
         delineate --point 48.834 2.263
         delineate --csv outlets.csv
     """
+
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
+    logger = logging.getLogger("delineator")
+    logger.addHandler(handler)
+    logger.propagate = False
     if verbose:
-        handler = logging.StreamHandler()
-        handler.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
-        logger = logging.getLogger("delineator")
         logger.setLevel(logging.INFO)
-        logger.addHandler(handler)
-        logger.propagate = False
+    else:
+        logger.setLevel(logging.WARNING)
 
     if outlets_csv and point:
         raise click.UsageError("Specify either --csv or --point, not both.")
@@ -80,8 +82,6 @@ def main(point, id, outlets_csv, data_dir, auto_download, high_res, output_dir,
     }
     if data_dir is not None:
         config_kwargs["data_dir"] = Path(data_dir)
-
-    print(f"Output directory: {output_dir}")
 
     if output_dir is not None:
         config_kwargs["output_dir"] = Path(output_dir)
@@ -154,5 +154,7 @@ def _delineate_dataframe(outlets_df, config: DelineatorConfig):
         lat, lon = row["lat"], row["lon"]
         id = row["id"]
         watershed_gdf, rivers_gdf, outlets_gdf = delineate(lat, lon, config)
-
+        if watershed_gdf is None:
+            logging.warning(f"No watershed found for point {id} ({lat}, {lon}).")
+            continue
         write_outputs(watershed_gdf, rivers_gdf, outlets_gdf, config, id=id)

@@ -5,7 +5,10 @@ build-backend = "hatchling.build"
 [project]
 name = "delineator"
 version = "2.0.0"
-requires-python = ">=3.12"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
 dependencies = [
     "geopandas>=0.13",
     "shapely>=2.0",
@@ -17,7 +20,7 @@ dependencies = [
     "click>=8.0",
     "pooch>=1.7",
     "platformdirs>=3.0",
-    "tqdm>4.67.0",
+    "tqdm>4.67",
 ]
 
 [tool.setuptools.package-data]
@@ -31,3 +34,6 @@ delineator = [
 delineate = "delineator.cli:main"
 delineator_dir = "delineator.cli:delineator_dir"
 delineator_download = "delineator.cli:delineator_download"
+
+[project.urls]
+Homepage = "https://github.com/mheberger/delineator"

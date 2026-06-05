@@ -1,8 +1,8 @@
 import logging
-from pathlib import Path
 from urllib.parse import quote
 import requests
 import pooch
+from pathlib import Path, PurePosixPath
 
 from delineator.constants import HASHES
 from delineator.settings import DelineatorConfig
@@ -15,7 +15,9 @@ BASE_URL = "https://mghydro.com/watersheds/"
 
 def _remote_url(relative_path: str) -> str:
     """Return the full download URL for a data file."""
-    return f"{BASE_URL}{quote(relative_path.replace('\\', '/'))}"
+
+    posix_path = PurePosixPath(Path(relative_path))
+    return f"{BASE_URL}{quote(str(posix_path))}"
 
 
 def _get_remote_file_size(url: str) -> float | None:

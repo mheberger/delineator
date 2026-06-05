@@ -942,14 +942,14 @@ def main():
     # Report how many outlets are already cached
     cached = sum(1 for r in _rows if _is_cached(r["id"]))
 
-    print(f"\n  Batch Watershed Delineator")
-    print(f"  ─────────────────────────────────────────")
+    print("\n  Batch Watershed Delineator")
+    print("  ─────────────────────────────────────────")
     print(f"  CSV:    {_csv_path} ({len(_rows)} outlets)")
     print(f"  Output: {_output_dir.resolve()}")
     if cached:
         print(f"  Cached: {cached} outlet(s) will be skipped")
-    print(f"  Open http://localhost:5001 in your browser")
-    print(f"  Delineation starts automatically.\n")
+    print("  Open http://localhost:5001 in your browser")
+    print("  Delineation starts automatically.\n")
 
     app.run(debug=False, port=5001, threaded=True)
 

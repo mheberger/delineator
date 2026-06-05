@@ -12,7 +12,9 @@ and [MERIT-Basins](https://www.reachhydro.org/home/params/merit-basins).
 
 ## Installation
 
-Requires Python ≥ 3.12. A virtual environment is strongly recommended.
+Requires Python ≥ 3.10. Python 3.11+ is recommended for speed. Also
+recommended to install in a fresh virtual environment to avoid 
+dependency conflicts.
 
 **macOS/Linux:**
 ```bash
@@ -30,26 +32,37 @@ pip install delineator
 
 ## Quick start
 
-The bundled Iceland data lets you run immediately after install; no download required.
+The bundled Iceland data lets you run immediately after install; no separate 
+download required.
 
 **Command line:**
+
 ```bash
-delineate --point 63.938 -21.004          # Ölfusá River at Route 1, Iceland
+delineate --point 63.938 -21.004
+```
+
+This creates the watershed for the Ölfusá River at Route 1 in Iceland.
+Output is written to `./output/watershed.gpkg` in your current directory. 
+To create geodata for the river network and outlet points, run:
+
+```bash
 delineate --point 63.938 -21.004 --rivers --outlets
 ```
 
-Output is written to `./output/watershed.gpkg` in your current directory.
-
 **Python API:**
+
+Alternatively, you can use the `delineate()` function in your 
+own Python scripts or notebooks.
 
 ```python
 from delineator import delineate, write_outputs
 
-# Returns up to three GeoDataFrames: watershed, rivers, outlets
-# Note: latitude comes before longitude
+# The delineate function returns three GeoDataFrames
+# Note the order of latitude, longitude!
 watershed_gdf, rivers_gdf, outlets_gdf = delineate(63.938, -21.004)
 
-# Write all outputs to disk in one call
+# Do whatever you wish with the resulting GeoDataFrames.
+# This utility function will write them to disk in one line. 
 write_outputs(watershed_gdf, rivers_gdf, outlets_gdf, id="olfusa")
 ```
 
@@ -67,14 +80,14 @@ delineate --point 63.938 -21.004
 # Include rivers and outlet points
 delineate --point 63.938 -21.004 --rivers --outlets
 
-# Batch delineation of multiple outlet points in a CSV file
-delineate --csv outlets.csv
-
-# Output format
+# Output different file formats
 delineate --point 63.938 -21.004 --output-format geojson
 delineate --point 63.938 -21.004 --output-format shp
 delineate --point 63.938 -21.004 --output-format kml
 delineate --point 63.938 -21.004 --output-format parquet
+
+# Batch delineation of multiple outlet points in a CSV file
+delineate --csv outlets.csv
 
 # Custom output directory
 delineate --csv outlets.csv --output-dir /path/to/output/
@@ -83,7 +96,8 @@ delineate --csv outlets.csv --output-dir /path/to/output/
 delineate --help
 ```
 
-The CSV file must contain at minimum `id`, `lat`, and `lon` columns:
+The CSV file must contain at minimum `id`, `lat`, and `lon` columns.
+Other columns are OK but will be ignored by the script.
 
 ```
 id,lat,lon,name
@@ -143,8 +157,8 @@ delineator --csv outlets.csv
 
 ## Data
 
-The globe is divided into 59 **megabasins** (integer IDs 11–86, data for Greenland,
-#91, has been omitted):
+The globe is divided into 59 **megabasins** (integer IDs 11–86, data for 
+Greenland, megabasin 91, has been omitted):
 
 ![Megabasins map](docs/megabasins.jpg)
 
@@ -352,4 +366,4 @@ or suggestions, please open an issue or pull request, or drop the author an emai
 
 ## License
 
-[MIT LICENSE](LICENSE.txt).
+[MIT LICENSE](LICENSE).

@@ -4,7 +4,7 @@ All notable changes to this project are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
----
+
 
 ## [2.0.0] — Unreleased
 
@@ -99,7 +99,7 @@ import, and call — while preserving all the core algorithms and data from v1.
 - Coordinate validation now raises clear errors for out-of-range or
   non-finite lat/lon values rather than failing silently downstream.
 
----
+
 
 ## [1.3] — 2023-11-16
 
@@ -107,7 +107,7 @@ import, and call — while preserving all the core algorithms and data from v1.
 
 - Upgraded Python library dependencies.
 
----
+
 
 ## [1.2] — 2023-09-28
 
@@ -122,7 +122,7 @@ import, and call — while preserving all the core algorithms and data from v1.
 - Input shapefiles with missing `.prj` files (introduced in a MERIT-Basins
   upstream bugfix release) are now handled gracefully.
 
----
+
 
 ## [1.1] — 2023-09-21
 
@@ -131,7 +131,7 @@ import, and call — while preserving all the core algorithms and data from v1.
 - Rare bug where the dissolve step produced a `MultiPolygon` instead of
   the expected `Polygon`, causing downstream errors.
 
----
+
 
 ## [1.0] — 2022-11-11
 

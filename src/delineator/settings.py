@@ -37,7 +37,6 @@ def _default_data_dir() -> Path:
 
 def _default_output_dir() -> Path:
     custom = os.environ.get("DELINEATOR_OUTPUT_DIR")
-    print(custom)
     if custom:
         return Path(custom).expanduser()
     output_dir = Path.cwd() / "output"

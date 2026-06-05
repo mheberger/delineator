@@ -20,11 +20,10 @@ def try_one():
     "Delineate a single watershed"
     lat, lng = 48.863, 2.314  # Seine River at the Pont Alexandre III, Paris
 
-    lat, lng = 42.557, 8.788
-
     config = DelineatorConfig(high_res=True,
                               output_format="geojson",
-                              outlets=False  # Skip outlets; will create watershed and rivers only
+                              outlets=False, # Skip outlets; will create watershed and rivers only
+                              simplify=True
                               )
 
     watershed_gdf, rivers_gdf, outlets_gdf = delineate(lat, lng, config)
