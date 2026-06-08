@@ -1,6 +1,5 @@
-from pathlib import Path
-
 from click.testing import CliRunner
+from pathlib import Path
 
 from delineator import DelineatorConfig
 from delineator.cli import delineator_download, main, delineator_dir
@@ -156,3 +155,21 @@ def test_delineator_config_uses_data_dir_environment_variable(monkeypatch, tmp_p
     )
 
     assert config.data_dir == data_dir
+
+def test_cli_csv(tmp_path):
+    runner = CliRunner()
+    output_dir = tmp_path / "env-output"
+
+    result = runner.invoke(
+        main,
+        [
+            "--csv",
+            TESTS_DIR  / "sample_outlets.csv",
+            "--output-dir",
+            str(output_dir),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert output_dir.exists()
+    assert list(output_dir.glob("*.gpkg"))

@@ -15,7 +15,7 @@ from delineator.validation import _validate_and_normalize_df
 @click.option("--id", default=None, help="ID for the watershed (used with --point)")
 @click.option("--csv", "outlets_csv", type=click.Path(exists=True), help="CSV file of outlet points")
 @click.option("--data-dir", default=None, help="Directory for delineator's input data files. ")
-@click.option("--auto-download", is_flag=True, help="Automatically download data files if needed")
+@click.option("--auto-download/--no-downloads", is_flag=True, default=True, help="Automatically download data files if needed")
 @click.option("--high-res/--low-res", default=True, help="In higher-resolution mode, uses raster methods"
                                                          " to find the watershed boundary around the outlet point."
                                                          " In lower-resolution mode, the script runs faster but"

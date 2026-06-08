@@ -77,11 +77,14 @@ def split_catchment(
     # Open the flow direction raster *using windowed reading mode*
     fdir_file = f"raster/flowdir{basin}.tif"
     fdir_path = _find_data_file(fdir_file, config)
-
+    if fdir_path is None:
+        logging.warning(f"Could not load flow direction raster: {fdir_file}")
+        return None, None, None
     logger.info("Loading flow direction raster from: {}".format(fdir_path))
 
     if not os.path.isfile(fdir_path):
-        raise Exception("Could not find flow flow direction raster: {}".format(fdir_path))
+        logging.warning("Could not find flow flow direction raster: {}".format(fdir_path))
+        return None, None, None
 
     # Get the Grid object that matches the flow direction grid, which we
     # can use to rasterize the unit catchment polygon

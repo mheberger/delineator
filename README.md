@@ -207,42 +207,46 @@ watershed_gdf, rivers_gdf, outlets_gdf = delineate(63.938, -21.004, config)
 
 # Config objects are mutable - update and reuse
 config.rivers = False
+config.outlets = False
+config.output_format = "geojson"
 watershed_gdf, _, _ = delineate(63.938, -21.59, config)
 ```
 
 All options with their defaults:
 
-| Option | Default | Description |
-|---|---|---|
-| `high_res` | `True` | Refine the watershed boundary at the outlet using raster methods. More accurate but slower. Set `False` to skip (watershed will include some area downstream of the outlet). |
-| `low_res_threshold` | `6e6` | Area in km² above which the script automatically falls back to low-res mode. The Amazon is ~5.9×10⁶ km². |
-| `fill` | `True` | Fill small interior holes caused by topological gaps in MERIT-Hydro data. |
-| `fill_threshold` | `100` | Maximum hole size to fill, in pixels on the 3″ grid (~90 m/pixel near the equator). Set `0` to fill all holes. |
-| `rivers` | `True` | Include the upstream river network in output. |
-| `num_stream_orders` | `4` | Strahler stream orders to include in river output. Set ≥ 9 for all available reaches. |
-| `outlets` | `True` | Include requested and snapped outlet points in output. |
-| `output_format` | `"gpkg"` | Output format: `gpkg`, `geojson`, `shp`, `kml`, `parquet`, or any GeoPandas-supported driver. |
-| `output_dir` | `./output/` | Directory for output files. |
-| `data_dir` | system default | Override the data cache location. |
-| `search_dist` | `0.1` | Search radius in decimal degrees when the outlet falls outside all unit catchments (~10 km at the equator). Set `0` to require an exact hit. |
-| `simplify` | `False` | Simplify output geometry using Douglas-Peucker. Reduces file size and removes staircase artifacts from raster-origin boundaries. |
-| `simplify_tolerance` | `0.0008` | Tolerance in decimal degrees for simplification (~half a pixel edge length). |
-| `clean` | `False` | Apply a small buffer/unbuffer to repair seam artifacts in the watershed polygon. |
-| `auto_download` | `True` | Automatically download missing data files on first use. |
+| Option               | Default        | Description                                                                                                                                                                  |
+|----------------------|----------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `auto_download`      | `True`         | Automatically download missing data files on first use.                                                                                                                      |
+| `clean`              | `False`        | Apply a small buffer/unbuffer to repair seam artifacts in the watershed polygon.                                                                                             |
+| `data_dir`           | system default | Override the data cache location.                                                                                                                                            |
+| `fill`               | `True`         | Fill small interior holes caused by topological gaps in MERIT-Hydro data.                                                                                                    |
+| `fill_threshold`     | `100`          | Maximum hole size to fill, in pixels on the 3″ grid (~90 m/pixel near the equator). Set `0` to fill all holes.                                                               |
+| `high_res`           | `True`         | Refine the watershed boundary at the outlet using raster methods. More accurate but slower. Set `False` to skip (watershed will include some area downstream of the outlet). |
+| `low_res_threshold`  | `6e6`          | Area in km² above which the script automatically falls back to low-res mode. The Amazon is ~5.9×10⁶ km².                                                                     |
+| `rivers`             | `True`         | Include the upstream river network in output.                                                                                                                                |
+| `num_stream_orders`  | `4`            | The number of Strahler stream orders to include in river network output. Set ≥ 9 for all available reaches.                                                                  |
+| `outlets`            | `True`         | Include requested and snapped outlet points in output.                                                                                                                       |
+| `output_format`      | `gpkg`         | Output format: `gpkg`, `geojson`, `shp`, `kml`, `parquet`, or any GeoPandas-supported driver.                                                                                |
+| `output_dir`         | `./output/`    | Directory for output files.                                                                                                                                                  |
+| `search_dist`        | `0.1`          | Search radius in decimal degrees when the outlet falls outside all unit catchments (~10 km at the equator). Set `0` to require an exact hit.                                 |
+| `simplify`           | `False`        | Simplify output geometry using Douglas-Peucker. Reduces file size and removes staircase artifacts from raster-origin boundaries.                                             |
+| `threshold_single`   | `3000`         | Number of upstream pixels that defines a stream for snapping the outlet, when the outlet is in a unit catchment with no upstream contributing catchments.                    |
+| `threshold_multiple` | `5000`         | Number of upstream pixels that defines a stream for snapping the outlet, when the outlet is in a unit catchment wih upstream contributing catchments.                        |
 
 
 ## Notes on select options
 
 ### Filling holes
 
-Setting `fill=True` removes small interior gaps in the watershed polygon. These 
+Setting `fill=True` removes small interior gaps or "donut holes" in the watershed polygon. These 
 arise from slivers between unit catchments in the source data and are usually unwanted. 
 The `fill_threshold` parameter (in pixels) controls which holes are filled — 
-larger  holes representing genuine endorheic (internally draining) basins can 
+larger holes representing genuine endorheic (internally draining) basins can 
 be preserved by setting a threshold.
 
 For example, the Rio Grande watershed contains a large endorheic basin between 
-the main stem and the Pecos River that should *not* be filled:
+the main stem and the Pecos River that should probably *not* be filled, at least
+for studies of surface drainage:
 
 ![Rio Grande Watershed](docs/rio_grande.jpg)
 
@@ -258,11 +262,27 @@ If the outlet point falls just offshore, in an estuary, or in a gap between unit
 The watershed boundary inherits the staircase pattern of the underlying raster 
 grid (pixel edge length ≈ 0.000833°). Setting `simplify=True` with 
 `simplify_tolerance ≈ 0.0004` or higher removes this artifact and reduces file size.
+The `simplify_tolerance` parameter is equivalent to the threshold for 
+[Douglas-Peucker simplification](https://en.wikipedia.org/wiki/Ramer%E2%80%93Douglas%E2%80%93Peucker_algorithm).
+
+### Thresholds for snapping
+
+The process of "snapping" the outlet point to a river centerline is where 
+watershed delineation becomes both an art and a science. The `threshold_single` 
+and `threshold_multiple` parameters control how many upstream pixels are 
+required to define a stream for snapping the outlet point. The values for these 
+parameters define how many upstream pixels are required to define a stream. 
+
+![Accumulation raster](docs/accum11_screenshot2.jpg)
 
 
-## Examples
 
-The `examples/` directory on the project's GigHub page contains ready-to-run scripts.
+## Example Scripts
+
+The `examples/` directory on the project's GitHub page contains ready-to-run scripts.
+The example scripts show how to use `delineator`and even how to set up a local, 
+web-based point-and-click 
+watershed delineation service similar to [Global Watersheds](https://mghydro.com/watersheds).
 
 ## Output files
 

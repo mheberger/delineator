@@ -4,7 +4,45 @@ All notable changes to this project are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.0.4] - 2026-06-09
 
+## Changed
+
+- Made it the default to download needed data files when using the command-line interface.
+- Detailed raster delineation in `merit_detailed.py` now fails gracefully when the raster is not available
+  and emits a warning instead of raising an error.
+
+## Added
+
+- Added tests for the command-line interface.
+
+## [2.0.3] – First release on PyPI, 2026-06-08
+
+### Changed
+
+- Major updates to `spatial.py` to ensure the use of the R*tree index for
+  spatial lookups.
+- Added the parameters for pour point snapping to the configuration class.
+- Updated the documentation and added a README to the `examples` folder.
+
+
+## [2.0.2] – Released on Test PyPI, 2026-06-07
+
+### Fixed
+
+- Fixed a bug where spatial lookups failed when `spatialite` was not installed
+  on the user's machine by updating the `_find_with_geopandas` function.
+
+## [2.0.1] – Released on Test PyPI on 
+
+### Changed
+
+- Eased requirement to Python 3.10+. Python 3.11+ is still recommended for speed. 
+
+### Fixed
+
+- Made updates to the basins geodata; coastal catchment with `comid = 0`
+  caused the script to hang.
 
 ## [2.0.0] — Unreleased
 
@@ -16,7 +54,7 @@ import, and call, while preserving all the core algorithms and data from v1.
 
 - **pip-installable package** — `pip install delineator`. No more manually
   downloading scripts or editing paths.
-- **Python API** — `delineate(lat, lng, config)` returns up to three
+- **Python API** — `delineate(lat, lng, config)` returns three
   GeoDataFrames (watershed, rivers, outlets) that callers can inspect,
   transform, or persist however they like.
 - **CLI entry point** — `delineate` command with `--point`, `--csv`,
@@ -76,7 +114,7 @@ import, and call, while preserving all the core algorithms and data from v1.
   walked the river network in v1 has been replaced with SQL-based upstream
   queries against the SQLite databases.
 - **Pickle caching removed** — v1 cached GeoDataFrames as `.pkl` files to
-  amortise the cost of reading shapefiles. The SQLite backend is fast
+  amortize the cost of reading shapefiles. The SQLite backend is fast
   enough that this workaround is no longer needed.
 - **Map output removed** — the v1 `MAKE_MAP` option that produced a
   standalone HTML viewer (`.js` + `_viewer.html`) has been removed.
