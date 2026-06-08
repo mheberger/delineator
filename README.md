@@ -338,6 +338,8 @@ MERIT-Hydro does not cover Greenland, Antarctica, or some small islands
 (e.g., Hawaii, the Azores). Delineation will fail silently for outlet points in 
 these areas.
 
+## Algorithm details
+
 `delineator` combines three techniques to achieve speed and low memory use:
 
 1. **Hybrid raster/vector approach**: vector unit catchments handle the bulk of 
@@ -357,7 +359,7 @@ aggregation levels:
 
 ![Nested basins](docs/nested_basins.jpg)
 
-For a full description, see the manuscript: [Fast, accurate watershed delineation 
+For a more detailed description, see the manuscript: [Fast, accurate watershed delineation 
 with a hybrid of raster and vector methods]
 (https://mghydro.com/pages/Heberger_delineation_2025.pdf).
 
