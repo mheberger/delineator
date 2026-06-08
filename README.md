@@ -9,6 +9,19 @@ and [MERIT-Basins](https://www.reachhydro.org/home/params/merit-basins).
 - Bundled sample data for Iceland; other regions download automatically on first use
 - Returns watershed polygon, river network, and outlet points as GeoPandas GeoDataFrames
 
+## Contents
+
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [⚠️ Always review your results](#review-results)
+- [Command line reference](#command-line-reference)
+- [Configuration reference](#configuration-reference)
+- [Data files](#data-files)
+- [Usage examples](#usage-examples)
+- [Algorithm](#algorithm)
+- [Citation](#citation)
+- [Contributing](#contributing)
+
 
 ## Installation
 
@@ -35,7 +48,7 @@ pip install delineator
 The bundled Iceland data lets you run immediately after install; no separate 
 download required.
 
-**Command line:**
+**Command line usage**
 
 ```bash
 delineate --point 63.938 -21.004
@@ -49,7 +62,7 @@ To create geodata for the river network and outlet points, run:
 delineate --point 63.938 -21.004 --rivers --outlets
 ```
 
-**Python API:**
+**Python script usage**
 
 Alternatively, you can use the `delineate()` function in your 
 own Python scripts or notebooks.
@@ -70,6 +83,15 @@ Here is an example of the output displayed in QGIS:
 
 ![Example output](docs/example_output.png)
 
+<a id="review-results"></a>
+## ⚠️ Always review your results
+
+**No automated watershed delineation software can replace human judgment. Always visually inspect every watershed you create with this package — there is no guarantee the output is correct.**
+
+Errors are common and often easy to miss without inspection. The good news is 
+that many mistakes can be fixed by slightly adjusting the outlet coordinates 
+and re-running. An experienced analyst can usually identify and resolve problems 
+quickly, especially with an interactive map display.
 
 ## Command line reference
 
@@ -96,8 +118,8 @@ delineate --csv outlets.csv --output-dir /path/to/output/
 delineate --help
 ```
 
-The CSV file must contain at minimum `id`, `lat`, and `lon` columns.
-Other columns are OK but will be ignored by the script.
+For batch delineation, the CSV file must contain at minimum `id`, `lat`, and `lon` columns.
+Other columns are OK but will be ignored by the script. Example CSV file:
 
 ```
 id,lat,lon,name
@@ -106,7 +128,15 @@ id,lat,lon,name
 6401090,63.93796,-21.00666,Olfusa River at Selfoss
 ```
 
-## Environment variables
+### Output files
+
+When `--output-format gpkg` (the default), all layers are written to a single file 
+(`watershed_<id>.gpkg`) with three layers: `watershed`, `rivers`, and `outlets`. 
+
+For other formats like `shp`, each layer is written to a separate file, for example 
+`rivers.shp`, `outlets.shp`, and `watershed.shp`.
+
+### Environment variables
 
 Instead of passing options to the command line, you can set environment variables
 for the default data directory and the output director. There are three 
@@ -155,42 +185,10 @@ $env:DELINEATOR_AUTO_DOWNLOAD = "false"
 delineator --csv outlets.csv
 ```
 
-## Data
-
-The globe is divided into 59 **megabasins** (integer IDs 11–86, data for 
-Greenland, megabasin 91, has been omitted):
-
-![Megabasins map](docs/megabasins.jpg)
-
-Each megabasin requires four data files (vector catchments, vector rivers, 
-flow-direction raster, accumulation raster). These download automatically 
-on first use and are cached in your system's default data directory:
-
-- **Windows:** `C:\Users\<username>\AppData\Local\delineator`
-- **Linux:** `~/.local/share/delineator`
-- **macOS:** `~/Library/Application Support/delineator`
-
-To pre-download data for a region:
-```bash
-delineator_download --basin 62    # e.g. basin 62 = Amazon
-delineator_dir                    # show the cache location
-```
-
-Some regional datasets are up to 3 GB, so pre-downloading is recommended for 
-large basins.
-
-Override the cache location with an environment variable:
-```bash
-# macOS/Linux
-export DELINEATOR_DATADIR=~/gis/delineator_data
-
-# Windows
-set DELINEATOR_DATADIR=D:\GIS\delineator_data
-```
 
 ## Configuration reference
 
-When using the Python API, options are passed via a `DelineatorConfig` object:
+When using the Python function `delineate()`, options are passed via a `DelineatorConfig` object:
 
 ```python
 from delineator import delineate, DelineatorConfig
@@ -234,9 +232,11 @@ All options with their defaults:
 | `threshold_multiple` | `5000`         | Number of upstream pixels that defines a stream for snapping the outlet, when the outlet is in a unit catchment wih upstream contributing catchments.                        |
 
 
-## Notes on select options
+### Notes on select options
 
-### Filling holes
+
+
+#### Filling holes
 
 Setting `fill=True` removes small interior gaps or "donut holes" in the watershed polygon. These 
 arise from slivers between unit catchments in the source data and are usually unwanted. 
@@ -250,14 +250,14 @@ for studies of surface drainage:
 
 ![Rio Grande Watershed](docs/rio_grande.jpg)
 
-### Search distance
+#### Search distance
 
 If the outlet point falls just offshore, in an estuary, or in a gap between unit
  catchments, `search_dist` controls how far (in decimal degrees) the script 
  searches for the nearest catchment. A value of at least `0.005` is recommended 
  for coastal outlets.
 
-### Simplify
+#### Simplify
 
 The watershed boundary inherits the staircase pattern of the underlying raster 
 grid (pixel edge length ≈ 0.000833°). Setting `simplify=True` with 
@@ -265,7 +265,7 @@ grid (pixel edge length ≈ 0.000833°). Setting `simplify=True` with
 The `simplify_tolerance` parameter is equivalent to the threshold for 
 [Douglas-Peucker simplification](https://en.wikipedia.org/wiki/Ramer%E2%80%93Douglas%E2%80%93Peucker_algorithm).
 
-### Thresholds for snapping
+#### Thresholds for snapping
 
 The process of "snapping" the outlet point to a river centerline is where 
 watershed delineation becomes both an art and a science. The `threshold_single` 
@@ -277,28 +277,52 @@ parameters define how many upstream pixels are required to define a stream.
 
 
 
-## Example Scripts
+## Data files
+
+The `delineator` package comes bundled with data for Iceland. Beyond this, 
+you will need data files for other regions. 
+The globe is divided into 59 **megabasins** (integer IDs 11–86, data for 
+Greenland, megabasin 91, has been omitted):
+
+![Megabasins map](docs/megabasins.jpg)
+
+Each megabasin requires four data files (vector catchments, vector rivers, 
+flow-direction raster, accumulation raster). These download automatically 
+on first use and are saved in your system's default data directory:
+
+- **Windows:** `C:\Users\<username>\AppData\Local\delineator`
+- **Linux:** `~/.local/share/delineator`
+- **macOS:** `~/Library/Application Support/delineator`
+
+To pre-download data for a region:
+```bash
+delineator_download --basin 62    # e.g. basin 62 = Amazon
+delineator_dir                    # show the cache location
+```
+
+You can also download these datasets manually by visiting:
+[https://mghydro.com/watersheds/delineator-data.html](https://mghydro.com/watersheds/delineator-data.html).
+
+Some regional datasets are up to 3 GB, so pre-downloading is recommended for 
+large basins.
+
+Override the default data directory with an environment variable:
+```bash
+# macOS/Linux
+export DELINEATOR_DATADIR=~/gis/delineator_data
+
+# Windows
+set DELINEATOR_DATADIR=D:\GIS\delineator_data
+```
+
+
+## Usage examples
 
 The `examples/` directory on the project's GitHub page contains ready-to-run scripts.
 The example scripts show how to use `delineator`and even how to set up a local, 
 web-based point-and-click 
 watershed delineation service similar to [Global Watersheds](https://mghydro.com/watersheds).
 
-## Output files
-
-In GeoPackage mode (default), all layers are written to a single file 
-(`watershed_<id>.gpkg`) with three layers: `watershed`, `rivers`, and `outlets`. 
-For other formats, each layer is written to a separate file.
-
-
-## ⚠️ Always review your results
-
-**No automated watershed delineation software can replace human judgment. Always visually inspect every watershed you create with this package — there is no guarantee the output is correct.**
-
-Errors are common and often easy to miss without inspection. The good news is 
-that many mistakes can be fixed by slightly adjusting the outlet coordinates 
-and re-running. An experienced analyst can usually identify and resolve problems 
-quickly, especially with an interactive map display.
 
 ### Where delineation is most likely to fail
 
@@ -327,9 +351,9 @@ tributary. This produces a watershed on a completely different branch of the
 river network. Such errors are not correlated with watershed size or geography 
 and can be subtle if you are not looking carefully.
 
-If a result looks wrong, try nudging the outlet coordinates toward the river 
+If the result looks wrong, try nudging the outlet coordinates toward the river 
 centerline and re-running. Overlaying the MERIT-Basins river network on your 
-map makes this much easier. The [`examples/webapp.py`](examples/demo_webapp.py) 
+map makes this much easier. The [`examples/demo_webapp.py`](examples/demo_webapp.py) 
 interactive map is useful for this kind of iterative review.
 
 ### Areas with no data
@@ -338,12 +362,13 @@ MERIT-Hydro does not cover Greenland, Antarctica, or some small islands
 (e.g., Hawaii, the Azores). Delineation will fail silently for outlet points in 
 these areas.
 
-## Algorithm details
+## Algorithm
 
-`delineator` combines three techniques to achieve speed and low memory use:
+The `delineator` combines three techniques to achieve speed and low memory use
+compared to traditional raster watershed delineation methods:
 
 1. **Hybrid raster/vector approach**: vector unit catchments handle the bulk of 
-  the upstream area; raster flow-direction grids refine only the home catchment 
+  the upstream area; raster methods refine only the home catchment 
   around the outlet.
 2. **Hierarchical Spatial Aggregation**: pre-computed nested catchments at five 
   size levels (L0–L4) minimize the number of polygons that must be dissolved at 
@@ -366,7 +391,8 @@ with a hybrid of raster and vector methods]
 
 ## Citation
 
-If you use `delineator` in your research, please cite:
+If you use `delineator` in your research, please cite the project 
+homepage, this GitHub repository. Here's a BibTeX entry:
 
 ```bibtex
 @software{delineator,
@@ -374,7 +400,7 @@ If you use `delineator` in your research, please cite:
   title     = {delineator: Global Watershed Delineation with Python},
   year      = {2026},
   publisher = {GitHub},
-  version   = {2.0.0},
+  version   = {2.0.4},
   url       = {https://github.com/mheberger/delineator}
 }
 ```
@@ -384,8 +410,3 @@ If you use `delineator` in your research, please cite:
 
 This project is open source and welcomes contributions. If you have comments 
 or suggestions, please open an issue or pull request, or drop the author an email.
-
-
-## License
-
-[MIT LICENSE](LICENSE).
