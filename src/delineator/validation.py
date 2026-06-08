@@ -1,5 +1,6 @@
 """
 Validation function for user-supplied CSV files.
+(This is an option with the command line function `delineate --csv outlets.csv`.)
 Ensures that the CSV has the required fields and that the id field is unique.
 """
 

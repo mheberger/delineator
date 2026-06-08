@@ -27,7 +27,7 @@ from delineator.core import delineate
 from delineator.settings import DelineatorConfig
 
 app = Flask(__name__)
-logging.basicConfig(level=logging.CRITICAL)
+logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------

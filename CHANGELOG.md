@@ -10,7 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 Version 2.0 is a major rewrite. The project has been restructured from a
 collection of scripts you edit and run into a proper Python package you install,
-import, and call — while preserving all the core algorithms and data from v1.
+import, and call, while preserving all the core algorithms and data from v1.
 
 ### Added
 
@@ -143,7 +143,7 @@ Initial release.
   upstream area; `pysheds` raster flow-direction for the terminal catchment.
 - High-resolution and low-resolution modes.
 - Output to GeoPackage, GeoJSON, or Shapefile via GeoPandas.
-- Optional interactive HTML map viewer (`MAKE_MAP`).
+- Optional interactive HTML map viewer (`MAKE_MAP` in `config.py`).
 - Sample data for Iceland bundled in the repository.
 - Configuration via `config.py`.
 

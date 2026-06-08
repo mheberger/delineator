@@ -82,8 +82,9 @@ class DelineatorConfig:
 
     fill_threshold : int
         Only meaningful if fill=True. Holes smaller than this number of pixels
-        (on the 3 arcsecond grid) will be filled. Larger holes are preserved.
-        Set to 0 to fill all holes regardless of size. Default is 100 pixels.
+        (on the 3 arcsecond grid) will be filled. For example, enter 100 to fill
+        holes smaller than 100 pixels in size. Holes larger than this will
+        be preserved. Set to 0 to fill all holes. Default is 0.
 
     low_res_threshold : float
         Watershed area in km² above which the script will automatically switch to
@@ -126,13 +127,28 @@ class DelineatorConfig:
         With the Douglas-Peucker algorithm, the tolerance value is the maximum
         distance (in decimal degrees) that a vertex can be from the original.
 
+    threshold_single : int
+        Threshold for number of upstream pixels that defines a stream for
+        purposes of snapping the outlet to a river centerline. The script
+        uses the `threshold_single` value when the outlet falls within a
+        unit catchment with no upstream contributing catchments. A default
+        value of 300 - 500 worked well in my testing.
+
+    threshold_multi : int
+        Threshold for number of upstream pixels that defines a stream for
+        snapping the outlet to a river centerline. The script uses the
+        `threshold_multi` value when the outlet falls within a unit catchment
+        that has upstream contributing catchments. A default value of 5000 or
+        higher will typically force the outlet to be snapped to a larger river,
+        i.e. one with a larger upstream area.
+
     """
 
     auto_download: bool = field(default_factory=_default_auto_download)
     clean: bool = False
     data_dir: Path | str = field(default_factory=_default_data_dir)
     fill: bool = True
-    fill_threshold: int = 100
+    fill_threshold: int = 0
     high_res: bool = True
     low_res_threshold: float = 6e6
     num_stream_orders: int = 4
@@ -143,6 +159,8 @@ class DelineatorConfig:
     search_dist: float = 0.1
     simplify: bool = False
     simplify_tolerance: float = 0.0008
+    threshold_single: int = 300
+    threshold_multi: int = 5000
 
     def __post_init__(self) -> None:
         self.data_dir = self._coerce_path(self.data_dir, "data_dir")

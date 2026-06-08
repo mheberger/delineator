@@ -16,6 +16,11 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.CRITICAL)
 
 
+def tryme():
+    w, r, o = delineate(63.938, -21.004)
+    write_outputs(w, r, o)
+
+
 def try_one():
     "Delineate a single watershed"
     lat, lng = 48.863, 2.314  # Seine River at the Pont Alexandre III, Paris
@@ -89,7 +94,8 @@ def try_downloader():
 
 
 if __name__ == "__main__":
-    try_one()
+    #tryme()
+    #try_one()
     #try_downloader()
-    #try_several()
+    try_several()
     #try_csv()

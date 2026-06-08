@@ -7,29 +7,38 @@ Version 2.0 of `delineator` Global Watershed Delineation with Python
 
 import logging
 from pathlib import Path
-
 import geopandas as gpd
 from shapely.ops import unary_union
 from shapely.geometry import Point
 import sqlite3
-from typing import Tuple
 
-from delineator.constants import MEGABASINS_DB_FILE, VALID_MEGABASINS
+from delineator.constants import (
+    MEGABASINS_DB_FILE,
+    VALID_MEGABASINS,
+    USE_SPATIALITE,
+    PIXEL_AREA,
+)
 from delineator.data import _find_data_file
 from delineator.util import _validate_outlet_coordinates, _close_holes, _get_polygon_area
-
-from delineator.spatial import point_in_polygon_analysis
+from delineator.spatial import _point_in_polygon_analysis
 from delineator.queries import get_upstream_comids, get_home_unit_catchment_geom_and_area, get_hiearchical_basins, \
     get_upstream_geometries, get_rivers, get_upstream_area
 from delineator.merit_detailed import split_catchment
 from delineator.settings import DelineatorConfig
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.WARNING)
 
 
-def delineate(lat: float, lng: float, config: DelineatorConfig|None = None) -> Tuple[
-    gpd.GeoDataFrame | None, gpd.GeoDataFrame | None, gpd.GeoDataFrame | None]:
+def delineate(
+    lat: float,
+    lng: float,
+    config: DelineatorConfig | None = None
+) -> tuple[
+    gpd.GeoDataFrame | None,  # watershed
+    gpd.GeoDataFrame | None,  # rivers
+    gpd.GeoDataFrame | None,  # outlets
+]:
     """
     Main watershed delineation routine.
 
@@ -42,13 +51,14 @@ def delineate(lat: float, lng: float, config: DelineatorConfig|None = None) -> T
 
     Returns
     -------
-    up to 3 GeoPandas GeoDataFrames:
-        watershed
-        rivers
-        outlets
+    3 GeoPandas GeoDataFrames:
+        - watershed
+        - rivers
+        - outlets
 
     If any of these cannot be produced, they will be None.
-    Will print a warning if the watershed cannot be created.
+    This function will log a warning if the watershed cannot be created
+    but will not raise an error.
     """
     if config is None:
         config = DelineatorConfig()
@@ -65,8 +75,9 @@ def delineate(lat: float, lng: float, config: DelineatorConfig|None = None) -> T
 
     # Step 2: Determine the megabasin
     requested_outlet = Point(lng, lat)
-    megabasin = point_in_polygon_analysis(megabasins_db_conn, requested_outlet, table='megabasins', geom_col='geometry',
-                                          id_col='basin', search_dist=config.search_dist)
+    megabasin = _point_in_polygon_analysis(megabasins_db_conn, requested_outlet, table='megabasins',
+                                           geom_col='geometry', id_col='basin', use_spatialite=USE_SPATIALITE,
+                                           search_dist=config.search_dist)
     if megabasin is None:
         logger.warning(
             "The requested outlet is not in any megabasin. Check that it is over land. Maybe you flipped the lat/lng?")
@@ -78,7 +89,8 @@ def delineate(lat: float, lng: float, config: DelineatorConfig|None = None) -> T
     basins_db_file = f'vector/basins{megabasin}.db'
     basins_db_path = _find_data_file(basins_db_file, config)
     basins_db_conn = sqlite3.connect(basins_db_path)
-    home_unit_catchment = point_in_polygon_analysis(basins_db_conn, requested_outlet)
+    home_unit_catchment = _point_in_polygon_analysis(basins_db_conn, requested_outlet, table='l0_basins',
+                                                     id_col='comid', use_spatialite=USE_SPATIALITE)
 
     # If the outlet is not in any unit catchment, return None
     if home_unit_catchment is None:
@@ -143,7 +155,7 @@ def delineate(lat: float, lng: float, config: DelineatorConfig|None = None) -> T
         watershed_polygon = unary_union(upstream_polygons)
 
         if config.fill:
-            watershed_polygon = _close_holes(watershed_polygon, config.fill_threshold)
+            watershed_polygon = _close_holes(watershed_polygon, config.fill_threshold * PIXEL_AREA)
 
         watershed_gdf = gpd.GeoDataFrame(geometry=[watershed_polygon], crs='epsg:4326')
         
@@ -160,7 +172,8 @@ def delineate(lat: float, lng: float, config: DelineatorConfig|None = None) -> T
 
     # Step 7.5: optionally clean and simplify the watershed
     if config.simplify:
-        watershed_gdf.geometry = watershed_gdf.geometry.simplify(tolerance=config.simplify_tolerance, preserve_topology=True)
+        watershed_gdf.geometry = watershed_gdf.geometry.simplify(
+            tolerance=config.simplify_tolerance, preserve_topology=True)
 
     if config.clean:
         watershed_gdf.geometry = watershed_gdf.geometry.buffer(0.0001).buffer(-0.0001)
@@ -169,6 +182,9 @@ def delineate(lat: float, lng: float, config: DelineatorConfig|None = None) -> T
     if config.rivers:
         logger.info("Getting rivers")
         rivers_gdf = get_rivers(upstream_unit_catchments, split_catchment_polygon, config)
+        if config.simplify:
+            rivers_gdf.geometry = rivers_gdf.geometry.simplify(
+                tolerance=config.simplify_tolerance, preserve_topology=True)
     else:
         rivers_gdf = None
 

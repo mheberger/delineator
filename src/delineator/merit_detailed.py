@@ -10,7 +10,7 @@ from pysheds.grid import Grid
 from shapely.geometry import Polygon, MultiPolygon
 from shapely import wkb, ops
 
-from delineator.constants import THRESHOLD_SINGLE, THRESHOLD_MULTIPLE, HALF_PIXEL, DIRMAP
+from delineator.constants import HALF_PIXEL, DIRMAP
 from delineator.data import _find_data_file
 from delineator.settings import DelineatorConfig
 from delineator.util import _close_holes
@@ -127,11 +127,11 @@ def split_catchment(
 
     # Snap the outlet to the nearest stream.
     if bSingleCatchment:
-        numpixels = THRESHOLD_SINGLE
+        numpixels = config.threshold_single
     else:
         # Case where there are 2 or more unit catchments in the watershed
         # setting this value too low causes incorrect results and weird topology problems in the output
-        numpixels = THRESHOLD_MULTIPLE
+        numpixels = config.threshold_multi
 
     logger.info("Using threshold of {} for number of upstream pixels.".format(numpixels))
 
