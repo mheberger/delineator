@@ -9,6 +9,8 @@ from delineator.util import write_outputs
 from delineator.data import _get_data_dir
 from delineator.validation import _validate_and_normalize_df
 
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.WARNING)
 
 @click.command()
 @click.option("--point", nargs=2, type=float, metavar="LAT LON", help="Single outlet point")
@@ -139,7 +141,7 @@ def _delineate_dataframe(outlets_df, config: DelineatorConfig):
 
     Parameters
     ----------
-    outlets_df : DataFrame
+    outlets_df : pandas DataFrame
         DataFrame containing the outlet points. Must have columns "lat", "lon", and "id".
 
     config : DelineatorConfig

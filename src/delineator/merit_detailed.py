@@ -118,6 +118,9 @@ def split_catchment(
     # Open the accumulation raster, again using windowed reading mode.
     accum_file = f'raster/accum{basin}.tif'
     accum_path = _find_data_file(accum_file, config)
+    if accum_path is None:
+        logging.warning(f"Could not load accumulation raster: {accum_file}")
+        return None, None, None
 
     if not os.path.isfile(accum_path):
         raise Exception("Could not find accumulation raster: {}".format(accum_path))

@@ -13,16 +13,17 @@ and [MERIT-Basins](https://www.reachhydro.org/home/params/merit-basins).
 
 - [Installation](#installation)
 - [Quick Start](#quick-start)
-- [⚠️ Always review your results](#review-results)
 - [Command line reference](#command-line-reference)
 - [Configuration reference](#configuration-reference)
 - [Data files](#data-files)
+- [⚠️ Always review your results](#review-results)
 - [Usage examples](#usage-examples)
 - [Algorithm](#algorithm)
 - [Citation](#citation)
 - [Contributing](#contributing)
 
 
+<a id="installation"></a>
 ## Installation
 
 Requires Python ≥ 3.10. Python 3.11+ is recommended for speed. Also
@@ -43,9 +44,10 @@ venv\Scripts\activate
 pip install delineator
 ```
 
+<a id="quick-start"></a>
 ## Quick start
 
-The bundled Iceland data lets you run immediately after install; no separate 
+The bundled Iceland data lets you run immediately after installation; no separate 
 download required.
 
 **Command line usage**
@@ -83,16 +85,7 @@ Here is an example of the output displayed in QGIS:
 
 ![Example output](docs/example_output.png)
 
-<a id="review-results"></a>
-## ⚠️ Always review your results
-
-**No automated watershed delineation software can replace human judgment. Always visually inspect every watershed you create with this package — there is no guarantee the output is correct.**
-
-Errors are common and often easy to miss without inspection. The good news is 
-that many mistakes can be fixed by slightly adjusting the outlet coordinates 
-and re-running. An experienced analyst can usually identify and resolve problems 
-quickly, especially with an interactive map display.
-
+<a id="command-line-reference"></a>
 ## Command line reference
 
 ```bash
@@ -185,10 +178,11 @@ $env:DELINEATOR_AUTO_DOWNLOAD = "false"
 delineator --csv outlets.csv
 ```
 
-
+<a id="configuration-reference"></a>
 ## Configuration reference
 
-When using the Python function `delineate()`, options are passed via a `DelineatorConfig` object:
+When using the Python function `delineate()`, options are passed via a 
+`DelineatorConfig` object:
 
 ```python
 from delineator import delineate, DelineatorConfig
@@ -276,7 +270,7 @@ parameters define how many upstream pixels are required to define a stream.
 ![Accumulation raster](docs/accum11_screenshot2.jpg)
 
 
-
+<a id="data-files"></a>
 ## Data files
 
 The `delineator` package comes bundled with data for Iceland. Beyond this, 
@@ -316,17 +310,19 @@ set DELINEATOR_DATADIR=D:\GIS\delineator_data
 ```
 
 
-## Usage examples
+<a id="review-results"></a>
+## ⚠️ Always review your results
 
-The `examples/` directory on the project's GitHub page contains ready-to-run scripts.
-The example scripts show how to use `delineator`and even how to set up a local, 
-web-based point-and-click 
-watershed delineation service similar to [Global Watersheds](https://mghydro.com/watersheds).
+**No automated watershed delineation software can replace human judgment. Always visually inspect every watershed you create with this package — there is no guarantee the output is correct.**
 
+Errors are common and often easy to miss without inspection. The good news is 
+that many mistakes can be fixed by slightly adjusting the outlet coordinates 
+and re-running. An experienced analyst can usually identify and resolve problems 
+quickly, especially with an interactive map display.
 
 ### Where delineation is most likely to fail
 
-Certain landscapes are inherently difficult for any automated tool:
+Certain landscapes are inherently challenging for any automated tool:
 
 - **Flat terrain** — where flow direction is ambiguous. Examples: Florida, 
   the Netherlands, the Ganges-Brahmaputra Delta.
@@ -362,6 +358,17 @@ MERIT-Hydro does not cover Greenland, Antarctica, or some small islands
 (e.g., Hawaii, the Azores). Delineation will fail silently for outlet points in 
 these areas.
 
+
+<a id="usage-examples"></a>
+## Usage examples
+
+The `examples/` directory on the project's GitHub page contains ready-to-run scripts.
+The example scripts show how to use `delineator`and even how to set up a local, 
+web-based point-and-click 
+watershed delineation service similar to [Global Watersheds](https://mghydro.com/watersheds).
+
+
+<a id="algorithm"></a>
 ## Algorithm
 
 The `delineator` combines three techniques to achieve speed and low memory use
@@ -389,6 +396,7 @@ with a hybrid of raster and vector methods]
 (https://mghydro.com/pages/Heberger_delineation_2025.pdf).
 
 
+<a id="citation"></a>
 ## Citation
 
 If you use `delineator` in your research, please cite the project 
@@ -405,8 +413,8 @@ homepage, this GitHub repository. Here's a BibTeX entry:
 }
 ```
 
-
+<a id="contributing"></a>
 ## Contributing
 
 This project is open source and welcomes contributions. If you have comments 
-or suggestions, please open an issue or pull request, or drop the author an email.
+or suggestions, please open an issue or drop the author an email.

@@ -49,7 +49,7 @@ def _find_data_file(relative_path: str, config: DelineatorConfig) -> Path | None
         logger.warning(
             f"Data file not found: {relative_path}\n"
             f"and could not be downloaded."
-            f"Run 'download_data --basin ##' to fetch required data files, "
+            f"Run 'delineator_download --basin ##' to fetch required data files, "
             f"or check your data directory: {config.data_dir}"
         )
         return None
