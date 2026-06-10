@@ -209,6 +209,7 @@ All options with their defaults:
 | Option               | Default        | Description                                                                                                                                                                  |
 |----------------------|----------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `auto_download`      | `True`         | Automatically download missing data files on first use.                                                                                                                      |
+ | `calc_area`         | `True`         | Calculate the watershed area in km² and add to output geodata attribute table |
 | `clean`              | `False`        | Apply a small buffer/unbuffer to repair seam artifacts in the watershed polygon.                                                                                             |
 | `data_dir`           | system default | Override the data cache location.                                                                                                                                            |
 | `fill`               | `True`         | Fill small interior holes caused by topological gaps in MERIT-Hydro data.                                                                                                    |
@@ -224,10 +225,10 @@ All options with their defaults:
 | `simplify`           | `False`        | Simplify output geometry using Douglas-Peucker. Reduces file size and removes staircase artifacts from raster-origin boundaries.                                             |
 | `threshold_single`   | `3000`         | Number of upstream pixels that defines a stream for snapping the outlet, when the outlet is in a unit catchment with no upstream contributing catchments.                    |
 | `threshold_multiple` | `5000`         | Number of upstream pixels that defines a stream for snapping the outlet, when the outlet is in a unit catchment wih upstream contributing catchments.                        |
+| `verbose`            | `False`        | Print messages to the console to monitor the script's progress. |
 
 
 ### Notes on select options
-
 
 
 #### Filling holes
@@ -244,12 +245,14 @@ for studies of surface drainage:
 
 ![Rio Grande Watershed](docs/rio_grande.jpg)
 
+
 #### Search distance
 
 If the outlet point falls just offshore, in an estuary, or in a gap between unit
  catchments, `search_dist` controls how far (in decimal degrees) the script 
  searches for the nearest catchment. A value of at least `0.005` is recommended 
  for coastal outlets.
+
 
 #### Simplify
 
@@ -258,6 +261,7 @@ grid (pixel edge length ≈ 0.000833°). Setting `simplify=True` with
 `simplify_tolerance ≈ 0.0004` or higher removes this artifact and reduces file size.
 The `simplify_tolerance` parameter is equivalent to the threshold for 
 [Douglas-Peucker simplification](https://en.wikipedia.org/wiki/Ramer%E2%80%93Douglas%E2%80%93Peucker_algorithm).
+
 
 #### Thresholds for snapping
 
@@ -408,7 +412,7 @@ homepage, this GitHub repository. Here's a BibTeX entry:
   title     = {delineator: Global Watershed Delineation with Python},
   year      = {2026},
   publisher = {GitHub},
-  version   = {2.0.5},
+  version   = {2.0},
   url       = {https://github.com/mheberger/delineator}
 }
 ```
