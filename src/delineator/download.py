@@ -7,7 +7,6 @@ from pathlib import Path, PurePosixPath
 from delineator.constants import HASHES
 from delineator.settings import DelineatorConfig
 
-
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://mghydro.com/watersheds/"

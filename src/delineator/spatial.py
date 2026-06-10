@@ -415,7 +415,7 @@ def _point_in_polygon_analysis(
     id_col: str = "comid",
     scan_threshold: int = 50_000,
     use_spatialite: bool = True,
-    search_dist: float | None = None,
+    search_dist: float = 0.1,
 ) -> int | str | None:
     """
     Return the ID of the unit catchment that contains *point*.

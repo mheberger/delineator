@@ -56,6 +56,10 @@ class DelineatorConfig:
         watershed delineation. You can also manually download the data files,
         see documentation for download_data().
 
+    calc_area : bool
+        If True, the script will calculate the area of the watershed.
+        Setting it to False will save a small amount of time.
+
     clean : bool
         If True, the watershed boundary polygon will be "cleaned"
         which repairs artifacts such as seams that affect
@@ -142,9 +146,15 @@ class DelineatorConfig:
         higher will typically force the outlet to be snapped to a larger river,
         i.e. one with a larger upstream area.
 
+    verbose: bool
+        Set verbose=True to see messages about the progress of the script.
+        This is equivalent to setting the loggin level to "INFO" using
+        the `logging` module.
+
     """
 
     auto_download: bool = field(default_factory=_default_auto_download)
+    calc_area: bool = True
     clean: bool = False
     data_dir: Path | str = field(default_factory=_default_data_dir)
     fill: bool = True
@@ -161,6 +171,7 @@ class DelineatorConfig:
     simplify_tolerance: float = 0.0008
     threshold_single: int = 300
     threshold_multi: int = 5000
+    verbose: bool = False
 
     def __post_init__(self) -> None:
         self.data_dir = self._coerce_path(self.data_dir, "data_dir")

@@ -220,10 +220,12 @@ def write_outputs(watershed_gdf: gpd.GeoDataFrame | None,
     if output_format in {"parquet", "geoparquet"}:
         for layer_name, gdf in layers.items():
             if gdf is not None:
+                fname = output_dir / f"{layer_name}{suffix}.parquet",
                 gdf.to_parquet(
-                    output_dir / f"{layer_name}{suffix}.parquet",
+                    fname,
                     index=False,
                 )
+                print(f"Wrote {fname}")
         return
 
     if output_format == "gpkg":
@@ -238,10 +240,12 @@ def write_outputs(watershed_gdf: gpd.GeoDataFrame | None,
                     encoding="utf-8",
                     index=False,
                 )
+        print(f"Wrote {output_path}")
         return
 
     driver = drivers.get(output_format)
 
+    # All other formats (SHP, GeoJSON, KML)
     for layer_name, gdf in layers.items():
         if gdf is None:
             continue
@@ -262,4 +266,4 @@ def write_outputs(watershed_gdf: gpd.GeoDataFrame | None,
 
         gdf.to_file(**write_kwargs)
 
-        logging.info(f"Wrote {output_path}")
+        print(f"Wrote {output_path}")

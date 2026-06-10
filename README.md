@@ -408,7 +408,7 @@ homepage, this GitHub repository. Here's a BibTeX entry:
   title     = {delineator: Global Watershed Delineation with Python},
   year      = {2026},
   publisher = {GitHub},
-  version   = {2.0.4},
+  version   = {2.0.5},
   url       = {https://github.com/mheberger/delineator}
 }
 ```

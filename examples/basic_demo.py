@@ -12,12 +12,13 @@ from delineator.core import delineate, downloader
 from delineator.settings import DelineatorConfig
 from delineator.util import write_outputs
 
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.CRITICAL)
-
 
 def tryme():
-    w, r, o = delineate(63.938, -21.004)
+    config = DelineatorConfig(
+        calc_area=False,
+        data_dir=r"C:\Users\mheberger\Documents\watershed_app\static"
+    )
+    w, r, o = delineate(17.03333333, 18.67333334, config)
     write_outputs(w, r, o)
 
 
@@ -94,8 +95,8 @@ def try_downloader():
 
 
 if __name__ == "__main__":
-    #tryme()
+    tryme()
     #try_one()
     #try_downloader()
-    try_several()
+    #try_several()
     #try_csv()

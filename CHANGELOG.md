@@ -4,11 +4,18 @@ All notable changes to this project are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [2.0.4] - 2026-06-09
+## [2.0.5] - 2026-06-08
 
-## Changed
+### Fixed
 
-- Made it the default to download needed data files when using the command-line interface.
+- Fixed bug where `split_catchment()` fails when raster data not found. 
+  Now fails more gracefully -- logs a warning and returns `None`.
+
+## [2.0.4] - 2026-06-08
+
+### Changed
+
+- Made it the default to download necessary data files when using the command-line interface.
 - Detailed raster delineation in `merit_detailed.py` now fails gracefully when the raster is not available
   and emits a warning instead of raising an error.
 
@@ -16,7 +23,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Added tests for the command-line interface.
 
-## [2.0.3] – First release on PyPI, 2026-06-08
+## [2.0.3] – First release on PyPI, 2026-06-06
 
 ### Changed
 

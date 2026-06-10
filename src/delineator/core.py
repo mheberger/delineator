@@ -27,8 +27,6 @@ from delineator.merit_detailed import split_catchment
 from delineator.settings import DelineatorConfig
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.WARNING)
-
 
 def delineate(
     lat: float,
@@ -63,6 +61,9 @@ def delineate(
     if config is None:
         config = DelineatorConfig()
 
+    if config.verbose:
+        logging.getLogger("delineator").setLevel(logging.INFO)
+
     # Set up database connection
     megabasins_db_conn = sqlite3.connect(MEGABASINS_DB_FILE)
 
@@ -72,6 +73,8 @@ def delineate(
     except Exception as e:
         logger.warning(f"ERROR: Invalid coordinates: {e}")
         return None, None, None
+
+    print(f"Delineating watershed for outlet: {lat}, {lng}")
 
     # Step 2: Determine the megabasin
     requested_outlet = Point(lng, lat)
@@ -90,7 +93,7 @@ def delineate(
     basins_db_path = _find_data_file(basins_db_file, config)
     basins_db_conn = sqlite3.connect(basins_db_path)
     home_unit_catchment = _point_in_polygon_analysis(basins_db_conn, requested_outlet, table='l0_basins',
-                                                     id_col='comid', use_spatialite=USE_SPATIALITE)
+                                                     id_col='comid', use_spatialite=USE_SPATIALITE, search_dist=config.search_dist)
 
     # If the outlet is not in any unit catchment, return None
     if home_unit_catchment is None:
@@ -123,7 +126,8 @@ def delineate(
         if split_catchment_polygon is None:
             return None, None, None
 
-        split_catchment_area = _get_polygon_area(split_catchment_polygon)
+        if config.calc_area:
+            split_catchment_area = _get_polygon_area(split_catchment_polygon)
 
     else:
         split_catchment_polygon = None
@@ -163,12 +167,13 @@ def delineate(
         watershed_gdf["outlet_lng"] = round(lon_snapped, 4)
 
     # Calculate the area of the watershed
-    if config.high_res:
-        watershed_area = upstream_area + split_catchment_area
-    else:
-        watershed_area = upstream_area + home_catchment_area
+    if config.calc_area:
+        if config.high_res:
+            watershed_area = upstream_area + split_catchment_area
+        else:
+            watershed_area = upstream_area + home_catchment_area
 
-    watershed_gdf["area_km2"] = round(watershed_area, 1)
+        watershed_gdf["area_km2"] = round(watershed_area, 1)
 
     # Step 7.5: optionally clean and simplify the watershed
     if config.simplify:

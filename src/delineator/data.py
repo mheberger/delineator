@@ -8,8 +8,6 @@ from delineator.download import _download_file
 from delineator.settings import DelineatorConfig
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
-
 
 def _find_data_file(relative_path: str, config: DelineatorConfig) -> Path | None:
     """
