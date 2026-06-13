@@ -4,6 +4,22 @@ All notable changes to this project are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.0.6] - 2026-06-10
+
+### Fixed
+
+- Made logging behavior consistent across all modules, and 
+  more consistent with Python standards. Now shows warnings
+  and critical errors in the console.
+
+### Added
+
+- Added new options to the configuration class: `verbose` 
+  will show more detailed information in the console as
+  the script runs and `calc_area` gives the option to 
+  turn off the area calculation if it is not needed
+  (default is True, and area calculation is still done).
+
 ## [2.0.5] - 2026-06-08
 
 ### Fixed
