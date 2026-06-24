@@ -14,22 +14,23 @@ from delineator.util import write_outputs
 
 
 def tryme():
-    config = DelineatorConfig(
-        calc_area=False,
-        data_dir=r"C:\Users\mheberger\Documents\watershed_app\static"
-    )
-    w, r, o = delineate(17.03333333, 18.67333334, config)
+    config = DelineatorConfig(verbose=True)
+    #w, r, o = delineate(44.705, 4.206, config)
+    #w, r, o = delineate(63.938, -21.004, config)
+    w, r, o = delineate(-0.854, 41.350, config)
+
     write_outputs(w, r, o)
 
 
 def try_one():
-    "Delineate a single watershed"
+    # Delineate a single watershed
     lat, lng = 48.863, 2.314  # Seine River at the Pont Alexandre III, Paris
 
     config = DelineatorConfig(high_res=True,
                               output_format="geojson",
                               outlets=False, # Skip outlets; will create watershed and rivers only
-                              simplify=True
+                              simplify=True,
+                              verbose=True
                               )
 
     watershed_gdf, rivers_gdf, outlets_gdf = delineate(lat, lng, config)
@@ -95,6 +96,7 @@ def try_downloader():
 
 
 if __name__ == "__main__":
+
     tryme()
     #try_one()
     #try_downloader()

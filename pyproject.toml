@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "delineator"
 description = "Global watershed delineation with MERIT-Hydro and MERIT-Basins data"
-version = "2.0.6"
+version = "2.1.0"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -14,7 +14,8 @@ authors = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "geopandas>=0.13",
+    "geopandas>=1.0",
+    "pyogrio>=0.7",
     "shapely>=2.0",
     "pandas>=2.0",
     "numpy>=1.24",

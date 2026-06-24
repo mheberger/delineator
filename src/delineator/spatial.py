@@ -7,14 +7,13 @@ a database-side, index-accelerated query.  Otherwise the lookup falls back to
 GeoPandas, which uses the same R*Tree spatial index when one is present.
 """
 
-
 import logging
 import numbers
 import sqlite3
 import warnings
-
 import geopandas as gpd
 from shapely.geometry import Point
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -285,7 +284,9 @@ def _containing_id(gdf, point: Point, index_col: str):
     """Exact containment test on a loaded GeoDataFrame; returns a Python scalar."""
     if gdf.empty:
         return None
+
     gdf = gdf.set_index(index_col)
+
     matches = gdf[gdf.geometry.contains(point)]
     if matches.empty:
         return None
@@ -470,6 +471,8 @@ def _point_in_polygon_analysis(
     If more than one polygon contains the point (overlapping geometries) the
     first match is returned.
     """
+    start = time.perf_counter()
+
     # ── SpatiaLite path ───────────
     if use_spatialite:
         try:
@@ -482,6 +485,10 @@ def _point_in_polygon_analysis(
             return _find_with_spatialite(conn, point, table, geom_col, id_col, search_dist)
 
     # ── GeoPandas / GDAL path ─────
-    return _find_with_geopandas(
+    result = _find_with_geopandas(
         conn, point, table, geom_col, id_col, scan_threshold, search_dist
     )
+
+    print(f"Point in Polygon time: {time.perf_counter() - start:.4f} s")
+
+    return result

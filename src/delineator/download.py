@@ -4,12 +4,17 @@ import requests
 import pooch
 from pathlib import Path, PurePosixPath
 
-from delineator.constants import HASHES
+from delineator.constants import HASHES, DATA_VERSION
 from delineator.settings import DelineatorConfig
+
 
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://mghydro.com/watersheds/"
+
+
+def _local_path(relative_path: str, config: DelineatorConfig) -> Path:
+    return config.data_dir / DATA_VERSION / relative_path
 
 
 def _remote_url(relative_path: str) -> str:

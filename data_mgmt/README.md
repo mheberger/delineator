@@ -43,5 +43,15 @@ is to put the data into a spatialite-enabled sql database.
 
 5. Load the rivers to a spatialite database
 
+
+6. Load the megabasins to a spatialite database
+
+
+7. Create extra database indices
+
+8. Make the SHA-256 hashes for the files
+
+
+
 The rivers geodata is where we have the
 

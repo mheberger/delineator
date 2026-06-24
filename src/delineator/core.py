@@ -28,6 +28,7 @@ from delineator.settings import DelineatorConfig
 
 logger = logging.getLogger(__name__)
 
+
 def delineate(
     lat: float,
     lng: float,
@@ -181,6 +182,7 @@ def delineate(
             tolerance=config.simplify_tolerance, preserve_topology=True)
 
     if config.clean:
+        # This is a bit hack-ish, but it seems to work to remove "seams"
         watershed_gdf.geometry = watershed_gdf.geometry.buffer(0.0001).buffer(-0.0001)
 
     # Step 8: Get the rivers if requested by the user

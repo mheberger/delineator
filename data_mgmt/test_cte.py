@@ -27,7 +27,7 @@ con = sqlite3.connect(DB_PATH)
 cur = con.cursor()
 
 # Query #1, gets a complete list of upstream basins comids
-sql = f"""
+sql = """
 WITH RECURSIVE upstream(comid) AS (
     SELECT comid FROM l0_basins WHERE comid = ?
     UNION ALL

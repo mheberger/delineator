@@ -4,10 +4,50 @@ import logging
 from pathlib import Path
 from platformdirs import user_data_dir
 
-from delineator.download import _download_file
+from delineator.download import _download_file, _local_path
 from delineator.settings import DelineatorConfig
+import shutil
+from delineator.constants import DATA_VERSION
 
 logger = logging.getLogger(__name__)
+
+_MIGRATION_DONE = False          # in-process guard
+_LEGACY_DIRS = ("vector", "raster")
+_MARKER_NAME = ".data_version"
+
+
+def _migrate_data_dir(config) -> None:
+    """Purge stale data when DATA_VERSION has changed. Idempotent & cheap."""
+    global _MIGRATION_DONE
+    if _MIGRATION_DONE:
+        return
+
+    base = config.data_dir       # already mkdir'd by _get_data_dir()
+    marker = base / _MARKER_NAME
+
+    try:
+        current = marker.read_text().strip()
+    except (FileNotFoundError, OSError):
+        current = None
+
+    if current == DATA_VERSION:
+        _MIGRATION_DONE = True
+        return
+
+    for child in base.iterdir():
+        if child.name == _MARKER_NAME:
+            continue
+        if child.name in _LEGACY_DIRS or (child.is_dir() and child.name != DATA_VERSION):
+            logger.info("Removing stale delineator data: %s", child)
+            shutil.rmtree(child, ignore_errors=True)
+
+    try:
+        marker.write_text(DATA_VERSION)
+    except OSError as exc:
+        logger.warning("Could not write data version marker %s: %s", marker, exc)
+
+    _MIGRATION_DONE = True
+
 
 def _find_data_file(relative_path: str, config: DelineatorConfig) -> Path | None:
     """
@@ -32,7 +72,7 @@ def _find_data_file(relative_path: str, config: DelineatorConfig) -> Path | None
     if '27' in relative_path:
         filepath = files('delineator').joinpath('data', relative_path)
     else:
-        filepath = config.data_dir / relative_path
+        filepath = _local_path(relative_path, config)
 
     if filepath.is_file():
         return filepath

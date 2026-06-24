@@ -4,6 +4,27 @@ All notable changes to this project are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.1.0] - 2026-06-23
+
+### Fixed
+
+- Updated the vector data files to use the MERIT-Basins 'bugfix' release 
+- Fixed a bug where unit catchment lookups were slow because the field `comid` 
+  was not indexed in the vector unit catchment sqlite databases.
+
+### Changed
+
+- Updated requirements for `geopandas` to version 1.0 and up
+- Added requirement for `pyogrio` version 0.7 and up
+
+### Added
+
+- New versions of the river and basins vector data files are now available.
+- Added a routine to bust the cache for old versions of vector data files,
+  fires on initialization of the DelineatorConfig class. This will delete old
+  versions of the vector data files and re-download them as needed.
+
+
 ## [2.0.6] - 2026-06-10
 
 ### Fixed

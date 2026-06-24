@@ -32,7 +32,7 @@ def _default_data_dir() -> Path:
     custom = os.environ.get("DELINEATOR_DATA_DIR")
     if custom:
         return Path(custom).expanduser()
-    return Path(user_data_dir("delineator", appauthor=False))
+    return Path(user_data_dir("delineator2.1", appauthor=False))
 
 
 def _default_output_dir() -> Path:
@@ -223,6 +223,9 @@ class DelineatorConfig:
                 f"Unsupported output_format: {self.output_format!r}. "
                 f"Supported formats are: {valid_formats}."
             )
+
+        from delineator.data import _migrate_data_dir
+        _migrate_data_dir(self)
 
     @staticmethod
     def _coerce_path(value: Path | str, name: str) -> Path:
