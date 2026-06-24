@@ -1,3 +1,8 @@
+"""
+Some of the MERIT-Basins shapefiles don't have a .prj file to define their coordinate system.
+This script adds one if it is missing.
+"""
+
 from pathlib import Path
 
 # ESRI-flavored WKT for EPSG:4326 — the form ArcGIS/QGIS/GDAL all read cleanly

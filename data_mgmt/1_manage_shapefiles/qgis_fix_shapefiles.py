@@ -1,5 +1,5 @@
 """
-Used this script to "fix" all of the GRDC watershed shapefiles. 
+Repairs shapefiles
 
 Matthew Heberger
 2021-09-08
@@ -7,7 +7,9 @@ Matthew Heberger
 I got error messages when trying to do any kind of geoprocessing with them, like spatial joins
 Something about invalid geometries or self-intersections. 
 The advice on stackoverflow was that to fix it, you can do a zero-distance buffer. 
-So I went ahead and did that for every shapefile that I had downloaded from GRDC!
+So I went ahead and did that for every shapefile.
+
+This script is meant to be run in QGIS.
 
 
 """

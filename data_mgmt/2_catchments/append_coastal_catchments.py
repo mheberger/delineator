@@ -1,16 +1,6 @@
 """
 When I created my sqlite catchments databases, I forgot to add the coastal catchments.
 Go back in and append them!
-
-The coastal catchments had comids like 0, 1, 2, ...
-and this occasionally caused trouble because in the MERIT-Basins
-network structure, 0 is used as the terminal node (ocean or
-inland sink). So when we try to find ALL the upstream nodes, the
-script adds every node in the network, which takes a long time
-and is NOT the desired result. So, I renumbered all the comids
-so that they begin with the 2-digit megabasin ID (consistent with
-the other MERIT-Basins catchments) and appended the existing
-comid. For example, 0 in basin 23 becomes 230 000
 """
 import os
 
@@ -30,7 +20,7 @@ def _to_multipolygon_wkb(geom) -> Optional[bytes]:
     return shapely_wkb.dumps(geom)
 
 
-BASINS = [51,52,53,54,
+BASINS = [11,12,13,14,15,16,17,18,21,22,23,24,25,26,28,29,31,32,33,34,35,36,41,42,43,44,45,46,47,48,49,51,52,53,54,
           55,56,57,61,62,63,64,65,66,67,71,72,73,74,75,76,77,78,81,82,83,84,85,86]
 
 
@@ -43,10 +33,6 @@ for basin in BASINS:
 
     gdf = gpd.read_file(fname)
 
-    # Update the COMID to a more useful value (see note above)
-    val = basin * 10000
-    gdf['comid'] = gdf['comid'] + val
-
     conn = sqlite3.connect(rf"C:\Users\mheberger\AppData\Local\delineator\vector\basins{basin}.db")
     conn.enable_load_extension(True)
     conn.load_extension("mod_spatialite")
@@ -54,14 +40,14 @@ for basin in BASINS:
 
     rows = []
 
-    for comid, row in gdf.iterrows():
+    for _, row in gdf.iterrows():
         geom_bytes = _to_multipolygon_wkb(row.geometry)
         if geom_bytes is None:
             continue
         rows.append((
-            int(comid),
+            int(row["comid"]),
             1,
-            round(float(row.get("area_km2", 0.0)), 2),
+            round(float(row["unitarea"]), 2),
             0,
             geom_bytes,
         ))

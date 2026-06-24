@@ -1,50 +1,39 @@
 from importlib.resources import files
 import os
+import re
+import shutil
+from importlib.resources import files
 import logging
 from pathlib import Path
 from platformdirs import user_data_dir
 
 from delineator.download import _download_file, _local_path
 from delineator.settings import DelineatorConfig
-import shutil
 from delineator.constants import DATA_VERSION
 
 logger = logging.getLogger(__name__)
 
 _MIGRATION_DONE = False          # in-process guard
 _LEGACY_DIRS = ("vector", "raster")
-_MARKER_NAME = ".data_version"
+_VERSION_DIR_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")  # matches your date-style version dirs
 
 
-def _migrate_data_dir(config) -> None:
-    """Purge stale data when DATA_VERSION has changed. Idempotent & cheap."""
+def _migrate_data_dir(config: DelineatorConfig) -> None:
+    """Reclaim disk from stale data once DATA_VERSION changes. Cheap & idempotent."""
     global _MIGRATION_DONE
     if _MIGRATION_DONE:
         return
 
-    base = config.data_dir       # already mkdir'd by _get_data_dir()
-    marker = base / _MARKER_NAME
-
-    try:
-        current = marker.read_text().strip()
-    except (FileNotFoundError, OSError):
-        current = None
-
-    if current == DATA_VERSION:
-        _MIGRATION_DONE = True
-        return
-
+    base = config.data_dir
     for child in base.iterdir():
-        if child.name == _MARKER_NAME:
-            continue
-        if child.name in _LEGACY_DIRS or (child.is_dir() and child.name != DATA_VERSION):
+        name = child.name
+        is_legacy = name in _LEGACY_DIRS
+        is_old_version = (
+            child.is_dir() and _VERSION_DIR_RE.match(name) and name != DATA_VERSION
+        )
+        if is_legacy or is_old_version:
             logger.info("Removing stale delineator data: %s", child)
             shutil.rmtree(child, ignore_errors=True)
-
-    try:
-        marker.write_text(DATA_VERSION)
-    except OSError as exc:
-        logger.warning("Could not write data version marker %s: %s", marker, exc)
 
     _MIGRATION_DONE = True
 
@@ -68,7 +57,9 @@ def _find_data_file(relative_path: str, config: DelineatorConfig) -> Path | None
     -------
     the full path to the data file on the user's computer
     """
-    #
+
+    _migrate_data_dir(config)  # reclaims old-version disk; no-op after first call
+
     if '27' in relative_path:
         filepath = files('delineator').joinpath('data', relative_path)
     else:

@@ -4,7 +4,7 @@ Constants for the delineator PYthon package.
 from importlib.resources import files
 
 # Change this version number when the data files are updated. 
-DATA_VERSION = "2"   # bump ONLY when the data files change, independent of package version
+DATA_VERSION = "2026-06-22"   # bump ONLY when the data files change, independent of package version
 
 # The width of half a pixel on the MERIT-Hydro grid, in decimal degrees
 HALF_PIXEL = 0.000416667

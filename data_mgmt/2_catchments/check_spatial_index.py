@@ -77,10 +77,15 @@ def check_db(db_path: str) -> bool:
         print(f"  {tbl:<16}{n_feat:>10}{n_idx:>10}{n_null:>11}{status:>8}")
 
     print("  => " + ("ALL LAYERS COVERED" if all_ok else "PROBLEMS FOUND (see above)"))
-    conn.close()
+    if not all_ok:
+        raise Exception("Some layers are not covered by an index")
+
     return all_ok
 
 
 if __name__ == "__main__":
-    db = r"C:\Users\mheberger\AppData\Local\delineator\vector\basins16.db"
-    check_db(db)
+    basins = [11,12,13,14,15,16,17,18,21,22,23,24,25,26,27,28,29,31,32,33,34,35,36,41,42,43,44,45,46,47,48,49,51,52,53,54,
+          55,56,57,61,62,63,64,65,66,67,71,72,73,74,75,76,77,78,81,82,83,84,85,86]
+    for basin in basins:
+        db = rf"C:\Users\mheberger\AppData\Local\delineator\vector\basins{basin}.db"
+        check_db(db)

@@ -14,6 +14,7 @@ BASE_URL = "https://mghydro.com/watersheds/"
 
 
 def _local_path(relative_path: str, config: DelineatorConfig) -> Path:
+    """Local destination for a data file, namespaced by data version."""
     return config.data_dir / DATA_VERSION / relative_path
 
 
@@ -64,7 +65,7 @@ def _download_file(relative_path: str, config: DelineatorConfig) -> Path | None:
         return None
 
     url = _remote_url(relative_path)
-    dest = config.data_dir / relative_path
+    dest = _local_path(relative_path, config)
     dest.parent.mkdir(parents=True, exist_ok=True)
 
     file_size_mb = _get_remote_file_size(url)

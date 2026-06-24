@@ -650,7 +650,7 @@ MAP = False
 
 
 if __name__ == "__main__":
-    basins = [11]
+    basins = [27]
 
     for BASIN in basins:
         DB_PATH = f"C:/Users/mheberger/AppData/Local/delineator/vector/basins{BASIN}.db"

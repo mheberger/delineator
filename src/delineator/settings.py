@@ -32,7 +32,7 @@ def _default_data_dir() -> Path:
     custom = os.environ.get("DELINEATOR_DATA_DIR")
     if custom:
         return Path(custom).expanduser()
-    return Path(user_data_dir("delineator2.1", appauthor=False))
+    return Path(user_data_dir("delineator", appauthor=False))
 
 
 def _default_output_dir() -> Path:

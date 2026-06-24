@@ -275,8 +275,9 @@ def get_rivers(upstream_catchment_list: list,
     """
     home_unit_catchment = upstream_catchment_list[0]
 
-    # Coastal catchments have a short comid; they have no river polylines associated with them
-    if len(str(home_unit_catchment)) < 6:
+    # Coastal catchments have the digit 9 in the 3rd place; they do not have river
+    # geometries associated with them.
+    if str(home_unit_catchment)[2] == '9':
         return None
 
     megabasin = str(upstream_catchment_list[0])[0:2]
