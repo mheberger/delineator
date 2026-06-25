@@ -1,12 +1,15 @@
-from importlib.resources import files
+"""
+Functions for managing delineator data files
+Specifically, this handles finding the correct data files for a given megabasin
+Basin 27 (Iceland) is bundled with the package, and other data files are downloaded
+from the author's website as needed.
+"""
+
 import os
-import re
-import shutil
-from importlib.resources import files
 import logging
+from importlib.resources import files
 from pathlib import Path
 from platformdirs import user_data_dir
-
 from delineator.download import _download_file, _local_path
 from delineator.settings import DelineatorConfig
 from delineator.constants import DATA_DIR_NAME
@@ -15,7 +18,32 @@ logger = logging.getLogger(__name__)
 
 _STALE_WARNED = False
 
+
 def _warn_stale_data(config: DelineatorConfig) -> None:
+    """
+    Warn once if data from an older package version is present.
+
+    The current data lives in a version-named subdirectory of the data
+    directory (see DATA_DIR_NAME). When the data files change, that name
+    is bumped, so the corrected files download to a fresh folder and the
+    buggy ones become unreachable. The old folders are not deleted
+    automatically; this function logs a one-time warning listing them so
+    the user can remove them to reclaim disk space.
+
+    Detects both the legacy un-versioned layout ("vector/", "raster/")
+    and any prior "delineator*" data folder. The warning fires at most
+    once per process, guarded by the module-level _STALE_WARNED flag.
+
+    Parameters
+    ----------
+    config : DelineatorConfig
+        Configuration object; config.data_dir is scanned for stale folders.
+
+    Returns
+    -------
+    None
+    """
+
     global _STALE_WARNED
     if _STALE_WARNED:
         return
@@ -85,11 +113,36 @@ def _find_data_file(relative_path: str, config: DelineatorConfig) -> Path | None
 
 def _get_data_dir() -> Path:
     """
-    Return the data directory for delineator data files.
-    
-    Override the default location by setting the DELINEATOR_DATA environment variable:
-        Windows:  set DELINEATOR_DATA=D:\\GIS\\delineator_data
-        macOS/Linux: export DELINEATOR_DATA=~/gis/delineator_data
+    Return the *base* data directory for delineator data files.
+
+    Note this is the base directory, not where the data files actually
+    live. Data files are stored under a version-named subfolder of this
+    directory (see DATA_DIR_NAME, e.g. "delineator2.1"); that subfolder is
+    appended downstream in _local_path(), not here. The layout looks like:
+
+        <base_data_dir>/            <- this function returns this
+        ├── delineator2.1/          <- DATA_DIR_NAME: current data files
+        │   ├── vector/...
+        │   └── raster/...
+        ├── delineator2.0/          <- stale; flagged by _warn_stale_data()
+            ├── vector/             <- legacy un-versioned; also flagged
+            └── raster/
+
+    Keeping this function version-agnostic is deliberate: _warn_stale_data()
+    scans this base directory for the *siblings* of the current version
+    folder to find data to clean up. If the version were baked in here, that
+    scan would look inside the current folder and never see the old ones.
+
+    The default location is the platform user-data dir (via platformdirs).
+    Override it by setting the DELINEATOR_DATA environment variable:
+        Windows:      set DELINEATOR_DATA=D:\\GIS\\delineator_data
+        macOS/Linux:  export DELINEATOR_DATA=~/gis/delineator_data
+
+    Returns
+    -------
+    Path
+        The base data directory, created (including parents) if it does not
+        already exist.
     """
     custom_path = os.environ.get("DELINEATOR_DATA")
     if custom_path:

@@ -1,8 +1,14 @@
+"""
+Utility functions for downloading data files for delineator.
+Matthew Heberger, May 2026
+
+"""
+
 import logging
-from urllib.parse import quote
-import requests
 import pooch
 from pathlib import Path, PurePosixPath
+import requests
+from urllib.parse import quote
 
 from delineator.constants import HASHES, DATA_DIR_NAME
 from delineator.settings import DelineatorConfig
@@ -14,12 +20,22 @@ BASE_URL = "https://mghydro.com/watersheds/"
 
 
 def _local_path(relative_path: str, config: DelineatorConfig) -> Path:
-    """Local destination for a data file, namespaced by data version."""
+    r"""
+    Gets the user's data directory for delienator's data files.
+    This can be a custom path set by the user, if they have set it in the config
+    or with an environment variable. Otherwise, it will be a default path.
+    I.e. on Windows, it will be something like:
+    C:\Users\<USER>\AppData\Local\delineator2.1
+    """
     return config.data_dir / DATA_DIR_NAME / relative_path
 
 
 def _remote_url(relative_path: str) -> str:
-    """Return the full download URL for a data file."""
+    """
+    Returns the full download URL for a data file.
+    This will be something like:
+      https://mghydro.com/watersheds/vector/basins12.db
+    """
 
     posix_path = PurePosixPath(Path(relative_path))
     return f"{BASE_URL}{quote(str(posix_path))}"
@@ -45,6 +61,7 @@ def _download_file(relative_path: str, config: DelineatorConfig) -> Path | None:
     """
     Download a data file to the configured data directory.
     If auto-download is disabled or the download fails, return None.
+    Uses the `pooch` library for downloading, and
 
     Parameters
     ----------
@@ -58,7 +75,8 @@ def _download_file(relative_path: str, config: DelineatorConfig) -> Path | None:
 
     Returns
     -------
-    a pathlib.Path object pointing to the downloaded file, or None if download failed
+    a pathlib.Path object pointing to the downloaded file,
+    or None if download failed
     """
     if not config.auto_download:
         logger.info("Auto-download is disabled; not downloading %s", relative_path)
