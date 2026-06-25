@@ -13,7 +13,6 @@ import sqlite3
 import warnings
 import geopandas as gpd
 from shapely.geometry import Point
-import time
 
 logger = logging.getLogger(__name__)
 
@@ -471,7 +470,6 @@ def _point_in_polygon_analysis(
     If more than one polygon contains the point (overlapping geometries) the
     first match is returned.
     """
-    start = time.perf_counter()
 
     # ── SpatiaLite path ───────────
     if use_spatialite:
@@ -485,10 +483,6 @@ def _point_in_polygon_analysis(
             return _find_with_spatialite(conn, point, table, geom_col, id_col, search_dist)
 
     # ── GeoPandas / GDAL path ─────
-    result = _find_with_geopandas(
+    return _find_with_geopandas(
         conn, point, table, geom_col, id_col, scan_threshold, search_dist
     )
-
-    print(f"Point in Polygon time: {time.perf_counter() - start:.4f} s")
-
-    return result

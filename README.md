@@ -26,6 +26,12 @@ and [MERIT-Basins](https://www.reachhydro.org/home/params/merit-basins).
 <a id="installation"></a>
 ## Installation
 
+📌 **Version 2.1 has breaking changes.** The vector data files were 
+updated to fix a bug. Users should:
+
+- delete old versions of the `.db` files 
+- install the latest version of delineator with: `pip install --upgrade delineator`
+
 Requires Python ≥ 3.10. Python 3.11+ is recommended for speed. Also
 recommended to install in a fresh virtual environment to avoid 
 dependency conflicts.

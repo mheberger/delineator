@@ -269,7 +269,7 @@ HTML = """<!DOCTYPE html>
 
 <script>
 // ── Map init ──────────────────────────────────────────────────────────────
-const map = L.map('map').setView([20, 0], 3);
+const map = L.map('map').setView([65, -18], 7);
 
 L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
   attribution: '© OpenStreetMap contributors © CARTO',
@@ -318,8 +318,8 @@ function showError(msg) {
 function updateInfoPanel(lat, lng, watershedArea, riverCount) {
   document.getElementById('info-lat').textContent     = lat.toFixed(3);
   document.getElementById('info-lng').textContent     = lng.toFixed(3);
-  document.getElementById('info-area').textContent    = watershedArea;
-  document.getElementById('info-rivers').textContent = riverCount !== null ? riverCount : 'none';
+  document.getElementById('info-area').textContent    = watershedArea.toLocaleString();
+  document.getElementById('info-rivers').textContent = riverCount !== null ? riverCount.toLocaleString() : 'none';
   infoPanel.style.display = 'block';
 }
 

@@ -4,7 +4,18 @@ All notable changes to this project are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [2.1.0] - 2026-06-23
+## [2.1.1] - 2026-06-26
+
+### Added
+
+- Made the demo web app a part of the package.
+
+### Changed
+
+- Removed some print statements in spatial.py that were purely for testing.
+
+
+## [2.1.0] - 2026-06-25
 
 ### Fixed
 
