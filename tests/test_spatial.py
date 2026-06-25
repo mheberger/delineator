@@ -8,7 +8,7 @@ MYDIR = Path(__file__).parent.parent
 
 
 def test_find_with_geopandas():
-    dbfile = MYDIR / r"src\delineator\data\vector\basins27.db"
+    dbfile = MYDIR / r"src\delineator\data\basins27.db"
     conn = sqlite3.connect(dbfile)
     mypoint = Point(-21.004, 63.938)
     result = _find_with_geopandas(conn, mypoint, "l0_basins", "geometry", "comid", 1000)
@@ -16,7 +16,7 @@ def test_find_with_geopandas():
 
 
 def test_find_with_spatialite():
-    dbfile = MYDIR / r"src\delineator\data\vector\basins27.db"
+    dbfile = MYDIR / r"src\delineator\data\basins27.db"
     conn = sqlite3.connect(dbfile)
     mypoint = Point(-21.004, 63.938)
     result = _point_in_polygon_analysis(conn, mypoint, "l0_basins", "geometry", "comid",
@@ -26,7 +26,7 @@ def test_find_with_spatialite():
 
 
 def test_find_without_spatialite_no_spatialite():
-    dbfile = MYDIR / r"src\delineator\data\vector\basins27.db"
+    dbfile = MYDIR / r"src\delineator\data\basins27.db"
     conn = sqlite3.connect(dbfile)
     mypoint = Point(-21.004, 63.938)
     result = _point_in_polygon_analysis(conn, mypoint, "l0_basins", "geometry", "comid",
@@ -35,7 +35,7 @@ def test_find_without_spatialite_no_spatialite():
 
 
 def test_find_bad_point():
-    dbfile = MYDIR / r"src\delineator\data\vector\basins27.db"
+    dbfile = MYDIR / r"src\delineator\data\basins27.db"
     conn = sqlite3.connect(dbfile)
     mypoint = Point(-100.004, 73.938)
     result = _point_in_polygon_analysis(

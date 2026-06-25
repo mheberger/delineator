@@ -299,7 +299,7 @@ delineator_dir                    # show the cache location
 ```
 
 You can also download these datasets manually by visiting:
-[https://mghydro.com/watersheds/delineator-data.html](https://mghydro.com/watersheds/delineator-data.html).
+[https://mghydro.com/watersheds/data/](https://mghydro.com/watersheds/data/).
 
 Some regional datasets are up to 3 GB, so pre-downloading is recommended for 
 large basins.
