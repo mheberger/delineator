@@ -4,7 +4,7 @@ import requests
 import pooch
 from pathlib import Path, PurePosixPath
 
-from delineator.constants import HASHES, DATA_VERSION
+from delineator.constants import HASHES, DATA_DIR_NAME
 from delineator.settings import DelineatorConfig
 
 
@@ -15,7 +15,7 @@ BASE_URL = "https://mghydro.com/watersheds/"
 
 def _local_path(relative_path: str, config: DelineatorConfig) -> Path:
     """Local destination for a data file, namespaced by data version."""
-    return config.data_dir / DATA_VERSION / relative_path
+    return config.data_dir / DATA_DIR_NAME / relative_path
 
 
 def _remote_url(relative_path: str) -> str:

@@ -11,8 +11,11 @@ from pathlib import Path
 registry = {}
 data_dir = Path(r"C:\Users\mheberger\AppData\Local\delineator\vector")
 
-for f in sorted(data_dir.rglob("*")):
-    if f.is_file():
-        k = str(f.relative_to(data_dir))
-        v = pooch.file_hash(str(f))  # sha256: prefix included
-        print(f'    "vector/{k}": "{v}",')
+with open("hashes.txt", "w") as o:
+    
+    for f in sorted(data_dir.rglob("*")):
+        if f.is_file():
+            file = str(f.relative_to(data_dir))
+            checksum = pooch.file_hash(str(f))  # sha256: prefix included
+            print( f'    "vector/{file}": "{checksum}",')
+            o.write(f'{checksum}  {file}\n')

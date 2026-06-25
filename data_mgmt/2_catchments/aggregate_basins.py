@@ -650,10 +650,11 @@ MAP = False
 
 
 if __name__ == "__main__":
-    basins = [27]
+    # Put 54 last because it triggers an uncaught error.
+    basins = [55,56,57,61,62,63,64,65,66,67,71,72,73,74,75,76,77,78,81,82,83,84,85,86]
 
     for BASIN in basins:
-        DB_PATH = f"C:/Users/mheberger/AppData/Local/delineator/vector/basins{BASIN}.db"
+        DB_PATH = f"C:/Users/mheberger/AppData/Local/delineator/2026-06-24/vector/basins{BASIN}.db"
         CAT_SHP = rf"C:\Data\GIS\MERITBasins\catchments\bugfix_repaired\cat_pfaf_{BASIN}_MERIT_Hydro_v07_Basins_v01_bugfix1.shp"
         RIV_SHP = rf"C:\Data\GIS\MERITBasins\rivers\bugfix_repaired\riv_pfaf_{BASIN}_MERIT_Hydro_v07_Basins_v01_bugfix1.shp"
 

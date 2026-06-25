@@ -20,8 +20,7 @@ def _to_multipolygon_wkb(geom) -> Optional[bytes]:
     return shapely_wkb.dumps(geom)
 
 
-BASINS = [11,12,13,14,15,16,17,18,21,22,23,24,25,26,28,29,31,32,33,34,35,36,41,42,43,44,45,46,47,48,49,51,52,53,54,
-          55,56,57,61,62,63,64,65,66,67,71,72,73,74,75,76,77,78,81,82,83,84,85,86]
+BASINS = [11]  #,12,13,14,15,16,17,18,21,22,23,24,25,26,28,29,31,32,33,34,35,36,41,42,43,44,45,46,47,48,49,51,52,53,54,55,56,57,61,62,63,64,65,66,67,71,72,73,74,75,76,77,78,81,82,83,84,85,86]
 
 
 for basin in BASINS:
@@ -33,7 +32,7 @@ for basin in BASINS:
 
     gdf = gpd.read_file(fname)
 
-    conn = sqlite3.connect(rf"C:\Users\mheberger\AppData\Local\delineator\vector\basins{basin}.db")
+    conn = sqlite3.connect(rf"C:\Users\mheberger\AppData\Local\delineator\2026-06-24\vector\basins{basin}.db")
     conn.enable_load_extension(True)
     conn.load_extension("mod_spatialite")
     cur = conn.cursor()

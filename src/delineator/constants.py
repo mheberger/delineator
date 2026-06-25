@@ -3,8 +3,8 @@ Constants for the delineator PYthon package.
 """
 from importlib.resources import files
 
-# Change this version number when the data files are updated. 
-DATA_VERSION = "2026-06-22"   # bump ONLY when the data files change, independent of package version
+# Folder name (within the user's data directory) to put the downloaded data files
+DATA_DIR_NAME = "delineator2.1"   # bump when the data files change
 
 # The width of half a pixel on the MERIT-Hydro grid, in decimal degrees
 HALF_PIXEL = 0.000416667
