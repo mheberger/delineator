@@ -75,7 +75,7 @@ def split_catchment(
     bounding_box = tuple(bounds_list)
 
     # Open the flow direction raster *using windowed reading mode*
-    fdir_file = f"raster/flowdir{basin}.tif"
+    fdir_file = f"flowdir{basin}.tif"
     fdir_path = _find_data_file(fdir_file, config)
     if fdir_path is None:
         logging.warning(f"Could not load flow direction raster: {fdir_file}")
@@ -116,7 +116,7 @@ def split_catchment(
     logger.info("Snapping pour point")
 
     # Open the accumulation raster, again using windowed reading mode.
-    accum_file = f'raster/accum{basin}.tif'
+    accum_file = f'accum{basin}.tif'
     accum_path = _find_data_file(accum_file, config)
     if accum_path is None:
         logging.warning(f"Could not load accumulation raster: {accum_file}")

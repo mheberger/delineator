@@ -57,12 +57,14 @@ def _warn_stale_data(config: DelineatorConfig) -> None:
     ]
     if stale:
         listing = "\n".join(f"  {p}" for p in stale)
-        logger.warning(
-            "Found delineator data from an older version. The current version "
-            "uses corrected data in '%s'; the old folders below are no longer "
-            "used and can be deleted to reclaim disk space:\n%s",
-            DATA_DIR_NAME, listing,
-        )
+        txt = f"""NOTICE: Found delineator data from an older version. The current version
+uses corrected data in: 
+  {config.data_dir}
+
+The old folders below are no longer used and can be deleted to reclaim disk space:
+{listing}
+"""
+        print(txt)
 
 
 def _find_data_file(relative_path: str, config: DelineatorConfig) -> Path | None:
@@ -76,7 +78,7 @@ def _find_data_file(relative_path: str, config: DelineatorConfig) -> Path | None
     Parameters
     ----------
     relative_path : str
-        A path relative to the data directory, e.g. "vector/rivers23.db" or "raster/accum73.tif"
+        A path relative to the data directory, e.g. "rivers23.db" or "accum73.tif"
     config : DelineatorConfig dataclass object
         includes config.data_dir, the path to the data directory
 
@@ -121,12 +123,12 @@ def _get_data_dir() -> Path:
     appended downstream in _local_path(), not here. The layout looks like:
 
         <base_data_dir>/            <- this function returns this
-        ├── delineator2.1/          <- DATA_DIR_NAME: current data files
-        │   ├── vector/...
-        │   └── raster/...
-        ├── delineator2.0/          <- stale; flagged by _warn_stale_data()
-            ├── vector/             <- legacy un-versioned; also flagged
-            └── raster/
+        ├── v2.1/          <- DATA_DIR_NAME: current data files
+        │    ├── acccum73.tif      <- raster data files
+        │    ├── basins73.db       <- vector data files
+        ├── delineator2.0/      <- stale; flagged by _warn_stale_data()
+        ├── vector/             <- legacy un-versioned; also flagged
+        └── raster/
 
     Keeping this function version-agnostic is deliberate: _warn_stale_data()
     scans this base directory for the *siblings* of the current version

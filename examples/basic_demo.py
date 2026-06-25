@@ -7,7 +7,6 @@ Matthew Heberger, June 2026
 """
 
 import pandas as pd
-import logging
 from delineator.core import delineate, downloader
 from delineator.settings import DelineatorConfig
 from delineator.util import write_outputs
@@ -15,11 +14,11 @@ from delineator.util import write_outputs
 
 def tryme():
     config = DelineatorConfig(verbose=True)
-    #w, r, o = delineate(44.705, 4.206, config)
-    #w, r, o = delineate(63.938, -21.004, config)
-    w, r, o = delineate(-0.854, 41.350, config)
+    #w, r, o = delineate(44.705, 4.206, config)  # France (23,
+    #w, r, o = delineate(63.938, -21.004, config)  # Iceland (27, built in)
+    w, r, o = delineate(-0.854, 41.350, config)  # East Africa (11)
 
-    write_outputs(w, r, o)
+    write_outputs(w, r, o, config)
 
 
 def try_one():

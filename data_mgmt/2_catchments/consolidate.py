@@ -479,7 +479,6 @@ def test2():
     MERGES = {}
     reverse_idx = {}
     rivers2merge = {}
-    rivers2delete = []
     G, MERGES, rivers2merge = last_merge(G, MAX_AREA, MERGES, reverse_idx, rivers2merge)
     draw_graph(G, 'temp')
 

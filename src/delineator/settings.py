@@ -224,9 +224,6 @@ class DelineatorConfig:
                 f"Supported formats are: {valid_formats}."
             )
 
-        from delineator.data import _migrate_data_dir
-        _migrate_data_dir(self)
-
     @staticmethod
     def _coerce_path(value: Path | str, name: str) -> Path:
         if isinstance(value, Path):

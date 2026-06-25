@@ -63,7 +63,12 @@ def delineate(
         config = DelineatorConfig()
 
     if config.verbose:
-        logging.getLogger("delineator").setLevel(logging.INFO)
+        pkg_logger = logging.getLogger("delineator")
+        pkg_logger.setLevel(logging.INFO)
+        if not pkg_logger.handlers:
+            handler = logging.StreamHandler()
+            handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+            pkg_logger.addHandler(handler)
 
     # Set up database connection
     megabasins_db_conn = sqlite3.connect(MEGABASINS_DB_FILE)
@@ -90,11 +95,12 @@ def delineate(
     logger.info(f"Your watershed is in megabasin {megabasin}")
 
     # Step 3: Determine the unit catchment of the outlet
-    basins_db_file = f'vector/basins{megabasin}.db'
+    basins_db_file = f'basins{megabasin}.db'
     basins_db_path = _find_data_file(basins_db_file, config)
     basins_db_conn = sqlite3.connect(basins_db_path)
     home_unit_catchment = _point_in_polygon_analysis(basins_db_conn, requested_outlet, table='l0_basins',
-                                                     id_col='comid', use_spatialite=USE_SPATIALITE, search_dist=config.search_dist)
+                                                     id_col='comid', use_spatialite=USE_SPATIALITE,
+                                                     search_dist=config.search_dist)
 
     # If the outlet is not in any unit catchment, return None
     if home_unit_catchment is None:
@@ -118,13 +124,17 @@ def delineate(
 
     # Step 5: Split the home unit catchment at the outlet
     # First, we need to get the home unit catchment geometry as a shapely Polygon
-    home_unit_catchment_polygon, home_catchment_area = get_home_unit_catchment_geom_and_area(basins_db_path, home_unit_catchment)
+    home_unit_catchment_polygon, home_catchment_area = get_home_unit_catchment_geom_and_area(basins_db_path,
+                                                                                             home_unit_catchment)
     if config.high_res:
         # Perform the split
         split_catchment_polygon, lat_snapped, lon_snapped = split_catchment(megabasin, lat, lng,
                                                                             home_unit_catchment_polygon, is_singleton,
                                                                             config)
         if split_catchment_polygon is None:
+            return None, None, None
+
+        if lat_snapped is None or lon_snapped is None:
             return None, None, None
 
         if config.calc_area:
@@ -250,10 +260,10 @@ def downloader(basin: int, data_dir: str | None = None):
         raise ValueError(f"Invalid megabasin ID. Must be one of: {VALID_MEGABASINS}")
 
     files = {
-        "Unit catchments": f"vector/basins{basin}.db",
-        "Rivers": f"vector/rivers{basin}.db",
-        "Flow Direction": f"raster/flowdir{basin}.tif",
-        "Flow Accumulation": f"raster/accum{basin}.tif",
+        "Unit catchments": f"basins{basin}.db",
+        "Rivers": f"rivers{basin}.db",
+        "Flow Direction": f"flowdir{basin}.tif",
+        "Flow Accumulation": f"accum{basin}.tif",
     }
 
     for filetype, file in files.items():

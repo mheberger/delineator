@@ -1,5 +1,5 @@
 import time
-from delineator import delineate, write_outputs, DelineatorConfig
+from delineator import delineate, DelineatorConfig
 
 
 def timer(func):
@@ -24,7 +24,7 @@ def timer(func):
 @timer
 def benchmark_delineate():
     config = DelineatorConfig(
-        verbose=True,
+        verbose=False,
         calc_area=False,
         clean=False,
         simplify=False,
@@ -33,6 +33,7 @@ def benchmark_delineate():
         outlets=False,
         data_dir=r"C:\Users\mheberger\Documents\watershed_app\static"
     )
+    # This watershed is in megabasin 16,
     w, r, o = delineate(17.03333333, 18.67333334, config)
 
 

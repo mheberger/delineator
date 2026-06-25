@@ -202,7 +202,7 @@ def get_upstream_area(home_unit_catchment: int, config: DelineatorConfig) -> flo
         return 0
 
     megabasin = str(home_unit_catchment)[0:2]
-    rivers_db_file = f"vector/rivers{megabasin}.db"
+    rivers_db_file = f"rivers{megabasin}.db"
     rivers_db_path = _find_data_file(rivers_db_file, config)
     sql = f"SELECT uparea FROM rivers WHERE comid = {home_unit_catchment}"
     conn = sqlite3.connect(rivers_db_path)
@@ -281,7 +281,7 @@ def get_rivers(upstream_catchment_list: list,
         return None
 
     megabasin = str(upstream_catchment_list[0])[0:2]
-    rivers_db_file = f"vector/rivers{megabasin}.db"
+    rivers_db_file = f"rivers{megabasin}.db"
     rivers_db_path = _find_data_file(rivers_db_file, config)
 
     if len(upstream_catchment_list) == 1:

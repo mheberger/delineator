@@ -16,7 +16,7 @@ from delineator.settings import DelineatorConfig
 
 logger = logging.getLogger(__name__)
 
-BASE_URL = "https://mghydro.com/watersheds/"
+BASE_URL = "https://mghydro.com/watersheds/data/"
 
 
 def _local_path(relative_path: str, config: DelineatorConfig) -> Path:
@@ -34,7 +34,7 @@ def _remote_url(relative_path: str) -> str:
     """
     Returns the full download URL for a data file.
     This will be something like:
-      https://mghydro.com/watersheds/vector/basins12.db
+      https://mghydro.com/watersheds/data/basins12.db
     """
 
     posix_path = PurePosixPath(Path(relative_path))
@@ -67,7 +67,7 @@ def _download_file(relative_path: str, config: DelineatorConfig) -> Path | None:
     ----------
     relative_path : str
         The path of the data file relative to the data directory.
-        For example: "vector/rivers23.db" or "raster/accum73.tif"
+        For example: "rivers23.db" or "accum73.tif"
 
     config : DelineatorConfig dataclass object
         Specifically looking for config.data_dir, where the user
