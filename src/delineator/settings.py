@@ -22,13 +22,19 @@ from delineator.constants import SUPPORTED_OUTPUT_FORMATS
 
 def _default_auto_download() -> bool:
     custom = os.environ.get("DELINEATOR_AUTO_DOWNLOAD")
-    if custom:
-        return custom.lower() == "true"
+    print(f"DELINEATOR_AUTO_DOWNLOAD: {custom}")
+    if custom is None:
+        return True
+
+    if custom.lower() == "false":
+        return False
+    if custom == "0":
+        return False
     return True
 
 
 def _default_data_dir() -> Path:
-    """Return the default data directory, respecting DELINEATOR_DATADIR env var."""
+    """Return the default data directory, respecting DELINEATOR_DATA_DIR env var."""
     custom = os.environ.get("DELINEATOR_DATA_DIR")
     if custom:
         return Path(custom).expanduser()
@@ -156,7 +162,8 @@ class DelineatorConfig:
     auto_download: bool = field(default_factory=_default_auto_download)
     calc_area: bool = True
     clean: bool = False
-    data_dir: Path | str = field(default_factory=_default_data_dir)
+    custom_data_dir: bool = field(init=False, default=False)
+    data_dir: Path | str | None = None
     fill: bool = True
     fill_threshold: int = 0
     high_res: bool = True
@@ -175,7 +182,7 @@ class DelineatorConfig:
     verbose: bool = False
 
     def __post_init__(self) -> None:
-        self.data_dir = self._coerce_path(self.data_dir, "data_dir")
+        self._resolve_data_dir()
         self.output_dir = self._coerce_path(self.output_dir, "output_dir")
 
         self.output_format = self.output_format.lower().lstrip(".")
@@ -245,3 +252,30 @@ class DelineatorConfig:
     def _validate_bool(name: str, value: bool) -> None:
         if not isinstance(value, bool):
             raise TypeError(f"{name} must be a bool.")
+
+    def _resolve_data_dir(self) -> None:
+        """
+        Resolve data_dir and record whether it is user-supplied ("custom").
+
+        Precedence:
+          1. An explicit data_dir argument           -> custom (flat layout)
+          2. The DELINEATOR_DATA_DIR environment var  -> custom (flat layout)
+          3. The platform user-data directory         -> managed default (versioned)
+
+        For a custom directory the data files are read and written directly in
+        that directory. For the managed default they live in a version-named
+        subfolder (DATA_DIR_NAME) so data updates land in a fresh folder; see
+        download._local_path and data._warn_stale_data.
+        """
+        if self.data_dir is not None:
+            self.custom_data_dir = True
+            self.data_dir = self._coerce_path(self.data_dir, "data_dir")
+            return
+
+        env = os.environ.get("DELINEATOR_DATA_DIR")
+        if env:
+            self.custom_data_dir = True
+            self.data_dir = Path(env).expanduser()
+        else:
+            self.custom_data_dir = False
+            self.data_dir = Path(user_data_dir("delineator", appauthor=False))

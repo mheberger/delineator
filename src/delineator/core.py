@@ -98,6 +98,9 @@ def delineate(
     # Step 3: Determine the unit catchment of the outlet
     basins_db_file = f'basins{megabasin}.db'
     basins_db_path = _find_data_file(basins_db_file, config)
+    if basins_db_path is None:
+        logger.warning(f"Could not load unit catchment database: {basins_db_file}")
+        return None, None, None
     basins_db_conn = sqlite3.connect(basins_db_path)
     home_unit_catchment = _point_in_polygon_analysis(basins_db_conn, requested_outlet, table='l0_basins',
                                                      id_col='comid', use_spatialite=USE_SPATIALITE,

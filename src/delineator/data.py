@@ -1,8 +1,15 @@
 """
-Functions for managing delineator data files
-Specifically, this handles finding the correct data files for a given megabasin
+Functions for managing delineator data files.
+Specifically, this handles finding the correct data files for a given megabasin.
+
 Basin 27 (Iceland) is bundled with the package, and other data files are downloaded
 from the author's website as needed.
+
+Data files are stored in a system default data directory, which is platform-dependent.
+
+Users may also set a custom data directory via the environment variable
+DELINEATOR_DATA_DIR.
+
 """
 
 import os
@@ -24,7 +31,7 @@ def _warn_stale_data(config: DelineatorConfig) -> None:
     Warn once if data from an older package version is present.
 
     The current data lives in a version-named subdirectory of the data
-    directory (see DATA_DIR_NAME). When the data files change, that name
+    directory (see DATA_DIR_NAME, currently 'v2.1'). When the data files change, that name
     is bumped, so the corrected files download to a fresh folder and the
     buggy ones become unreachable. The old folders are not deleted
     automatically; this function logs a one-time warning listing them so
@@ -86,8 +93,8 @@ def _find_data_file(relative_path: str, config: DelineatorConfig) -> Path | None
     -------
     the full path to the data file on the user's computer
     """
-
-    _warn_stale_data(config)  # reclaims old-version disk; no-op after first call
+    if not config.custom_data_dir:
+        _warn_stale_data(config)  # reclaims old-version disk; no-op after first call
 
     if '27' in relative_path:
         filepath = files('delineator').joinpath('data', relative_path)
@@ -106,8 +113,9 @@ def _find_data_file(relative_path: str, config: DelineatorConfig) -> Path | None
     else:
         logger.warning(
             f"Data file not found: {relative_path}\n"
-            f"and could not be downloaded."
-            f"Run 'delineator_download --basin ##' to fetch required data files, "
+            f"and could not be downloaded. \n"
+            f"Run `delineator_download --basin ##`'` to fetch required data files, \n"
+            f"or visit https://mghydro.com/watersheds/data/ to download them manually, \n"
             f"or check your data directory: {config.data_dir}"
         )
         return None
@@ -136,9 +144,9 @@ def _get_data_dir() -> Path:
     scan would look inside the current folder and never see the old ones.
 
     The default location is the platform user-data dir (via platformdirs).
-    Override it by setting the DELINEATOR_DATA environment variable:
-        Windows:      set DELINEATOR_DATA=D:\\GIS\\delineator_data
-        macOS/Linux:  export DELINEATOR_DATA=~/gis/delineator_data
+    Override it by setting the DELINEATOR_DATA_DIR environment variable:
+        Windows:      set DELINEATOR_DATA_DIR=D:\\GIS\\delineator_data
+        macOS/Linux:  export DELINEATOR_DATA_DIR=~/gis/delineator_data
 
     Returns
     -------
@@ -146,7 +154,7 @@ def _get_data_dir() -> Path:
         The base data directory, created (including parents) if it does not
         already exist.
     """
-    custom_path = os.environ.get("DELINEATOR_DATA")
+    custom_path = os.environ.get("DELINEATOR_DATA_DIR", "").strip("")
     if custom_path:
         data_dir = Path(custom_path).expanduser()
     else:

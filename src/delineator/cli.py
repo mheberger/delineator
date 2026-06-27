@@ -25,7 +25,7 @@ def serve_cli():
 @click.option("--id", default=None, help="ID for the watershed (used with --point)")
 @click.option("--csv", "outlets_csv", type=click.Path(exists=True), help="CSV file of outlet points")
 @click.option("--data-dir", default=None, help="Directory for delineator's input data files. ")
-@click.option("--auto-download/--no-downloads", is_flag=True, default=True, help="Automatically download data files if needed")
+@click.option("--auto-download/--no-downloads", default=None, help="Automatically download data files if needed")
 @click.option("--high-res/--low-res", default=True, help="In higher-resolution mode, uses raster methods"
                                                          " to find the watershed boundary around the outlet point."
                                                          " In lower-resolution mode, the script runs faster but"
@@ -87,7 +87,6 @@ def main(point, id, outlets_csv, data_dir, auto_download, high_res, output_dir,
         "fill": fill,
         "rivers": rivers,
         "outlets": outlets,
-        "auto_download": True,
         "simplify": simplify,
     }
     if data_dir is not None:
@@ -106,8 +105,11 @@ def main(point, id, outlets_csv, data_dir, auto_download, high_res, output_dir,
         output_path.mkdir(parents=True, exist_ok=True)
 
     # Run delineation
-    _delineate_dataframe(outlets_df, config)
-    click.echo(f"Done. Output written to {output_path}/")
+    success = _delineate_dataframe(outlets_df, config)
+    if success:
+        click.echo(f"Done. Output written to {output_path}/")
+    else:
+        click.echo("No outputs written.")
 
 
 @click.command()
@@ -142,7 +144,7 @@ def delineator_download(basin, data_dir):
     downloader(int(basin), str(output_path))
 
 
-def _delineate_dataframe(outlets_df, config: DelineatorConfig):
+def _delineate_dataframe(outlets_df, config: DelineatorConfig) -> bool:
     """
     For the command line interface, delineates watersheds based on a
     dataframe of outlet points, derived from the user's CSV file or lat/lon point.
@@ -156,10 +158,10 @@ def _delineate_dataframe(outlets_df, config: DelineatorConfig):
 
     Returns
     -------
-    Noting is returned, but the function writes the output files to disk.
+    Boolean indicating whether any outputs were written to disk.
 
     """
-
+    num_outputs_written = 0
     for _, row in outlets_df.iterrows():
         lat, lon = row["lat"], row["lon"]
         id = row["id"]
@@ -168,3 +170,9 @@ def _delineate_dataframe(outlets_df, config: DelineatorConfig):
             logging.warning(f"No watershed found for point {id} ({lat}, {lon}).")
             continue
         write_outputs(watershed_gdf, rivers_gdf, outlets_gdf, config, id=id)
+        num_outputs_written += 1
+
+    if num_outputs_written > 0:
+        return True
+    else:
+        return False

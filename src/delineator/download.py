@@ -21,12 +21,16 @@ BASE_URL = "https://mghydro.com/watersheds/data/"
 
 def _local_path(relative_path: str, config: DelineatorConfig) -> Path:
     r"""
-    Gets the user's data directory for delienator's data files.
-    This can be a custom path set by the user, if they have set it in the config
-    or with an environment variable. Otherwise, it will be a default path.
-    I.e. on Windows, it will be something like:
-    C:\Users\<USER>\AppData\Local\delineator2.1
+    Return the full path to a data file.
+
+    For the managed default directory, files live under a version-named
+    subfolder, e.g. C:\Users\<USER>\AppData\Local\delineator\v2.1\basins73.db
+
+    For a custom (user-supplied) directory, files live directly in it, with
+    no version subfolder, e.g. D:\GIS\delineator_data\basins73.db
     """
+    if config.custom_data_dir:
+        return config.data_dir / relative_path
     return config.data_dir / DATA_DIR_NAME / relative_path
 
 
@@ -92,7 +96,7 @@ def _download_file(relative_path: str, config: DelineatorConfig) -> Path | None:
         logger.warning(
             f"Downloading large file ({file_size_mb:.0f} MB): {relative_path}\n"
             f"Destination: {dest}\n"
-            f"This may take a few minutes. Set DELINEATOR_AUTO_DOWNLOAD=0 to disable."
+            f"This may take a few minutes. Set DELINEATOR_AUTO_DOWNLOAD=0 to disable automatic downloads."
         )
     elif file_size_mb is not None:
         logger.info(f"Downloading {relative_path} ({file_size_mb:.0f} MB)...")
