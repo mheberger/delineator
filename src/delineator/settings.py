@@ -22,7 +22,7 @@ from delineator.constants import SUPPORTED_OUTPUT_FORMATS
 
 def _default_auto_download() -> bool:
     custom = os.environ.get("DELINEATOR_AUTO_DOWNLOAD")
-    print(f"DELINEATOR_AUTO_DOWNLOAD: {custom}")
+
     if custom is None:
         return True
 
