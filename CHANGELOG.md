@@ -6,6 +6,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [2.1.1] - 2026-06-26
 
+### Fixed
+
+- Fixed a mistake that caused the watershe area to be overestimated by double-
+  counting the area of the home unit catchment.
+
 ### Added
 
 - Made the demo web app a part of the package.

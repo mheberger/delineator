@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "delineator"
 description = "Global watershed delineation with MERIT-Hydro and MERIT-Basins data"
-version = "2.1.0"
+version = "2.1.1"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -15,6 +15,7 @@ authors = [
 requires-python = ">=3.10"
 dependencies = [
     "geopandas>=1.0",
+    "flask>=3.1",
     "pyogrio>=0.7",
     "shapely>=2.0",
     "pandas>=2.0",
@@ -35,10 +36,14 @@ delineator = [
     "data/vector/*.db",
 ]
 
+[tool.setuptools.dynamic]
+version = {attr = "delineator.__version__"}
+
 [project.scripts]
 delineate = "delineator.cli:main"
 delineator_dir = "delineator.cli:delineator_dir"
 delineator_download = "delineator.cli:delineator_download"
+delineator_serve = "delineator.cli:serve_cli"
 
 [project.urls]
 Homepage = "https://github.com/mheberger/delineator"

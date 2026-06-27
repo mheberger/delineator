@@ -17,7 +17,7 @@ and [MERIT-Basins](https://www.reachhydro.org/home/params/merit-basins).
 - [Configuration reference](#configuration-reference)
 - [Data files](#data-files)
 - [⚠️ Always review your results](#review-results)
-- [Usage examples](#usage-examples)
+- [Interactive local web app](#webapp)
 - [Algorithm](#algorithm)
 - [Citation](#citation)
 - [Contributing](#contributing)
@@ -369,13 +369,23 @@ MERIT-Hydro does not cover Greenland, Antarctica, or some small islands
 these areas.
 
 
-<a id="usage-examples"></a>
-## Usage examples
+<a id="webapp"></a>
+## Interactive local web app
 
-The `examples/` directory on the project's GitHub page contains ready-to-run scripts.
-The example scripts show how to use `delineator`and even how to set up a local, 
-web-based point-and-click 
+🆕 Added in version 2.1.1: spin up a local web-based point-and-click 
 watershed delineation service similar to [Global Watersheds](https://mghydro.com/watersheds).
+
+After installing the `delineator` package, run the following command:
+
+```bash
+delineator_serve
+```
+Open your web browser and visit [http://localhost:5000](http://localhost:5000).
+
+If you want to save the geodata, click the little buttons at the bottom right 
+to save the geodata to a file as GeoJSON. 
+
+![Interactive web app](docs/webapp.png)
 
 
 <a id="algorithm"></a>
@@ -418,7 +428,7 @@ homepage, this GitHub repository. Here's a BibTeX entry:
   title     = {delineator: Global Watershed Delineation with Python},
   year      = {2026},
   publisher = {GitHub},
-  version   = {2.0},
+  version   = {2.1},
   url       = {https://github.com/mheberger/delineator}
 }
 ```

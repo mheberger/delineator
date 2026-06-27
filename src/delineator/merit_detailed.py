@@ -156,7 +156,6 @@ def split_catchment(
     try:
         catch = grid.catchment(fdir=fdir, x=lng_snap, y=lat_snap, dirmap=DIRMAP,
                                xytype='coordinate', recursionlimit=15000)
-
         # Clip the bounding box to the catchment
         # Seems optional, but turns out this line is essential.
         grid.clip_to(catch)

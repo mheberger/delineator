@@ -122,7 +122,7 @@ def update_merges(merges_dict: dict, reverse_idx: dict, node, target) -> None:
     target_set.add(node)
 
 
-def trim_clusters(G: nx.DiGraph, threshold_area: int or float, mergest_dict: dict, reverse_idx: dict,
+def trim_clusters(G: nx.DiGraph, threshold_area: int | float, mergest_dict: dict, reverse_idx: dict,
                   rivers2merge, rivers2delete):
     """
     Step #1, merge "leaves", or unit catchments with order = 1 with their downstream node,
@@ -162,7 +162,7 @@ def trim_clusters(G: nx.DiGraph, threshold_area: int or float, mergest_dict: dic
     return G, mergest_dict, rivers2merge, rivers2delete
 
 
-def collapse_stems(G: nx.DiGraph, max_area: int or float, merges_dict: dict, reverse_idx: dict,
+def collapse_stems(G: nx.DiGraph, max_area: int | float, merges_dict: dict, reverse_idx: dict,
                    rivers2merge: dict
                    ) -> Tuple[nx.DiGraph, dict, dict]:
     """
@@ -235,7 +235,7 @@ def collapse_stems(G: nx.DiGraph, max_area: int or float, merges_dict: dict, rev
 
 
 def prune_leaves(G: nx.DiGraph,
-                 threshold_area: int or float,
+                 threshold_area: int | float,
                  merges_dict: dict,
                  reverse_idx: dict,
                  rivers2merge: dict,
@@ -288,7 +288,7 @@ def prune_leaves(G: nx.DiGraph,
     return G, merges_dict, rivers2merge, rivers2delete
 
 
-def last_merge(G: nx.DiGraph, threshold_area: int or float, merges_dict: dict, reverse_idx: dict,
+def last_merge(G: nx.DiGraph, threshold_area: int | float, merges_dict: dict, reverse_idx: dict,
                rivers2merge) \
         -> Tuple[nx.DiGraph, dict, dict]:
     """
@@ -359,7 +359,7 @@ def last_merge(G: nx.DiGraph, threshold_area: int or float, merges_dict: dict, r
     return G, merges_dict, rivers2merge
 
 
-def consolidate_network(G: nx.DiGraph, threshold_area: float or int) -> Tuple[nx.DiGraph, dict, dict, list]:
+def consolidate_network(G: nx.DiGraph, threshold_area: float | int) -> Tuple[nx.DiGraph, dict, dict, list]:
     """
     Consolidates the nodes in a river network graph, merging nodes to make them larger, while
     preserving the overall shape and connectivity of the graph.
@@ -401,7 +401,6 @@ def consolidate_network(G: nx.DiGraph, threshold_area: float or int) -> Tuple[nx
     rivers2merge = {}
     rivers2delete = []
 
-
     def valid(G):
         # Make all nodes have an area attribute
         # HACK: Something happened in Region 12 that caused some small basins (1 pixel size) to be dropped)
@@ -414,33 +413,42 @@ def consolidate_network(G: nx.DiGraph, threshold_area: float or int) -> Tuple[nx
     # Add a validation step here to find nodes without data
     assert valid(G)
 
-    if VERBOSE: show_area_stats(G)
+    if VERBOSE:
+        show_area_stats(G)
 
-    if DRAW_NET_DIAGRAM: draw_graph(G, filename='plots/test_net', title="Original Network")
+    if DRAW_NET_DIAGRAM:
+        draw_graph(G, filename='plots/test_net', title="Original Network")
 
     if VERBOSE:
         print(f"Consolidating river network. Max. subbasin area: {threshold_area}")
         print('Iteration #1')
 
     # Step 1, merge leaves with their downstream node
-    if VERBOSE: print("Step 1: Trimming clusters")
+    if VERBOSE:
+        print("Step 1: Trimming clusters")
     G, MERGES, rivers2merge, rivers2delete = trim_clusters(G, threshold_area, MERGES, reverse_idx, rivers2merge, rivers2delete)
-    if DRAW_NET_DIAGRAM: draw_graph(G, filename='plots/test_pruned', title="Pruned Network after Step 1")
+    if DRAW_NET_DIAGRAM:
+        draw_graph(G, filename='plots/test_pruned', title="Pruned Network after Step 1")
 
     # Step 2, merge stems
-    if VERBOSE: print("Step 2: Collapsing stems")
+    if VERBOSE:
+        print("Step 2: Collapsing stems")
     G, MERGES, rivers2merge = collapse_stems(G, threshold_area, MERGES, reverse_idx, rivers2merge)
-    if DRAW_NET_DIAGRAM: draw_graph(G, filename='plots/test_step2', title="Stems merged, after Step 2")
+    if DRAW_NET_DIAGRAM:
+        draw_graph(G, filename='plots/test_step2', title="Stems merged, after Step 2")
 
     # Step #3, prune small solo leaves
-    if VERBOSE: print("Step 3: Pruning small solo leaves")
+    if VERBOSE:
+        print("Step 3: Pruning small solo leaves")
     G, MERGES, rivers2merge, rivers2delete = prune_leaves(G, threshold_area, MERGES, reverse_idx, rivers2merge, rivers2delete)
-    if DRAW_NET_DIAGRAM: draw_graph(G, filename='plots/test_step4', title="Small solo leaves pruned, after Step 4")
+    if DRAW_NET_DIAGRAM:
+        draw_graph(G, filename='plots/test_step4', title="Small solo leaves pruned, after Step 4")
 
     # Iterate through the consolidation steps until the network stops changing
     i = 1  # Counter to keep track of how many iterations we do
     while True:
-        if VERBOSE: print(f"Iteration #{i}")
+        if VERBOSE:
+            print(f"Iteration #{i}")
         previous_num_nodes = G.number_of_nodes()
         G, MERGES, rivers2merge, rivers2delete = trim_clusters(G, threshold_area, MERGES, reverse_idx, rivers2merge, rivers2delete)
         G, MERGES, rivers2merge = collapse_stems(G, threshold_area, MERGES, reverse_idx, rivers2merge)
@@ -455,8 +463,10 @@ def consolidate_network(G: nx.DiGraph, threshold_area: float or int) -> Tuple[nx
     # Final step, takes care of any remaining small stem nodes
     G, MERGES, rivers2merge = last_merge(G, threshold_area, MERGES, reverse_idx, rivers2merge)
 
-    if DRAW_NET_DIAGRAM:  draw_graph(G, filename='plots/test_step5', title="After iteration, Step 5")
-    if VERBOSE: show_area_stats(G)
+    if DRAW_NET_DIAGRAM:
+        draw_graph(G, filename='plots/test_step5', title="After iteration, Step 5")
+    if VERBOSE:
+        show_area_stats(G)
 
     return G, MERGES, rivers2merge, rivers2delete
 

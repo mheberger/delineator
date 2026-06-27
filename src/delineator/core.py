@@ -11,6 +11,7 @@ import geopandas as gpd
 from shapely.ops import unary_union
 from shapely.geometry import Point
 import sqlite3
+import warnings
 
 from delineator.constants import (
     MEGABASINS_DB_FILE,
@@ -180,9 +181,9 @@ def delineate(
     # Calculate the area of the watershed
     if config.calc_area:
         if config.high_res:
-            watershed_area = upstream_area + split_catchment_area
+            watershed_area = upstream_area - home_catchment_area + split_catchment_area
         else:
-            watershed_area = upstream_area + home_catchment_area
+            watershed_area = upstream_area - home_catchment_area  # Check this!!!
 
         watershed_gdf["area_km2"] = round(watershed_area, 1)
 
@@ -193,7 +194,9 @@ def delineate(
 
     if config.clean:
         # This is a bit hack-ish, but it seems to work to remove "seams"
-        watershed_gdf.geometry = watershed_gdf.geometry.buffer(0.0001).buffer(-0.0001)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message="Geometry is in a geographic CRS")
+            watershed_gdf.geometry = watershed_gdf.geometry.buffer(0.0001).buffer(-0.0001)
 
     # Step 8: Get the rivers if requested by the user
     if config.rivers:

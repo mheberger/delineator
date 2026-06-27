@@ -171,6 +171,7 @@ class DelineatorConfig:
     simplify_tolerance: float = 0.0008
     threshold_single: int = 300
     threshold_multi: int = 5000
+    user_id: bool = False
     verbose: bool = False
 
     def __post_init__(self) -> None:

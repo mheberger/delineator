@@ -1,6 +1,7 @@
 # Verifying my spatialite installation
 
 import sqlite3
+import subprocess
 
 # 1
 DB_PATH = r'C:\Users\mheberger\Documents\delineator\output\basins23.db'
@@ -21,6 +22,5 @@ except Exception as e:
     print(f"Failed: {e}")
 
 # 3
-import subprocess
 # Windows
 subprocess.run(["where", "mod_spatialite.dll"], shell=True)

@@ -32,7 +32,7 @@ def draw_graph(G: nx.DiGraph, filename: str, title="River Network Graph"):
     max_area_node = max(G.nodes, key=lambda node: G.nodes[node].get('area', 0))
     try:
         max_area = G.nodes[max_area_node]['area']
-    except:
+    except KeyError:
         max_area = None
 
     # Initialize a new directed graph in Graphviz

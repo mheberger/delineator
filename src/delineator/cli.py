@@ -8,11 +8,20 @@ from delineator.settings import DelineatorConfig
 from delineator.util import write_outputs
 from delineator.data import _get_data_dir
 from delineator.validation import _validate_and_normalize_df
+from delineator.serve import serve
 
 logger = logging.getLogger(__name__)
 
 @click.command()
-@click.option("--point", nargs=2, type=float, metavar="LAT LON", help="Single outlet point")
+def serve_cli():
+    """
+    Launches a local web server to serve the delineator app.
+    with a simple point-and-click map interface.
+    """
+    serve()
+
+@click.command()
+@click.option("--point", nargs=2, type=float, metavar="LAT LON", help="Creates watershed for a single outlet point")
 @click.option("--id", default=None, help="ID for the watershed (used with --point)")
 @click.option("--csv", "outlets_csv", type=click.Path(exists=True), help="CSV file of outlet points")
 @click.option("--data-dir", default=None, help="Directory for delineator's input data files. ")

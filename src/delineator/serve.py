@@ -1,5 +1,5 @@
 """
-demo_webapp.py — Demo of spinning up a simple interactive watershed
+Spin up a simple interactive watershed
 delineation web map with a local Flask server.
 
 A lightweight web app inspired by Global Watersheds web app,
@@ -8,13 +8,9 @@ a server or even a web connection.
 
 Created with Gemini, by Matt H, June 2026.
 
-Usage:
-    pip install delineator
-    pip install flask
-    python demo_webapp.py
-
-Then open http://localhost:5000 in your browser.
-Click anywhere on the map to delineate the upstream watershed.
+Lets the user open http://localhost:5000 in your browser, then
+click anywhere on the map to delineate the upstream watershed.
+Very fast, easy to use, and facilitates iteration and review.
 """
 
 import json
@@ -201,7 +197,7 @@ HTML = """<!DOCTYPE html>
     }
     .swatch.outlet-requested {
       width: 12px; height: 12px; border-radius: 50%;
-      background: #c47c00; border: 2px solid #fff;
+      background: #fee12b; border: 2px solid #fff;
       flex-shrink: 0;
     }
     .swatch.outlet-snapped {
@@ -420,7 +416,7 @@ map.on('click', async (e) => {
           const isSnapped = feature.properties?.type === 'snapped';
           return L.circleMarker(latlng, {
             radius:      isSnapped ? 6 : 5,
-            fillColor:   isSnapped ? '#e05c1a' : '#c47c00',
+            fillColor:   isSnapped ? '#e05c1a' : '#fee12b',
             color:       '#fff',
             weight:      2,
             opacity:     1,
@@ -512,10 +508,12 @@ def delineate_endpoint() -> Response:
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
-
-if __name__ == "__main__":
-    print("\n  Global Watershed Delineator")
+def serve():
+    print("\n  Global Watershed Delineator Local Web App")
     print("  ─────────────────────────────────────────")
     print("  Open http://localhost:5000 in your browser")
     print("  Click anywhere on the map to delineate\n")
     app.run(debug=True, port=5000)
+
+if __name__ == "__main__":
+    pass

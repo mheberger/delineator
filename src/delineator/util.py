@@ -225,7 +225,7 @@ def write_outputs(watershed_gdf: gpd.GeoDataFrame | None,
                     fname,
                     index=False,
                 )
-                print(f"Wrote {fname}")
+                logger.info(f"Wrote {fname}")
         return
 
     if output_format == "gpkg":
@@ -240,7 +240,7 @@ def write_outputs(watershed_gdf: gpd.GeoDataFrame | None,
                     encoding="utf-8",
                     index=False,
                 )
-        print(f"Wrote {output_path}")
+        logger.info(f"Wrote {output_path}")
         return
 
     driver = drivers.get(output_format)
@@ -266,4 +266,4 @@ def write_outputs(watershed_gdf: gpd.GeoDataFrame | None,
 
         gdf.to_file(**write_kwargs)
 
-        print(f"Wrote {output_path}")
+        logger.info(f"Wrote {output_path}")
