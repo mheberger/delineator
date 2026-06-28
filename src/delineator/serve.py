@@ -261,7 +261,7 @@ HTML = """<!DOCTYPE html>
 </div>
 
 <!-- Error toast -->
-<div id="error-toast" id="error-toast"></div>
+<div id="error-toast"></div>
 
 <script>
 // ── Map init ──────────────────────────────────────────────────────────────
@@ -508,12 +508,30 @@ def delineate_endpoint() -> Response:
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
-def serve():
+def serve(host: str = "127.0.0.1", port: int = 5000, debug: bool = False) -> None:
+    """Start the local watershed delineation web app.
+
+    Works both from the command line and when called from Python, e.g.::
+
+        from delineator.serve import serve
+        serve()
+
+    Args:
+        host: Interface to bind. Defaults to localhost only.
+        port: Port to listen on.
+        debug: Enable Flask's debug error pages. The auto-reloader is always
+            left off (use_reloader=False) so that calling serve() from a
+            Python session, notebook, or another script reliably starts the
+            server. Leave debug off when distributing the package.
+    """
     print("\n  Global Watershed Delineator Local Web App")
     print("  ─────────────────────────────────────────")
-    print("  Open http://localhost:5000 in your browser")
+    print(f"  Open http://{host}:{port} in your browser")
     print("  Click anywhere on the map to delineate\n")
-    app.run(debug=True, port=5000)
+    # use_reloader=False is essential: the reloader runs the real server in a
+    # re-executed child process, which only works when launched as a command.
+    app.run(host=host, port=port, debug=debug, use_reloader=False, threaded=True)
+
 
 if __name__ == "__main__":
-    pass
+    serve()

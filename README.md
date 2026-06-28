@@ -364,7 +364,7 @@ interactive map is useful for this kind of iterative review.
 
 ### Areas with no data
 
-MERIT-Hydro does not cover Greenland, Antarctica, or some small islands 
+MERIT-Hydro does not cover Antarctica nor certain islands 
 (e.g., Hawaii, the Azores). Delineation will fail silently for outlet points in 
 these areas.
 

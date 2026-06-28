@@ -16,17 +16,14 @@ requires-python = ">=3.10"
 dependencies = [
     "geopandas>=1.0",
     "flask>=3.1",
-    "pyogrio>=0.7",
     "shapely>=2.0",
     "pandas>=2.0",
     "numpy>=1.24",
-    "matplotlib>=3.7",
     "pysheds>=0.5",
     "pyproj>=3.6",
     "click>=8.0",
     "pooch>=1.7",
     "platformdirs>=3.0",
-    "tqdm>4.67",
 ]
 
 [tool.setuptools.package-data]
