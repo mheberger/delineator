@@ -12,6 +12,7 @@ from delineator.serve import serve
 
 logger = logging.getLogger(__name__)
 
+
 @click.command()
 def serve_cli():
     """
@@ -19,6 +20,7 @@ def serve_cli():
     with a simple point-and-click map interface.
     """
     serve()
+
 
 @click.command()
 @click.option("--point", nargs=2, type=float, metavar="LAT LON", help="Creates watershed for a single outlet point")
@@ -49,9 +51,9 @@ def main(point, id, outlets_csv, data_dir, auto_download, high_res, output_dir,
         delineate --csv outlets.csv
     """
 
+    # Pipe the logs to stdout
     handler = logging.StreamHandler()
     handler.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
-    logger = logging.getLogger("delineator")
     logger.addHandler(handler)
     logger.propagate = False
     if verbose:
@@ -59,6 +61,7 @@ def main(point, id, outlets_csv, data_dir, auto_download, high_res, output_dir,
     else:
         logger.setLevel(logging.WARNING)
 
+    # Check that user specified either --csv or --point, not both
     if outlets_csv and point:
         raise click.UsageError("Specify either --csv or --point, not both.")
     if not outlets_csv and not point:
@@ -81,6 +84,7 @@ def main(point, id, outlets_csv, data_dir, auto_download, high_res, output_dir,
         click.echo("Invalid input. See above for details.")
         return
 
+    # Get the options for the DelineatorConfig object
     config_kwargs = {
         "high_res": high_res,
         "output_format": output_format,
@@ -89,9 +93,9 @@ def main(point, id, outlets_csv, data_dir, auto_download, high_res, output_dir,
         "outlets": outlets,
         "simplify": simplify,
     }
+
     if data_dir is not None:
         config_kwargs["data_dir"] = Path(data_dir)
-
     if output_dir is not None:
         config_kwargs["output_dir"] = Path(output_dir)
     if auto_download is not None:
@@ -99,12 +103,14 @@ def main(point, id, outlets_csv, data_dir, auto_download, high_res, output_dir,
 
     config = DelineatorConfig(**config_kwargs)
 
+    # Set the output directory (may not have been set by user)
     output_path = config.output_dir
+
     if not output_path.exists():
         click.echo(f"Creating output directory: {output_path}")
         output_path.mkdir(parents=True, exist_ok=True)
 
-    # Run delineation
+    # Run watershed delineation
     success = _delineate_dataframe(outlets_df, config)
     if success:
         click.echo(f"Done. Output written to {output_path}/")

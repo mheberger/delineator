@@ -14,6 +14,7 @@ authors = [
 ]
 requires-python = ">=3.10"
 dependencies = [
+    "click>=8.2",
     "geopandas>=1.0",
     "flask>=3.1",
     "shapely>=2.0",
@@ -21,20 +22,11 @@ dependencies = [
     "numpy>=1.24",
     "pysheds>=0.5",
     "pyproj>=3.6",
-    "click>=8.0",
     "pooch>=1.7",
     "platformdirs>=3.0",
+    "requests>=2.28",
+    "shapely>=2.0",
 ]
-
-[tool.setuptools.package-data]
-delineator = [
-    "data/*.db",
-    "data/raster/*.tif",
-    "data/vector/*.db",
-]
-
-[tool.setuptools.dynamic]
-version = {attr = "delineator.__version__"}
 
 [project.scripts]
 delineate = "delineator.cli:main"
@@ -44,3 +36,23 @@ delineator_serve = "delineator.cli:serve_cli"
 
 [project.urls]
 Homepage = "https://github.com/mheberger/delineator"
+
+# Bundled Iceland sample data lives at src/delineator/data. Data file types
+# (.db, .tif) are typically gitignored, and hatchling drops VCS-ignored files
+# from the build by default -- listing them as artifacts forces them back in.
+[tool.hatch.build]
+artifacts = [
+    "src/delineator/data/**",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/delineator"]
+
+[tool.deptry]
+# delineator is the package itself, not a third-party dependency. Without this,
+# every internal import gets flagged DEP003 because the editable install puts
+# delineator in site-packages.
+known_first_party = ["delineator"]
+# data_mgmt holds data-prep scripts that live outside src/ and never ship in the
+# wheel, so their imports shouldn't be checked against the package's dependencies.
+extend_exclude = ["data_mgmt"]
