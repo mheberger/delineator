@@ -1,8 +1,7 @@
 # Example scripts for use with the `delineator` Python package
 
-The example scripts in this folder show some ideas on how to use `delineator`
-in your scripts, and even how to set up a local, web-based point-and-click 
-watershed delineation service similar to [Global Watersheds](https://mghydro.com/watersheds).
+The scripts in this folder show some ideas on how to use `delineator`
+in your scripts.
 
 
 ### Python API demos (`examples/basic_demo.py`)
@@ -34,33 +33,6 @@ testing batch delineation:
 ```bash
 delineate --csv examples/sample_outlets.csv --rivers --output-dir output/
 ```
-
-
-### Interactive web map (`examples/demo_webapp.py`)
-
-A self-contained Flask application that spins up a local delineation service 
-and serves an interactive Leaflet map. Click anywhere on the map and the 
-watershed, river network, and outlet points appear within seconds.
-
-This is basically a simplified version of the (Global Watersheds web app)
-[https://mghydro.com/watersheds]  that you can run locally.
-
-![Webapp screenshot](docs/webapp_example.png)
-
-**Install Flask and launch:**
-```bash
-pip install flask
-python examples/webapp.py
-```
-
-Then open **http://localhost:5000** in your browser. The app is a single file 
-— the Flask backend handles delineation via a `/delineate` POST endpoint, and 
-the HTML/JS frontend is served inline.
-
-The Iceland data is bundled, so clicking anywhere in Iceland works immediately. 
-Clicking elsewhere in the world triggers an automatic data download for that 
-megabasin on first use.
-
 
 ### Batch delineation from a CSV file with live results table and a Leaflet map viewer 
  (`examples/batch_app.py`)
