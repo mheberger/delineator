@@ -1,0 +1,11 @@
+Shapefile showing the layout of the MERIT-Hydro tiles.
+
+I created this in QGIS. 
+
+It's a 5° grid, with the naming conventions described on this page:
+http://hydro.iis.u-tokyo.ac.jp/~yamadai/MERIT_Hydro/
+
+I used this to create the mapping between the grid tiles and the level 2 basins
+used by MERIT-Basins, and as a helper to merge the tiles at the megabasin
+scale using a Python script. 
+

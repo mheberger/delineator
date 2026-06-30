@@ -54,6 +54,14 @@ def _warn_stale_data(config: DelineatorConfig) -> None:
     global _STALE_WARNED
     if _STALE_WARNED:
         return
+
+    # The data directory may not exist yet (e.g. a fresh install, before any
+    # data has been downloaded). If so there are no stale folders to report.
+    # Skip without consuming the one-time warning, so a later call can still
+    # scan once the directory has been created.
+    if not config.data_dir.is_dir():
+        return
+
     _STALE_WARNED = True
 
     stale = [
@@ -94,6 +102,7 @@ def _find_data_file(relative_path: str, config: DelineatorConfig) -> Path | None
     the full path to the data file on the user's computer
     """
     if not config.custom_data_dir:
+
         _warn_stale_data(config)  # reclaims old-version disk; no-op after first call
 
     if '27' in relative_path:

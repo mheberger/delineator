@@ -1,8 +1,10 @@
 """
-Version 2.0 of `delineator` Global Watershed Delineation with Python
-  - refactored from a collection of scripts to a single Python package
-  - uses sqlite .db files instead of shapefiles
-  - implements "hierarchical nested" set of catchment boundaries to speed up vector operations.
+delineator 2.0: Global Watershed Delineation with Python
+
+Matthew Heberger, May 2026
+
+Formerly a collection of Python scripts, rewritten as a Python package
+
 """
 
 import logging

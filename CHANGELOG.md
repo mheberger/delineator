@@ -4,6 +4,18 @@ All notable changes to this project are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.1.2] - 2026-06-29
+
+## Fixed
+
+- Fixed a bug where the `delineate()` function would fail if the script 
+  cannot find the default data directory, which is always the case after
+  a new installation.
+
+## Changed
+
+- Minor edits to the README.
+
 ## [2.1.1] - 2026-06-26
 
 ### Fixed

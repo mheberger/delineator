@@ -16,17 +16,16 @@ and [MERIT-Basins](https://www.reachhydro.org/home/params/merit-basins).
 - [Command line reference](#command-line-reference)
 - [Configuration reference](#configuration-reference)
 - [Data files](#data-files)
-- [⚠️ Always review your results](#review-results)
-- [Interactive local web app](#webapp)
+- [Always review your results!](#always-review-your-results)
+- [Interactive local web app](#interactive-local-web-app)
 - [Algorithm](#algorithm)
 - [Citation](#citation)
 - [Contributing](#contributing)
 
 
-<a id="installation"></a>
 ## Installation
 
-📌 **Version 2.1 has breaking changes.** The vector data files were 
+**Version 2.1 has breaking changes.** The vector data files were 
 updated to fix a bug. Users should:
 
 - delete old versions of the `.db` files 
@@ -50,7 +49,6 @@ venv\Scripts\activate
 pip install delineator
 ```
 
-<a id="quick-start"></a>
 ## Quick start
 
 The bundled Iceland data lets you run immediately after installation; no separate 
@@ -91,7 +89,6 @@ Here is an example of the output displayed in QGIS:
 
 ![Example output](docs/example_output.png)
 
-<a id="command-line-reference"></a>
 ## Command line reference
 
 ```bash
@@ -184,7 +181,6 @@ $env:DELINEATOR_AUTO_DOWNLOAD = "false"
 delineator --csv outlets.csv
 ```
 
-<a id="configuration-reference"></a>
 ## Configuration reference
 
 When using the Python function `delineate()`, options are passed via a 
@@ -215,7 +211,7 @@ All options with their defaults:
 | Option               | Default        | Description                                                                                                                                                                  |
 |----------------------|----------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `auto_download`      | `True`         | Automatically download missing data files on first use.                                                                                                                      |
- | `calc_area`         | `True`         | Calculate the watershed area in km² and add to output geodata attribute table |
+| `calc_area`          | `True`         | Calculate the watershed area in km² and add to output geodata attribute table                                                                                                |
 | `clean`              | `False`        | Apply a small buffer/unbuffer to repair seam artifacts in the watershed polygon.                                                                                             |
 | `data_dir`           | system default | Override the data cache location.                                                                                                                                            |
 | `fill`               | `True`         | Fill small interior holes caused by topological gaps in MERIT-Hydro data.                                                                                                    |
@@ -231,7 +227,7 @@ All options with their defaults:
 | `simplify`           | `False`        | Simplify output geometry using Douglas-Peucker. Reduces file size and removes staircase artifacts from raster-origin boundaries.                                             |
 | `threshold_single`   | `3000`         | Number of upstream pixels that defines a stream for snapping the outlet, when the outlet is in a unit catchment with no upstream contributing catchments.                    |
 | `threshold_multiple` | `5000`         | Number of upstream pixels that defines a stream for snapping the outlet, when the outlet is in a unit catchment wih upstream contributing catchments.                        |
-| `verbose`            | `False`        | Print messages to the console to monitor the script's progress. |
+| `verbose`            | `False`        | Print messages to the console to monitor the script's progress.                                                                                                              |
 
 
 ### Notes on select options
@@ -280,7 +276,6 @@ parameters define how many upstream pixels are required to define a stream.
 ![Accumulation raster](docs/accum11_screenshot2.jpg)
 
 
-<a id="data-files"></a>
 ## Data files
 
 The `delineator` package comes bundled with data for Iceland. Beyond this, 
@@ -320,8 +315,7 @@ set DELINEATOR_DATADIR=D:\GIS\delineator_data
 ```
 
 
-<a id="review-results"></a>
-## ⚠️ Always review your results
+## Always review your results!
 
 **No automated watershed delineation software can replace human judgment. Always visually inspect every watershed you create with this package — there is no guarantee the output is correct.**
 
@@ -359,8 +353,8 @@ and can be subtle if you are not looking carefully.
 
 If the result looks wrong, try nudging the outlet coordinates toward the river 
 centerline and re-running. Overlaying the MERIT-Basins river network on your 
-map makes this much easier. The [`examples/demo_webapp.py`](examples/demo_webapp.py) 
-interactive map is useful for this kind of iterative review.
+map makes this much easier. The interactive map is useful for this kind of 
+iterative review.
 
 ### Areas with no data
 
@@ -369,10 +363,9 @@ MERIT-Hydro does not cover Antarctica nor certain islands
 these areas.
 
 
-<a id="webapp"></a>
 ## Interactive local web app
 
-🆕 Added in version 2.1.1: spin up a local web-based point-and-click 
+New! Added in version 2.1.1. Spin up a local web-based point-and-click 
 watershed delineation service similar to [Global Watersheds](https://mghydro.com/watersheds).
 
 After installing the `delineator` package, run the following command:
@@ -388,7 +381,6 @@ to save the geodata to a file as GeoJSON.
 ![Interactive web app](docs/webapp.png)
 
 
-<a id="algorithm"></a>
 ## Algorithm
 
 The `delineator` combines three techniques to achieve speed and low memory use
@@ -416,7 +408,6 @@ with a hybrid of raster and vector methods]
 (https://mghydro.com/pages/Heberger_delineation_2025.pdf).
 
 
-<a id="citation"></a>
 ## Citation
 
 If you use `delineator` in your research, please cite the project 
@@ -433,7 +424,6 @@ homepage, this GitHub repository. Here's a BibTeX entry:
 }
 ```
 
-<a id="contributing"></a>
 ## Contributing
 
 This project is open source and welcomes contributions. If you have comments 

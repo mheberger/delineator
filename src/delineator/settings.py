@@ -270,6 +270,7 @@ class DelineatorConfig:
         if self.data_dir is not None:
             self.custom_data_dir = True
             self.data_dir = self._coerce_path(self.data_dir, "data_dir")
+            self.data_dir.mkdir(parents=True, exist_ok=True)
             return
 
         env = os.environ.get("DELINEATOR_DATA_DIR")
@@ -279,3 +280,6 @@ class DelineatorConfig:
         else:
             self.custom_data_dir = False
             self.data_dir = Path(user_data_dir("delineator", appauthor=False))
+
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        
