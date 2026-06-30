@@ -26,6 +26,7 @@ dependencies = [
     "platformdirs>=3.0",
     "requests>=2.28",
     "shapely>=2.0",
+    "tqdm>4.67",
 ]
 
 [project.scripts]
