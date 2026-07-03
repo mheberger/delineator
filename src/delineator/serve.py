@@ -265,13 +265,37 @@ HTML = """<!DOCTYPE html>
 
 <script>
 // ── Map init ──────────────────────────────────────────────────────────────
-const map = L.map('map').setView([65, -18], 7);
+const map = L.map('map').setView([65, -18], 6);
 
-L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+// Define the basemap layers
+const cartoVoyager = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
   attribution: '© OpenStreetMap contributors © CARTO',
   subdomains: 'abcd',
   maxZoom: 20,
-}).addTo(map);
+});
+
+const openTopoMap = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+  maxZoom: 17,
+  attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
+});
+
+const esriSatellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+  maxZoom: 19,
+  attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+});
+
+// Add the default basemap to the map
+cartoVoyager.addTo(map);
+
+// Define the basemaps object for the control
+const baseMaps = {
+  "Minimal (Carto)": cartoVoyager,
+  "Topographic": openTopoMap,
+  "Satellite": esriSatellite
+};
+
+// Add the layer control to the top right of the map
+L.control.layers(baseMaps).addTo(map);
 
 // ── Layer groups ──────────────────────────────────────────────────────────
 let watershedLayer = null;

@@ -16,6 +16,10 @@ PIXEL_AREA = 0.00083333 * 0.00083333
 # MERIT-Hydro flow direction uses the ESRI standard for flow direction
 DIRMAP = (64, 128, 1, 2, 4, 8, 16, 32)
 
+# If the user specifies to round the coordinates in the geodata files, how
+# many decimal places shall we use?
+ROUNDING_DECIMALS = 6
+
 # The scripts will try to use the spatialite extension if it is installed
 # and fallback to geopandas otherwise. I used this flag during development
 # to test the condition where spatialite is not available.

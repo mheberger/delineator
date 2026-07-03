@@ -115,6 +115,12 @@ class DelineatorConfig:
         as the "rivers" layer in the output GeoPackage, or to a separate file
         such as "rivers.shp" or "rivers.geojson", depending on  `output_format`.
 
+    round_coordinates: bool
+        If True, the coordinates of the watershed and rivers will be rounded to
+        6 decimal places. This will reduce the file size of the output files,
+        with minimal impact on the quality of the output. Default is True.
+        Rounds to 6 decimal places, which is about 10 cm precision near the equator.
+
     output_format: str
         Specify the output format for geodata files. Options are "gpkg" (default)
         or "geojson", "shp", "kml", and others supported by your installation of geopandas.
@@ -179,6 +185,7 @@ class DelineatorConfig:
     output_format: str = "gpkg"
     outlets: bool = True
     rivers: bool = True
+    round_coordinates: bool = True
     search_dist: float = 0.1
     simplify: bool = False
     simplify_tolerance: float = 0.0008
@@ -200,6 +207,7 @@ class DelineatorConfig:
         self._validate_bool("high_res", self.high_res)
         self._validate_bool("outlets", self.outlets)
         self._validate_bool("rivers", self.rivers)
+        self._validate_bool("round_coordinates", self.round_coordinates)
         self._validate_bool("simplify", self.simplify)
         self._validate_bool("snapping", self.snapping)
 

@@ -4,15 +4,33 @@ All notable changes to this project are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.2.0] - 2026-07-05
+
+### Fixed
+
+- Improved the handling of multipart polygon features throughout the code. 
+  Previously, this was not correctly handling "bowtie" polygons that 
+  are attached at a single point.
+
+### Added
+
+- Added a new configuration option `round_coordinates`. The new default is to  
+  round the coordinates in geodata files to 6 decimal places, saving disk space
+  with minimal loss of precision (around 10 cm near the equator).
+- Added a new configuration option `snapping`, defaulting to `True`. In certain
+  (rare) cases, the user may want to disable to pour point snapping algorithm,
+  for example, if they have implemented their own snapping algorithm. 
+
+
 ## [2.1.2] - 2026-06-29
 
-## Fixed
+### Fixed
 
 - Fixed a bug where the `delineate()` function would fail if the script 
   cannot find the default data directory, which is always the case after
   a new installation.
 
-## Changed
+### Changed
 
 - Minor edits to the README.
 

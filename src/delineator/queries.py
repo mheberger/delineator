@@ -3,6 +3,7 @@ from collections import defaultdict
 import geopandas as gpd
 import shapely
 from shapely.geometry import Polygon
+from pyproj import Geod
 
 from delineator.data import _find_data_file
 from delineator.settings import DelineatorConfig
@@ -321,5 +322,17 @@ def get_rivers(upstream_catchment_list: list,
         split_reach = segment_geom.intersection(split_catchment_polygon)
 
         rivers_gdf.loc[rivers_gdf['comid'] == upstream_catchment_list[0], 'geometry'] = split_reach
+
+        # Update the length attribute for the split river reach
+        # Initialize a Geod object using the WGS84 ellipsoid (CRS 4326)
+        geod = Geod(ellps="WGS84")
+
+        # Calculate the true geodetic length in meters
+        length_meters = geod.geometry_length(split_reach)
+
+        # Convert to kilometers
+        length_km = round(length_meters / 1000, 2)
+
+        rivers_gdf.loc[rivers_gdf["comid"] == upstream_catchment_list[0], "lengthkm"] = length_km
 
     return rivers_gdf

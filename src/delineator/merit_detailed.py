@@ -7,7 +7,7 @@ import logging
 import numpy as np
 from numpy import floor, ceil
 from pysheds.grid import Grid
-from shapely.geometry import Polygon, MultiPolygon
+from shapely.geometry import Polygon, MultiPolygon, shape
 from shapely import wkb, ops
 
 from delineator.constants import HALF_PIXEL, DIRMAP
@@ -94,13 +94,14 @@ def split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon 
     poly = wkb.loads(hexpoly, hex=True)
 
     # Fix any holes in the polygon by taking the exterior coordinates.
-    filled_poly = _close_holes(poly, area_max=0)
+    # Updated 2026-07-02 to remove. Now we are handling MultiPolygons properly. No longer need this hack!
+    #filled_poly = _close_holes(poly, area_max=0)
 
     # It needs to be of type MultiPolygon to work with rasterio apparently
-    if isinstance(filled_poly, Polygon):
-        filled_poly = MultiPolygon([filled_poly])
+    if isinstance(poly, Polygon):
+        poly = MultiPolygon([poly])
 
-    polygon_list = list(filled_poly.geoms)
+    polygon_list = list(poly.geoms)
 
     # Convert the polygon into a pixelized raster "mask".
     mymask = grid.rasterize(polygon_list)
@@ -167,7 +168,9 @@ def split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon 
         if lat_snap is None:
             return None, None, None
         snap_setting = "corner"
+        #snap_setting = "center"
     else:
+        # Snapping to center is consistent with TauDEM
         lat_snap, lng_snap = lat, lng
         snap_setting = "center"
 
@@ -187,31 +190,11 @@ def split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon 
     logger.info("Convert split catchment raster to polygon")
     shapes = grid.polygonize(clipped_catch)
 
-    # The output from pysheds is creating MANY shapes.
-    # Dissolve them together with the unary union operation in shapely
-    shapely_polygons = []
-
-    shape_count = 0
+    polygons = [shape(geom) for geom, value in shapes]
+    multi = MultiPolygon(polygons)
 
     # The snapped vertices need to be nudged down and right by one half pixel
     lng_snap += HALF_PIXEL
     lat_snap -= HALF_PIXEL
 
-    # Convert the result from pysheds into a list of shapely polygons
-    for shape, value in shapes:
-        pysheds_polygon = shape
-        shape_count += 1
-        # The pyshseds polygon can be converted to a shapely Polygon in this one-liner
-        shapely_polygon = Polygon([[p[0], p[1]] for p in pysheds_polygon['coordinates'][0]])
-        shapely_polygons.append(shapely_polygon)
-
-    if shape_count > 1:
-        # If pysheds returned multiple polygons, dissolve them using shapely's unary_union() function
-        # Note that this can sometimes return a MultiPolygon, which we'll need to fix later
-        result_polygon = ops.unary_union(shapely_polygons)
-
-    else:
-        # If pysheds generated a single polygon, that is our answer
-        result_polygon = shapely_polygons[0]
-
-    return result_polygon, lat_snap, lng_snap
+    return multi, lat_snap, lng_snap

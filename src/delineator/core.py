@@ -10,6 +10,7 @@ Formerly a collection of Python scripts, rewritten as a Python package
 import logging
 from pathlib import Path
 import geopandas as gpd
+import shapely
 from shapely.ops import unary_union
 from shapely.geometry import Point
 import sqlite3
@@ -19,7 +20,7 @@ from delineator.constants import (
     MEGABASINS_DB_FILE,
     VALID_MEGABASINS,
     USE_SPATIALITE,
-    PIXEL_AREA,
+    PIXEL_AREA, ROUNDING_DECIMALS,
 )
 from delineator.data import _find_data_file
 from delineator.util import _validate_outlet_coordinates, _close_holes, _get_polygon_area
@@ -229,6 +230,13 @@ def delineate(
     else:
         outlets_gdf = None
 
+    # Round coordinates in the geodata files, if requested by the user
+    if config.round_coordinates:
+        grid_size = 10 ** -ROUNDING_DECIMALS
+        watershed_gdf['geometry'] = shapely.set_precision(watershed_gdf['geometry'], grid_size=grid_size)
+        if config.rivers:
+            rivers_gdf['geometry'] = shapely.set_precision(rivers_gdf['geometry'], grid_size=grid_size)
+        
     return watershed_gdf, rivers_gdf, outlets_gdf
 
 
