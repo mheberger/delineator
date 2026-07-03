@@ -513,16 +513,20 @@ def serve(host: str = "127.0.0.1", port: int = 5000, debug: bool = False) -> Non
 
     Works both from the command line and when called from Python, e.g.::
 
+    Usage:
+    ------
         from delineator.serve import serve
         serve()
 
-    Args:
-        host: Interface to bind. Defaults to localhost only.
-        port: Port to listen on.
-        debug: Enable Flask's debug error pages. The auto-reloader is always
-            left off (use_reloader=False) so that calling serve() from a
-            Python session, notebook, or another script reliably starts the
-            server. Leave debug off when distributing the package.
+    Parameters:
+    -----------
+    host: Interface to bind. Defaults to localhost only.
+    port: Port to listen on.
+    debug: Enable Flask's debug error pages. The auto-reloader is always
+        left off (use_reloader=False) so that calling serve() from a
+        Python session, notebook, or another script reliably starts the
+        server. Leave debug off when distributing the package.
+
     """
     print("\n  Global Watershed Delineator Local Web App")
     print("  ─────────────────────────────────────────")

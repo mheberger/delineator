@@ -98,8 +98,8 @@ def _find_data_file(relative_path: str, config: DelineatorConfig) -> Path | None
         includes config.data_dir, the path to the data directory
 
     Returns
-    -------
-    the full path to the data file on the user's computer
+    --------
+    strthe full path to the data file on the user's computer
     """
     if not config.custom_data_dir:
 

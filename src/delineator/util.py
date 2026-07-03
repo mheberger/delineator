@@ -14,9 +14,11 @@ logger = logging.getLogger(__name__)
 def _get_overlap_lines(line: LineString | MultiLineString,
                        polygon: Polygon | MultiPolygon) \
         -> list[LineString | MultiLineString]:
-    """Return the portion of a line that falls within a polygon, always as a list of LineStrings.
+    """
+    Return the portion of a line that falls within a polygon,
+
+    Always returns a list of LineStrings.
     Uses shapely library functions only, no spatialite queries.
-    Params:
 
     """
     result = line.intersection(polygon)
@@ -37,19 +39,29 @@ def _get_overlap_lines(line: LineString | MultiLineString,
 def _validate_outlet_coordinates(lat: float, lng: float) -> tuple[float, float]:
     """
     Validates the geographical coordinates (latitude and longitude) of an outlet
-     ensuring they fall within acceptable ranges.
+    ensuring they fall within acceptable ranges.
 
-    :param lat: Latitude of the outlet in decimal degrees. Must be a finite
-        float value between -60 and 85 (exclusive).
-    :type lat: float
-    :param lng: Longitude of the outlet in decimal degrees. Must be a finite
-        float value between -180 and 180 (exclusive).
-    :type lng: float
-    :return: Validated latitude and longitude.
-    :rtype: tuple[float, float]
-    :raises TypeError: If latitude or longitude are not float values.
-    :raises ValueError: If latitude or longitude are not finite or fall outside
-        the allowed range.
+    Parameters
+    ----------
+    lat : float
+        Latitude of the outlet in decimal degrees. Must be a finite float value
+        between -60 and 85 (exclusive).
+    lng : float
+        Longitude of the outlet in decimal degrees. Must be a finite float
+        value between -180 and 180 (exclusive).
+
+    Returns
+    -------
+    tuple[float, float]
+        Validated latitude and longitude.
+
+    Raises
+    ------
+    TypeError
+        If latitude or longitude are not float values.
+    ValueError
+        If latitude or longitude are not finite or fall outside the allowed
+        range.
     """
     lat = float(lat)
     lng = float(lng)

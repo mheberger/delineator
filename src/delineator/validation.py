@@ -41,17 +41,23 @@ REQUIRED_FIELDS = {"id", "lat", "lon"}
 
 
 def _validate_and_normalize_df(df: pd.DataFrame) -> pd.DataFrame | None:
-    """Validate a user-supplied DataFrame, normalizing column names to canonical forms.
+    """
+    Validate a user-supplied DataFrame, normalizing column names to canonical forms.
 
-    Renames columns to lowercase and resolves common synonyms for `id`, `lat`,
-    and `lon`. Logs an error and returns None if any required field is missing
+    Renames columns to lowercase and resolves common synonyms for ``id``, ``lat``,
+    and ``lon``. Logs an error and returns None if any required field is missing
     after normalization.
 
-    Args:
-        df: Input DataFrame loaded from a user-supplied CSV.
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input DataFrame loaded from a user-supplied CSV.
 
-    Returns:
+    Returns
+    -------
+    pd.DataFrame or None
         DataFrame with normalized column names, or None if validation fails.
+
     """
     # Normalize all column names to lowercase, stripped of whitespace
     df = df.copy()

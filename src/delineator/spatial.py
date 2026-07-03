@@ -330,8 +330,8 @@ def _find_with_geopandas(
     feature within search_dist is returned, mirroring the SpatiaLite path.
     search_dist is in the geometry CRS units (degrees for EPSG:4326).
 
-    Arguments
-    ---------
+    Parameters:
+    -----------
     conn: sqlite3.Connection to a database file
     point: shapely.geometry.Point, the location to search for
     table: str, the name of the table to search
@@ -340,8 +340,12 @@ def _find_with_geopandas(
     scan_threshold: int, the number of rows above which a warning is emitted
     search_dist: optional nearest-feature tolerance in CRS units
 
-    Notes
-    -----
+    Returns:
+    --------
+    index: int or string, the ID of the matching feature, or None if no match
+
+    Notes:
+    ------
     Requires a file-backed database.  In-memory databases (conn opened with
     ':memory:') are not supported and will raise RuntimeError.
     """
@@ -434,7 +438,7 @@ def _point_in_polygon_analysis(
 
     Both paths honour ``search_dist`` and return Python scalars (``int``/``str``).
 
-    Parameters
+    Parameters:
     ----------
     conn:
         Open ``sqlite3.Connection``.  The connection is not closed here.
@@ -460,12 +464,12 @@ def _point_in_polygon_analysis(
         **degrees, not metres** (≈ 0.01 deg ≈ 1.1 km near the equator).  Project
         to a metric CRS if you need metre-based tolerances.
 
-    Returns
+    Returns:
     -------
-    The value of *id_col* for the matching catchment, or ``None`` if no
+    index: The value of *id_col* for the matching catchment, or ``None`` if no
     catchment contains the point (and none is within ``search_dist``).
 
-    Notes
+    Notes:
     -----
     If more than one polygon contains the point (overlapping geometries) the
     first match is returned.

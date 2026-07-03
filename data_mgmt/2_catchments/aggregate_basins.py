@@ -55,9 +55,10 @@ def _to_multipolygon_wkb(geom) -> Optional[bytes]:
     """Convert a Shapely geometry to WKB bytes, promoting Polygon → MultiPolygon."""
     if geom is None or geom.is_empty:
         return None
-    if isinstance(geom, Polygon):
-        geom = MultiPolygon([geom])
-    return shapely_wkb.dumps(geom)
+    polys = [g for g in shapely.get_parts(geom) if isinstance(g, Polygon)]
+    if not polys:
+        return None
+    return shapely_wkb.dumps(MultiPolygon(polys))
 
 
 def _create_basin_table(cur: sqlite3.Cursor, table: str) -> None:
@@ -351,7 +352,8 @@ def aggregate(
     removed_catchments = set(catchments_to_drop[catchments_to_drop].index.tolist())
     agg_gdf = agg_gdf[~catchments_to_drop].copy()
 
-    agg_gdf.geometry = agg_gdf.geometry.apply(lambda p: _close_holes(p, 0))
+    # Update 2026-07-02: Do not close holes! This will cause it to mismatch TauDEM and pysheds.
+    #agg_gdf.geometry = agg_gdf.geometry.apply(lambda p: _close_holes(p, 0))
 
     agg_gdf["nextdown"] = 0
     for idx in agg_gdf.index:
@@ -545,7 +547,9 @@ def dissolve(
     # --- geometry aggregation ---
     if geom_type == "polygon":
         def _combine(s):
-            return shapely.union_all(shapely.make_valid(s.to_numpy()))
+            return shapely.union_all(
+                shapely.make_valid(s.to_numpy(), method="structure")
+            )
     elif geom_type == "line":
         def _combine(s):
             return shapely.line_merge(shapely.union_all(s.to_numpy()))
@@ -651,10 +655,10 @@ MAP = False
 
 if __name__ == "__main__":
     # Put 54 last because it triggers an uncaught error.
-    basins = [55,56,57,61,62,63,64,65,66,67,71,72,73,74,75,76,77,78,81,82,83,84,85,86]
+    basins = [27]
 
     for BASIN in basins:
-        DB_PATH = f"C:/Users/mheberger/AppData/Local/delineator/2026-06-24/vector/basins{BASIN}.db"
+        DB_PATH = f"C:/Users/mheberger/AppData/Local/delineator/v2.1/basins{BASIN}.db"
         CAT_SHP = rf"C:\Data\GIS\MERITBasins\catchments\bugfix_repaired\cat_pfaf_{BASIN}_MERIT_Hydro_v07_Basins_v01_bugfix1.shp"
         RIV_SHP = rf"C:\Data\GIS\MERITBasins\rivers\bugfix_repaired\riv_pfaf_{BASIN}_MERIT_Hydro_v07_Basins_v01_bugfix1.shp"
 

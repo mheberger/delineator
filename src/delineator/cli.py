@@ -157,14 +157,15 @@ def _delineate_dataframe(outlets_df, config: DelineatorConfig) -> bool:
 
     Parameters
     ----------
-    outlets_df : pandas DataFrame
+    outlets_df : pandas.DataFrame
         DataFrame containing the outlet points. Must have columns "lat", "lon", and "id".
 
     config : DelineatorConfig
 
     Returns
     -------
-    Boolean indicating whether any outputs were written to disk.
+    boolean
+        indicating whether any outputs were written to disk.
 
     """
     num_outputs_written = 0

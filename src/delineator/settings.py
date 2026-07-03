@@ -55,7 +55,7 @@ class DelineatorConfig:
     """
     Configuration settings for watershed delineation.
 
-    Parameters
+    Parameters:
     ----------
     auto_download: bool
         If True, the script will attempt to download needed data files for
@@ -114,7 +114,7 @@ class DelineatorConfig:
         If True, return the river flow lines in the watershed. These will be saved
         as the "rivers" layer in the output GeoPackage, or to a separate file
         such as "rivers.shp" or "rivers.geojson", depending on  `output_format`.
-    
+
     output_format: str
         Specify the output format for geodata files. Options are "gpkg" (default)
         or "geojson", "shp", "kml", and others supported by your installation of geopandas.
@@ -136,6 +136,12 @@ class DelineatorConfig:
         If `simplify=True`, this is the tolerance value for the simplification.
         With the Douglas-Peucker algorithm, the tolerance value is the maximum
         distance (in decimal degrees) that a vertex can be from the original.
+
+    snapping: bool
+        If snapping=False, the script will not attempt to snap the outlet point.
+        Instead, it will use the coordinates provided by the user. This is
+        provided as an alternative to the built-in pour-point snapping function.
+        Probably only useful for testing purposes.
 
     threshold_single : int
         Threshold for number of upstream pixels that defines a stream for
@@ -176,6 +182,7 @@ class DelineatorConfig:
     search_dist: float = 0.1
     simplify: bool = False
     simplify_tolerance: float = 0.0008
+    snapping: bool = True
     threshold_single: int = 300
     threshold_multi: int = 5000
     user_id: bool = False
@@ -194,6 +201,7 @@ class DelineatorConfig:
         self._validate_bool("outlets", self.outlets)
         self._validate_bool("rivers", self.rivers)
         self._validate_bool("simplify", self.simplify)
+        self._validate_bool("snapping", self.snapping)
 
         if not isinstance(self.fill_threshold, int):
             raise TypeError("fill_threshold must be an int.")

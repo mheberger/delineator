@@ -12,12 +12,12 @@ def get_upstream_comids(conn: sqlite3.Connection, home_unit_catchment: int) -> l
     """
     Query #1, gets a complete list of upstream basins comids
 
-    Parameters
+    Parameters:
     ----------
     conn: a sqlite3 connection to the database
     home_unit_catchment: the comid of the home unit catchment, e.g. 23016159
 
-    Returns
+    Returns:
     -------
     the list of upstream basins comids. The first element is the home unit catchment.
 
@@ -49,22 +49,28 @@ def get_hiearchical_basins(conn: sqlite3.Connection, upstream_catchment_list: li
     """
     Converts the list of unit catchment comids to a dictionary of nested hiearchical catchments
 
-    Parameters
-    ---------
-    conn: a sqlite3 connection to the database
-    upstream_catchment_list: integer list of unit catchment comids that are upstream of the home unit catchment
+    Example ouput:
 
-    Returns
-    -------
-    a dictionary of nested hiearchical catchments, where the keys are the level names ('L0', 'L1', ... 'L4')
-    and the values are lists of basin comids.
-
-    Example:
-
+    ```
         {
             'L2': [23016162, 23016170, 23016215, 23016306, 23017387, 23017390, 23018599],
             'L0': [23016160, 23016161, 23016603, 23017101, 23017136, 23017189]
         }
+    ```
+
+    Parameters
+    ----------
+    conn : sqlite3.Connection
+        a sqlite3 connection to the database
+    upstream_catchment_list : list[int]
+        list of unit catchment comids that are upstream of the home unit catchment
+
+    Returns
+    -------
+    dict :
+        dictionary of nested hiearchical catchments, where the keys are the
+        level names ('L0', 'L1', ... 'L4') and the values are lists of basin comids.
+
     """
     placeholders = ", ".join([str(i) for i in upstream_catchment_list])
 
@@ -189,14 +195,16 @@ def get_upstream_area(home_unit_catchment: int, config: DelineatorConfig) -> flo
     and the 'uparea' column.
 
     Parameters:
-        home_unit_catchment (int): The catchment ID for which upstream area needs
-                                   to be determined. The first two digits of this
-                                   value identify the megabasin.
-        config (DelineatorConfig): Configuration object containing resource paths
+    -----------
+    home_unit_catchment (int): The catchment ID for which upstream area needs
+                               to be determined. The first two digits of this
+                               value identify the megabasin.
+    config (DelineatorConfig): Configuration object containing resource paths
                                    and relevant settings.
 
     Returns:
-        float: The upstream area of the specified catchment, in km²
+    --------
+    float: The upstream area of the specified catchment, in km²
     """
     if len(str(home_unit_catchment)) < 7:
         return 0
@@ -217,7 +225,7 @@ def get_upstream_geometries(db_path: str, basins_dict: dict) -> list:
     Get the geometries of the upstream basins. Uses an efficient approach that
     is based on nested catchment hierarchies that have been pre-computed.
 
-    Parameters
+    Parameters:
     ----------
     basins_dict : dict
         A dictionary of basins, where the keys are the level names ('L0', 'L1', ... 'L4')
@@ -229,8 +237,8 @@ def get_upstream_geometries(db_path: str, basins_dict: dict) -> list:
             'L0': [23014799, 23014800, 23016113]
         }
 
-    Returns
-    -------
+    Returns:
+    --------
     A list of Shapely MultiPolygons (which we will dissolve later to create a single Polygon).
 
     """
@@ -263,13 +271,15 @@ def get_rivers(upstream_catchment_list: list,
     river reach using a provided polygon.
 
     Parameters:
-        upstream_catchment_list (list): A list of catchment identifiers for which river data is queried.
-        split_catchment_polygon (Polygon): A polygon used to split the geometry of the final river reach. Can be None if no splitting is required.
-        config (DelineatorConfig): Configuration object containing settings for data processing, including the
-            number of stream orders and file paths.
+    -----------
+    upstream_catchment_list (list): A list of catchment identifiers for which river data is queried.
+    split_catchment_polygon (Polygon): A polygon used to split the geometry of the final river reach. Can be None if no splitting is required.
+    config (DelineatorConfig): Configuration object containing settings for data processing, including the
+        number of stream orders and file paths.
 
     Returns:
-        gpd.GeoDataFrame: A GeoDataFrame containing the queried river records, optionally with updated geometry for
+    --------
+    gpd.GeoDataFrame: A GeoDataFrame containing the queried river records, optionally with updated geometry for
         the downstream river reach. Returns None if no river data is found.
 
     """

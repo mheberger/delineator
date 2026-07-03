@@ -18,14 +18,9 @@ from delineator.util import _close_holes
 logger = logging.getLogger(__name__)
 
 
-def split_catchment(
-    basin: int,
-    lat: float,
-    lng: float,
-    catchment_poly: Polygon | MultiPolygon,
-    bSingleCatchment: bool,
-    config: DelineatorConfig,
-) -> tuple[Polygon | MultiPolygon | None, float | None, float | None]:
+def split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon | MultiPolygon,
+                    bSingleCatchment: bool, config: DelineatorConfig,) -> \
+        tuple[Polygon | MultiPolygon | None, float | None, float | None]:
     """
     Performs the detailed pixel-scale raster-based delineation for a watershed.
 
@@ -34,20 +29,23 @@ def split_catchment(
     savings in processing time and memory use, making it possible to delineate even large watersheds
     on a laptop computer.
 
-    Args:
-        basin: 2-digit Pfafstetter code for the level 2 basin we're in (tells us which raster files to open)
-        lat: latitude
-        lng: longitude
-        catchment_poly: a Shapely polygon; we'll use it to clip the flow accumulation raster to get an accurate snap
-        bSingleCatchment: is the watershed small, i.e. there is only one unit catchment in it?
+    Parameters:
+    -----------
+    basin: 2-digit Pfafstetter code for the level 2 basin we're in (tells us which raster files to open)
+    lat: latitude
+    lng: longitude
+    catchment_poly: a Shapely polygon; we'll use it to clip the flow accumulation raster to get an accurate snap
+
+    bSingleCatchment: is the watershed small, i.e. there is only one unit catchment in it?
             If so, we'll use a lower snap threshold for the outlet.
-        config: a DelineatorConfig dataclass object
+    config: a DelineatorConfig dataclass object
 
     Returns:
-        poly: a shapely Polygon or MultiPolygon representing the part of the terminal unit catchment
-            that is upstream of the outlet point
-        lat_snap:  latitude of the outlet, snapped to the river centerline in the accumulation raster
-        lng_snap: longitude of the outlet, snapped to the river centerline in the accumulation raster
+    --------
+    poly: a shapely Polygon or MultiPolygon representing the part of the terminal unit catchment
+        that is upstream of the outlet point
+    lat_snap:  latitude of the outlet, snapped to the river centerline in the accumulation raster
+    lng_snap: longitude of the outlet, snapped to the river centerline in the accumulation raster
 
     """
 
@@ -113,51 +111,72 @@ def split_catchment(
     # Not clear if this this step was unnecessary, but it makes the plots look nicer
     fdir[mymask == 0] = 0
 
-    logger.info("Snapping pour point")
+    # Pour point snapping
+    def snap_outlet() -> tuple[float | None, float | None]:
+        """Snap the user-provided lat/lng coordinates to a valid point on the grid."""
+        logger.info("Snapping pour point")
 
-    # Open the accumulation raster, again using windowed reading mode.
-    accum_file = f'accum{basin}.tif'
-    accum_path = _find_data_file(accum_file, config)
-    if accum_path is None:
-        logging.warning(f"Could not load accumulation raster: {accum_file}")
-        return None, None, None
+        # Open the accumulation raster, again using windowed reading mode.
+        accum_file = f"accum{basin}.tif"
+        accum_path = _find_data_file(accum_file, config)
+        if accum_path is None:
+            logging.warning(f"Could not load accumulation raster: {accum_file}")
+            return None, None
 
-    if not os.path.isfile(accum_path):
-        raise Exception("Could not find accumulation raster: {}".format(accum_path))
+        if not os.path.isfile(accum_path):
+            raise Exception("Could not find accumulation raster: {}".format(accum_path))
 
-    # pysheds grids expects a string, not a Path object
-    acc = grid.read_raster(str(accum_path), window=bounding_box, window_crs=grid.crs, nodata=0)
+        # pysheds grids expects a string, not a Path object
+        acc = grid.read_raster(
+            str(accum_path), window=bounding_box, window_crs=grid.crs, nodata=0
+        )
 
-    # MASK the accumulation raster to the unit catchment POLYGON.
-    acc[mymask == 0] = 0
+        # MASK the accumulation raster to the unit catchment POLYGON.
+        # I found that this step is essential for good pour point snapping
+        acc[mymask == 0] = 0
 
-    # Snap the outlet to the nearest stream.
-    if bSingleCatchment:
-        numpixels = config.threshold_single
+        # Snap the outlet to the nearest stream.
+        if bSingleCatchment:
+            numpixels = config.threshold_single
+        else:
+            # Case where there are 2 or more unit catchments in the watershed
+            # setting this value too low causes incorrect results and weird topology problems in the output
+            numpixels = config.threshold_multi
+
+        logger.info(
+            "Using threshold of {} for number of upstream pixels.".format(numpixels)
+        )
+
+        # Snap the pour point to a point on the accumulation grid where accum (# of upstream pixels)
+        # is greater than our threshold. This is conventionally called the streams layer.
+        streams = acc > numpixels
+        xy = (lng, lat)
+        try:
+            [lng_snap, lat_snap] = grid.snap_to_mask(
+                streams, xy
+            )  # New version of pysheds does not give you the snap distance.
+            return lat_snap, lng_snap
+
+        except Exception as e:
+            logger.warning(f"Could not snap the pour point. Error: {e}")
+            return None, None
+
+    # Snap the pour point
+    if config.snapping:
+        lat_snap, lng_snap = snap_outlet()
+        if lat_snap is None:
+            return None, None, None
+        snap_setting = "corner"
     else:
-        # Case where there are 2 or more unit catchments in the watershed
-        # setting this value too low causes incorrect results and weird topology problems in the output
-        numpixels = config.threshold_multi
-
-    logger.info("Using threshold of {} for number of upstream pixels.".format(numpixels))
-
-    # Snap the pour point to a point on the accumulation grid where accum (# of upstream pixels)
-    # is greater than our threshold
-    streams = acc > numpixels
-    xy = (lng, lat)
-    try:
-        [lng_snap, lat_snap] = grid.snap_to_mask(streams, xy)  # New version does not give you the snap distance.
-    except Exception as e:
-        logger.warning(f"Could not snap the pour point. Error: {e}")
-        return None, None, None
+        lat_snap, lng_snap = lat, lng
+        snap_setting = "center"
 
     # Finally, here is the raster based watershed delineation with pysheds!
     logger.info("Splitting home unit catchment")
     try:
         catch = grid.catchment(fdir=fdir, x=lng_snap, y=lat_snap, dirmap=DIRMAP,
-                               xytype='coordinate', recursionlimit=15000)
+                               xytype='coordinate', recursionlimit=15000, snap=snap_setting)
         # Clip the bounding box to the catchment
-        # Seems optional, but turns out this line is essential.
         grid.clip_to(catch)
         clipped_catch = grid.view(catch, dtype=np.uint8)
     except Exception as e:
