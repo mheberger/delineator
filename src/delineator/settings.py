@@ -146,8 +146,8 @@ class DelineatorConfig:
     snapping: bool
         If snapping=False, the script will not attempt to snap the outlet point.
         Instead, it will use the coordinates provided by the user. This is
-        provided as an alternative to the built-in pour-point snapping function.
-        Probably only useful for testing purposes.
+        provided as an alternative to the built-in pour-point snapping function
+        for testing or for those who wish to implement a custom snapping routine.
 
     threshold_single : int
         Threshold for number of upstream pixels that defines a stream for
