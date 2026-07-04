@@ -1,13 +1,14 @@
 # delineator: Global Watershed Delineation with Python
 
-Fast, accurate watershed delineation for any point on Earth's land surface, 
-using a hybrid of vector- and raster-based methods with data from 
+A Python package for fast, accurate watershed delineation for any point 
+on Earth's land surface, using a hybrid of vector- and raster-based methods with
+data from 
 [MERIT-Hydro](https://global-hydrodynamics.github.io/MERIT_Hydro/) 
-and [MERIT-Basins](https://www.reachhydro.org/home/params/merit-basins).
+and [MERIT-Basins](https://www.reachhydro.org/home/params/merit-basins). Features
 
-- Near-global coverage (excludes Greenland, Antarctica, and some small islands)
-- Bundled sample data for Iceland; other regions download automatically on first use
-- Returns watershed polygon, river network, and outlet points as GeoPandas GeoDataFrames
+- Near-global coverage (excludes Greenland, Antarctica, and some small islands).
+- Bundled sample data for Iceland; other regions download automatically on first use.
+- Returns watershed, river network, and outlet points as GeoPandas GeoDataFrames.
 
 ## Contents
 
@@ -25,29 +26,54 @@ and [MERIT-Basins](https://www.reachhydro.org/home/params/merit-basins).
 
 ## Installation
 
-**Version 2.1 has breaking changes.** The vector data files were 
+**Version 2.2 has breaking changes.** The vector data files were 
 updated to fix a bug. Users should:
 
 - delete old versions of the `.db` files 
 - install the latest version of delineator with: `pip install --upgrade delineator`
 
-Requires Python ≥ 3.10. Python 3.11+ is recommended for speed. Also
-recommended to install in a fresh virtual environment to avoid 
-dependency conflicts.
+Requires Python ≥ 3.10. Python 3.11+ is recommended for speed. It is highly
+recommended to install in a fresh virtual environment to avoid dependency 
+conflicts.
 
 **macOS/Linux:**
+
 ```bash
 python3 -m venv venv
 source venv/bin/activate
 pip install delineator
 ```
 
-**Windows:**
-```bash
+**Windows Command Prompt:**
+
+```cmd
 python -m venv venv
 venv\Scripts\activate
 pip install delineator
 ```
+
+Note: for some Windows setups, you may need to use `py` instead of `python`.
+
+**Windows Powershell:**
+
+```powershell
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install delineator
+```
+
+You may also hit an execution policy error the first time:
+
+```
+venv\Scripts\Activate.ps1 cannot be loaded because running scripts is disabled on this system.
+```
+
+Fix with (one-time per session):
+
+```powershell
+powershellSet-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
 
 ## Quick start
 
@@ -213,7 +239,7 @@ All options with their defaults:
 | `auto_download`      | `True`         | Automatically download missing data files on first use.                                                                                                                      |
 | `calc_area`          | `True`         | Calculate the watershed area in km² and add to output geodata attribute table                                                                                                |
 | `clean`              | `False`        | Apply a small buffer/unbuffer to repair seam artifacts in the watershed polygon.                                                                                             |
-| `data_dir`           | system default | Override the data cache location.                                                                                                                                            |
+| `data_dir`           | system default | Override the default data directory location.                                                                                                                                |
 | `fill`               | `True`         | Fill small interior holes caused by topological gaps in MERIT-Hydro data.                                                                                                    |
 | `fill_threshold`     | `100`          | Maximum hole size to fill, in pixels on the 3″ grid (~90 m/pixel near the equator). Set `0` to fill all holes.                                                               |
 | `high_res`           | `True`         | Refine the watershed boundary at the outlet using raster methods. More accurate but slower. Set `False` to skip (watershed will include some area downstream of the outlet). |
@@ -296,7 +322,7 @@ on first use and are saved in your system's default data directory:
 To pre-download data for a region:
 ```bash
 delineator_download --basin 62    # e.g. basin 62 = Amazon
-delineator_dir                    # show the cache location
+delineator_dir                    # show the data directory location
 ```
 
 You can also download these datasets manually by visiting:
