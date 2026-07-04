@@ -13,8 +13,8 @@ from delineator.util import write_outputs
 
 
 def tryme():
-    config = DelineatorConfig(verbose=True, fill=False, rivers=False, outlets=False, snapping=False)
-    w, r, o = delineate(44.705, 4.206, config)  # France (23,
+    config = DelineatorConfig(verbose=True, rivers=True, output_format="geojson")
+    w, r, o = delineate(44.705, 4.206, config)  # France (megabasin 23, will trigger a data download)
     #w, r, o = delineate(63.938, -21.004, config)  # Iceland (27, built in)
     #w, r, o = delineate(-0.854, 41.350, config)  # East Africa (11)
 

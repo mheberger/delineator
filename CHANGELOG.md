@@ -26,6 +26,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   (rare) cases, the user may want to disable to pour point snapping algorithm,
   for example, if they have implemented their own snapping algorithm. 
 
+### Changed
+
+- Rounded the fields `uparea` and `lengthkm` in the rivers databases to 2 digits. 
+  Former entries like 8.252159925700308 are now 8.25.
+- Converted the docstrings for all functions to NumPy format, including 
+  `Parameters` and `Returns` sections. It is my hope that consistent, thorough
+  documentation will help those who wish to modify the code or contribute. 
 
 ## [2.1.2] - 2026-06-29
 
