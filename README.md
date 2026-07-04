@@ -80,7 +80,7 @@ powershellSet-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 The bundled Iceland data lets you run immediately after installation; no separate 
 download required.
 
-**Command line usage**
+### Command line usage
 
 ```bash
 delineate --point 63.938 -21.004
@@ -94,7 +94,12 @@ To create geodata for the river network and outlet points, run:
 delineate --point 63.938 -21.004 --rivers --outlets
 ```
 
-**Python script usage**
+You can enter coordinates for watershed outlets almost anywhere in the 
+world, and the package will attempt to download the necessary data files. 
+See the section **Data Files** below for details. 
+
+
+### Python script usage
 
 Alternatively, you can use the `delineate()` function in your 
 own Python scripts or notebooks.
@@ -115,7 +120,7 @@ Here is an example of the output displayed in QGIS:
 
 ![Example output](docs/example_output.png)
 
-## Command line reference
+### Command line reference
 
 ```bash
 # Single point
