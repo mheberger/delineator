@@ -96,16 +96,20 @@ def _validate_outlet_coordinates(lat: float, lng: float) -> tuple[float, float]:
 def _close_holes(poly: Polygon | MultiPolygon, area_max: float) -> Polygon | MultiPolygon:
     """
     Close polygon holes by limitation to the exterior ring.
-    Updated to accept a MultiPolygon as input
-    Args:
-        poly: Input shapely Polygon
-        area_max: keep holes that are larger than this.
-                  Fill any holes less than or equal to this.
-                  Enter 0 to fill all holes.
-                  We're working with unprojected lat, lng
-                  so this needs to be in square decimal degrees.
+    Updated to accept a MultiPolygon as input.
     Example:
         df.geometry.apply(lambda p: close_holes(p))
+
+    Parameters
+    ----------
+    poly: shapely Polygon or MultiPolygon
+    area_max: float
+        Keep holes that are larger than this.
+        Fill any holes less than or equal to this.
+        Enter 0 to fill all holes.
+        We're working with unprojected lat, lng coordinates
+        so this needs to be in square decimal degrees.
+
     """
 
     if isinstance(poly, Polygon):
@@ -142,14 +146,15 @@ def _get_polygon_area(poly: Polygon | MultiPolygon) -> float:
     Calculates the area of a Shapely Polygon (or MultiPolygon) in km²
 
     Assumes the input is in unprojected raw lat, lng coordinates (CRS 4326)
-       and projects it first to  a locally-centered azimuthal equal-area projection.
-
+    and projects it first to  a locally-centered azimuthal equal-area projection.
     Works accurately anywhere on Earth.
 
-    Args:
-        poly: Shapely Polygon or MultiPolygon
+    Parameters
+    ----------
+    poly: Shapely Polygon or MultiPolygon
 
-    Returns:
+    Returns
+    -------
          area in km²
     """
 
@@ -165,7 +170,7 @@ def _get_polygon_area(poly: Polygon | MultiPolygon) -> float:
 
     projected_poly = transform(transformer.transform, poly)
 
-    # Get the area in km²
+    # Get the area in m -> km²
     return projected_poly.area / 1e6
 
 

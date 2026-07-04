@@ -1,17 +1,17 @@
 """
-Constants for the delineator PYthon package.
+Constants for the delineator Python package.
 """
 from importlib.resources import files
 
 # Folder name (within the user's data directory) to put the downloaded data files
-DATA_DIR_NAME = "v2.1"  # bump when the data files change
+DATA_DIR_NAME = "v2.2"  # bump when the data files change
 
 # The width of half a pixel on the MERIT-Hydro grid, in decimal degrees
 HALF_PIXEL = 0.000416667
 
 # The area of a single pixel in the MERIT-Hydro datasets (flow accumulation
-# and flow direction), in decimal degrees.
-PIXEL_AREA = 0.00083333 * 0.00083333
+# and flow direction), in decimal degrees. 3 arcseconds or 0.008333°
+PIXEL_AREA = (1 / 1200) ** 2
 
 # MERIT-Hydro flow direction uses the ESRI standard for flow direction
 DIRMAP = (64, 128, 1, 2, 4, 8, 16, 32)
@@ -20,22 +20,25 @@ DIRMAP = (64, 128, 1, 2, 4, 8, 16, 32)
 # many decimal places shall we use?
 ROUNDING_DECIMALS = 6
 
-# The scripts will try to use the spatialite extension if it is installed
+# The scripts will try to use the spatialite extension IF it is installed
 # and fallback to geopandas otherwise. I used this flag during development
 # to test the condition where spatialite is not available.
 # REMEMBER to set to True for deployment!!
 USE_SPATIALITE = True
 
+# There are 61 megabasins, but we are not including Greenland
 VALID_MEGABASINS = [11, 12, 13, 14, 15, 16, 17, 18, 21, 22, 23, 24, 25, 26, 27, 28, 29, 31, 32, 33, 34, 35, 36, 41, 42,
                     43, 44, 45, 46, 47, 48, 49, 51, 52, 53, 54, 55, 56, 57, 61, 62, 63, 64, 65, 66, 67, 71, 72, 73, 74,
                     75, 76, 77, 78, 81, 82, 83, 84, 85, 86]
 
+# Location of the megabasins spatialite file (sqlite equivalent of a geopackage or shapefile)
 MEGABASINS_DB_FILE = files('delineator').joinpath('data', 'megabasins.db')
 
 # List of *possible* output formats. Not all formats may be supported by the user's system
 # and installed libraries.'
 SUPPORTED_OUTPUT_FORMATS = ["shp", "gpkg", "geojson", "json", "kml", "parquet", "geoparquet"]
 
+# These are used by the `pooch` library to verify the integrity of the download
 HASHES = {
     "accum11.tif": "3cbd439b5e661ca2f6d4418e812fb6ea733929e8c6863d2ae57e2b0fa75edb1d",
     "accum12.tif": "643171b96cefaf367f394fd0c953b09e1fb1787b334be5c3d043f4ab13e7dc4a",
@@ -157,66 +160,66 @@ HASHES = {
     "flowdir84.tif": "fa4170f33459b033eb6d628e49817b4a22bf0890f5b7150276c3eae744c7da13",
     "flowdir85.tif": "f1b76d4148bbc70dc95129b26c578f16fe970b1473375a15872eb08a09ff0390",
     "flowdir86.tif": "9afd1d0cdbbc0041b376d27d15c5c7e9eb8a949c11825662ed6ffbd0683cfafd",
-    "basins11.db": "c75ac4262f16b8412cd6d04c8ae32700b87bd4789ad99fd85b1a8af92c1d896f",
-    "basins12.db": "a6a2c0789e36354ebc0057c7e89da187b6a36363f927f7cf11876a7a7de738d0",
-    "basins13.db": "8c12202b0da22b77b1baeddccafe2bbb2d5e786bcc717c1d8f976295bcb3ba35",
-    "basins14.db": "b1bbbb8e4d99f69734d72827590fa33e765e96a839473915363d5e5e54b87337",
-    "basins15.db": "de7affb0ef9cada55abb6ab493efc5393d10ff57a6f9a33ef3edf00ca5715ace",
-    "basins16.db": "49d8984e764c777c2e8af5ab91799d10b3e045d2d4b6461ac3e5887d21bc6c3c",
-    "basins17.db": "cbb5a6513ebe5c630614c3b8a76dd3e055a6fe8e69536d7db68abfda9ebb50d1",
-    "basins18.db": "0a0a0a518632cef940ea600929d2a6057ca889d3d2a75b426c7fa0ff3cebb393",
-    "basins21.db": "747df68be95fd90f43b47f8b64fe377ad813e1f6fd2c3b44af6a1ac746bb1a89",
-    "basins22.db": "bf3108ae198b652c6fbbefe31150919b3ed00081ad962ee79d74bf642f6ae258",
-    "basins23.db": "a7445cb6fd0be12d462b3ea061d084123aa08e6c3cbdf3f01e44bd247c132bec",
-    "basins24.db": "7711661878387ba0120382133debdeb73acf87f2d882239310ff63a545edc0a6",
-    "basins25.db": "41e79a181153aa3f952ac3064df763df34ba6dc734d509f483714761bb2f1269",
-    "basins26.db": "84a36c2c9999ef17cc61f4e8c915eed24cf82adfd74dccf770b4fa89c27ea693",
-    "basins27.db": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "basins28.db": "f3f610ad8dc9d13b4ee3faacf63cf8e114f755d2d2bff514929774cd47c69413",
-    "basins29.db": "37225f7a6c1302fd3d7eb7da2d59994176b0a09570d2f778bae0f61614bb9a51",
-    "basins31.db": "9da089fb773e783d1aa3d135f1256191ac31f1ccc032e4e9aacfab0bd79e90c5",
-    "basins32.db": "68407baa9e7900b62c5fd3dc1051100276e69b9e1bdee3ba76cef471a3d34d2a",
-    "basins33.db": "aa0c6ae8a9fffed7db2287bc3d60f853b22cb7bb4d9b4ccbc3174e017d4fbc21",
-    "basins34.db": "7fc1df2bbb3857582075c591d39c6e85807338383d5d8f2763904a77385b4683",
-    "basins35.db": "aec418cb71b54e04254c84fad7fe425893c7effce13c8904e2049ea9cee8c68c",
-    "basins36.db": "65224a09c8df545167224188cb0cd2a1bcaf4515b3c88f602098c4bdb7070abc",
-    "basins41.db": "18e7cb3bc17db7f44d035d1b29616161753149045caf37a245963f2847fc68ad",
-    "basins42.db": "c8652bb281cb5e98c433bca0860ae0d97e27c1a9ff31f7cdc5739fa79a598d5b",
-    "basins43.db": "7f484f92458f9995e669498fad6d3105a7e492007b1a59a5a503e6e0b6b2e56b",
-    "basins44.db": "1cb77132a1f91b3696d07daaefa1e71706a966f1f79fcda5b96d7dc92a12c30d",
-    "basins45.db": "ffb0065d2264cb6c0e273003badea2165b15b317378a08d0996e24602cc71dac",
-    "basins46.db": "4d773f20862c7db0236b950acc33827ed9833a5e6e0065d0ba754879ac8b291c",
-    "basins47.db": "32fe02c532bdc1b1a5f69f728c8de8a761bd8fefdfb59fa8ca6958dfc2ccbe9c",
-    "basins48.db": "241ea97126852a28d9fee63884d6a067f6aeb5712eb77f6c500d99362b0e2cd0",
-    "basins49.db": "51f0b1dda11372b0be9207e1b1df6a28fc32535c25444ef1a51c06fb11f9080c",
-    "basins51.db": "ae692f7d0b917d9993a887c69586e6cb9688c8e2a9d1abe8dee17aacf0c3e8d6",
-    "basins52.db": "561812e697927fb9b7fad636fb9a5b9966d74c1f140beff6aa69e0eac893cdd3",
-    "basins53.db": "035238aa536c91a4572130e845f931afd9ea8d0ecdfe07fb870a87c22e178204",
-    "basins54.db": "873636deb8a13911a789ded9f17f3a4b733bb7ef9db430cdaa13c6affda92133",
-    "basins55.db": "cc5f7a31d27853548a8e590f6bf08db0c433c933afd8263349ba3c819cb4e5df",
-    "basins56.db": "5bef9f37d1b4b7b06b44891513eb2518849c853b43d0de7f34caaae93959ef05",
-    "basins57.db": "7a3a145962e941cc19dcf888a0b4fd28207eb7c161951f792a66dbe91fa97c83",
-    "basins61.db": "03984285ff9c22025843ddfc0111ca91b9b1e882e579dbd72bdc331ed15d1713",
-    "basins62.db": "2a93a3cefb01ba5bf9602c943773f29d5148d2955766c05419617a4ab3f2fbcd",
-    "basins63.db": "a707f800301dc252e9fbd18e2e3e56bca783ca1807ed11401050c0e912454953",
-    "basins64.db": "9450a284adfb45305eee39ef747fd5257897ee7dbfa23053c251a7b37c16f20b",
-    "basins65.db": "3ad5323fb9a45afc8ba4c4fb7d6157a68fc331fb62b9f99fb6438fa1f5021253",
-    "basins66.db": "20bd13872a06aeed9ad738a61f5a8486c69472438589d7a25b788e11bb46d699",
-    "basins67.db": "c4a945f10d162e7e74d17da8bc9c1a2041f78ef2d55030945e8c4ed722317a37",
-    "basins71.db": "ce0db00f711d34f31bcd3c5def4e269bca21480e4250a41ec5dfa3c7626a1154",
-    "basins72.db": "2515990a3b84a2a14f357016d83763f0a7c797e59bc5e65fe01e73ed85914e41",
-    "basins73.db": "d53d927bc731e5233b2e22f5757be91a93b3748779dbd100ba772e03d025da02",
-    "basins74.db": "0f6fdeb8c475f650338fb22dcd7f07c099c874bdf71e10652dfb43ebb35f361c",
-    "basins75.db": "db73db109c43bf4babf353fb65e0605b1c0cfb1af11d2bb355354a94ce4e42d3",
-    "basins76.db": "e742414ea2406133a5924735251f1197c90e1097b4c2ddf14d7f63a9bf261a34",
-    "basins77.db": "2d101e4bbaf3889aeb3629ad015a1e2fae92317c61a562e0f6519a15154e59c2",
-    "basins78.db": "2bc1d7d8ca492928427f0232eff874f3c9d25ca08e935240b14cc7b8602be497",
-    "basins81.db": "03443ed9eea8858bbf72e095b63c680b777f487ddd40ff6e1fe2b9695b38bbd7",
-    "basins82.db": "706d54965ac39d3ba06d4c5afd6003c9dd4b3791c11e56c29d47c43c81d0ad8d",
-    "basins83.db": "36d6a4196aec39c3fdf71779a260d2e62f52ad67e7fa7824c232933cbf3088dc",
-    "basins84.db": "0b8cac924ca556133d43aecf290cf782447a1798abd90240deda9de8801af6bb",
-    "basins85.db": "d6141231219f67281f951f9e286a7914b177212336f21bf0a8844217dfdf7b90",
-    "basins86.db": "516acd4672d9b7737d0950ac7fe83dcfe1b90dca1fee3fc915b45d130d98721e",
+    "basins11.db": "71c28417edb639e11bef3a03b07c00575c08d3a671ede5980846f0a4119e53d0",  # New 2026-07-03
+    "basins12.db": "ea307f45c71eb4058734fa7f02883651301f5be4ffde702978b2de942b930d49",
+    "basins13.db": "cc8c55176fe04a70d5cb531d4a89d00049c17bf4686689f80cc0bb5bf93caf03",
+    "basins14.db": "dc8a6743b7238119e35d8d1fcbe25aaf19d407fc772829c11c915cfec635b2f6",
+    "basins15.db": "544742b2f41d56f8ea1dfdaf6e1ff3e842565387f336ca57eea6156c0d2b9ac5",
+    "basins16.db": "1cbb0154abb36b57c18e4e96dbc750a421fa1b6b456e0e11edc96445a3e27e2d",
+    "basins17.db": "8499ea98c117cd9058c56278335f4dc05bab5fb4bee11ce24dfb0573e2e6c596",
+    "basins18.db": "d7932622ff0fe530de3d918e229a1da54b7ea0d3a9a6054bb118646ff38a6227",
+    "basins21.db": "3b20f54a08d684be9f04897caa03f4956fc7e96e80fb8dc3206114da0f17a653",
+    "basins22.db": "2375070a05c4bb1d856e51ce209a177794dc2fdf39e77ecb91bfca1000031aa0",
+    "basins23.db": "d3ada5b3bbee7b5d6e1b5fb51ac363d231e44c9e0247f8d9c06de588462d2308",
+    "basins24.db": "102b1512db107fe71a895b19de9e8b4631ea2af9b80ebd872ccfb507d3763c68",
+    "basins25.db": "808521da16900933e0aa05c18fa3fcaf22ebdd66c53dcd8a3ba1a8e42f2443d2",
+    "basins26.db": "78da251836434e0edda6b499a8d0e6f7ee67e8b47c03ceca06604a1a84063d4d",
+    "basins27.db": "3c9881ad05769be080ea0255b13444a778bbb7e75c4c8d93659ded7689947469",
+    "basins28.db": "c94b35334be0030c1c46538754996c2949d909667b92e0fa1e1399356b17056d",
+    "basins29.db": "091a86b143ae0a0ef6a1f9ba9d92e6e9e73504c4ce6df3aebf64229d193e4b0a",
+    "basins31.db": "a4ba5a5846bf0c07571837306f52dbc901da7b7a952f1520d314ec1f29d0de50",
+    "basins32.db": "1bc30915518425dd875faa9a4b6da27d077415979b1b13b1eadb32efbb55dbac",
+    "basins33.db": "341e87d5b6014ec79fb22ac78a17a9c9dfa072209cd9026c6b28b07c5220fc25",
+    "basins34.db": "e075046ef30343bde8a88c392847f798018af0e81861cf270c8dc26e0b6f9c84",
+    "basins35.db": "940a8da3a89e1a8c681d5fa0a8b78ad02511006dc6943efeffe9f0eb5723cba2",
+    "basins36.db": "d78f5e0841c1a0d8460b1825d9724cfa6dcb8fb1d52725626cfdb4de381015f8",
+    "basins41.db": "08784ec7cf591c6dd22046be4963e5cd855b9b2dacb0942d7e5de6d5b8350fd3",
+    "basins42.db": "2ea2fdf4ea827dbce4d7584fe8eb328a1932d1efb676503fb6bddb0a5521962b",
+    "basins43.db": "b202c6e91a38396fb5e811262d3990721d1e28b2c61e436e6212e08efcb72944",
+    "basins44.db": "9f4a7a36a13683f03572236862a8dfd419a6b36223535330ee30ab4687b22ac4",
+    "basins45.db": "de429aebcd6d2a8b572fa2c1493aca8e385b96726399fe67c5d1039e211a0bc1",
+    "basins46.db": "01f3c7718934e123cba01ec8f055da220f47a3e6bf5eedc24b7535e1ec0dc25b",
+    "basins47.db": "5327b9153b2332f3e92e999d0c10570f6878c9b96a3f8e213e231905ec2c3b75",
+    "basins48.db": "21ad14cf4547119d90b80717156aa2a18d9ab64642033828720bea4649a067e8",
+    "basins49.db": "e5568ff7aae9c0eb7a90311fdbc8d3c7b926704c427626ee1d17e8fbb937020f",
+    "basins51.db": "3840184e4521198a906f662e3df35bea9a121bf7baf4ab736e4244588a2a6ced",
+    "basins52.db": "9bb363fb6bdcf605ebdf32c175ed8b500cebdd15c0daa9872dfee76bf7160530",
+    "basins53.db": "e5d4a9bf248a72b329fc69dc81e20e12ea0efe9c19bd58177c6d00a823583206",
+    "basins54.db": "50f8aae84c2be1ccd0d2e01fac49701c4eef44ecadba2252859011b1066e2b70",
+    "basins55.db": "c25f30b3a8946be44d495c11def6c5f9fe0549f4a8f59ed760029cc4936d7656",
+    "basins56.db": "0244f013a17548fd3ea59bf2fe834d2a266eb81b3ce3c88687c794a8ce6d3850",
+    "basins57.db": "1f190f9641ab9f5bbefd68a77413fcce7e2e470f4142d4b9d6f8793802eaf321",
+    "basins61.db": "c08b0619b69446de42916b674b35c61a1f4fe43766a4cc7565193bbfa90ed09f",
+    "basins62.db": "9144f5fe7fdf6c6a2faed85413fb476fdf5dd97e6c9e15b233b65217a95c028c",
+    "basins63.db": "391dc81780b533b02d202f6e160cf988a74cf30da6d2b6e816b6ad8f997e958f",
+    "basins64.db": "78f09c6a201b34f10ad6ae0a8d4c103ae7e1bdc096c2a7b89e67f25590ea71b5",
+    "basins65.db": "763ef1ac95b77003ff6f6dd4eee9115b8e1b4e45034e13a53725edce170fbc2a",
+    "basins66.db": "d5cf20707d1421a3a3269ca65f897894e467be68745b058f69a2d990d53a36aa",
+    "basins67.db": "bd8f98664179c61aab76b4406ca3cb5e678a958c9bbd82388253f45c3b99780f",
+    "basins71.db": "6d9f2d64456ba473319e041046905ae9c449c7b8abe20cc11c200a54d756baff",
+    "basins72.db": "f11be5dd1275a669089f03d299e1a8bc6fa1d60f25c73b21805a38e86a3d95d3",
+    "basins73.db": "9df22e17c8f91739fc06b111dff89aa4a76a2531dd20c8b7d2049f216006b8f5",
+    "basins74.db": "70e850b90b3591266b39ee45dfa94eb854bb2435ffedeaf0b2ac81b92df34197",
+    "basins75.db": "bfc5f6d86f89e88a5c4b9c2dbb81acf37c2c5be97fe814c7d151f5c9d8fa53f4",
+    "basins76.db": "685464ad31d2944de6ded427cacc3c8574ed05da19d25189fc645c2dc7e46c8e",
+    "basins77.db": "d00e88e5e9bb0f7b27fa01ae1b23671c847a11868ab816021c26f5b9e2f99bcf",
+    "basins78.db": "7986b5b0a58a757c1117f148a950ef36481c6242f2a20931de4d0ef5d77f60a8",
+    "basins81.db": "22eb96809e9fdc8074905fc425ab39cdef98283068d2add05b1bd46ad90a8587",
+    "basins82.db": "ff1e9eed257450ec45916006edba22dbf8ff6351dccd4734f79c1b634a6e76ff",
+    "basins83.db": "4fd06fa2413390e66334613f082c6e2d26139177e741807fdecc235db9f145a6",
+    "basins84.db": "50fad26723f4060c31637738946f7eb77d25154006d2924a99138606f68b0e7a",
+    "basins85.db": "fc00723cbc4473fc37eea19d5afaafe98d1322048387be1eb6a3cee4d639d35d",
+    "basins86.db": "06dd847926ef5a12345491aff7ea0038151a994fb621da23d809e1f10cbcab5f",
     "rivers11.db": "f1af9b2c972551a03acc673f4ce0241b712cddee977e33d89d739cbaf4037950",
     "rivers12.db": "b8ba37b08b6d6499db3a0769ee8d4ead93152c7507a6c2479dcca8aade7b8549",
     "rivers13.db": "7cebaf3bb0e959afa96e6f44f5778f7044267b8e219d1019a1031764983a5384",
@@ -277,5 +280,4 @@ HASHES = {
     "rivers84.db": "32c41371346104e522fb7ae2c5b6f7e57d843e2b9a67dcdd8c9624c25eff7c0b",
     "rivers85.db": "5fca377ac91e9a752f5114938dddb342f0fd161a644bd2ca46b728d81c93a0cd",
     "rivers86.db": "aad7feb7c94a5fa3c2bb96e15767b0a6fa403545a4ed1d60c21c61a6745b5d36",
-
 }

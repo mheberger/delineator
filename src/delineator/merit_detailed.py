@@ -8,17 +8,19 @@ import numpy as np
 from numpy import floor, ceil
 from pysheds.grid import Grid
 from shapely.geometry import Polygon, MultiPolygon, shape
-from shapely import wkb, ops
+from shapely import wkb
 
 from delineator.constants import HALF_PIXEL, DIRMAP
 from delineator.data import _find_data_file
 from delineator.settings import DelineatorConfig
-from delineator.util import _close_holes
 
 logger = logging.getLogger(__name__)
 
+# Suppress a harmless warning from rasterio:
+# "DeprecationWarning: 'Memory' driver is deprecated since GDAL 3.11. Use 'MEM' onwards. Further messages of this type will be suppressed."
+logging.getLogger("rasterio._env").setLevel(logging.ERROR)
 
-def split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon | MultiPolygon,
+def _split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon | MultiPolygon,
                     bSingleCatchment: bool, config: DelineatorConfig,) -> \
         tuple[Polygon | MultiPolygon | None, float | None, float | None]:
     """
@@ -29,23 +31,30 @@ def split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon 
     savings in processing time and memory use, making it possible to delineate even large watersheds
     on a laptop computer.
 
-    Parameters:
-    -----------
-    basin: 2-digit Pfafstetter code for the level 2 basin we're in (tells us which raster files to open)
-    lat: latitude
-    lng: longitude
-    catchment_poly: a Shapely polygon; we'll use it to clip the flow accumulation raster to get an accurate snap
-
-    bSingleCatchment: is the watershed small, i.e. there is only one unit catchment in it?
+    Parameters
+    ----------
+    basin : int
+        2-digit Pfafstetter code for the level 2 basin we're in (tells us which raster files to open)
+    lat : float
+        latitude
+    lng : float
+        longitude
+    catchment_poly : Shapely Polygon or MultiPolygon
+        a Shapely polygon; we'll use it to clip the flow accumulation raster to get an accurate snap
+    bSingleCatchment : bool
+        is the watershed small, i.e. there is only one unit catchment in it?
             If so, we'll use a lower snap threshold for the outlet.
-    config: a DelineatorConfig dataclass object
+    config : DelineatorConfig
+        a DelineatorConfig dataclass object
 
-    Returns:
-    --------
-    poly: a shapely Polygon or MultiPolygon representing the part of the terminal unit catchment
-        that is upstream of the outlet point
-    lat_snap:  latitude of the outlet, snapped to the river centerline in the accumulation raster
-    lng_snap: longitude of the outlet, snapped to the river centerline in the accumulation raster
+    Returns
+    -------
+    poly : shapely Polygon or MultiPolygon
+        the part of the terminal unit catchment that is upstream of the outlet point
+    lat_snap : float
+        latitude of the outlet, snapped to the river centerline in the accumulation raster
+    lng_snap : float
+        longitude of the outlet, snapped to the river centerline in the accumulation raster
 
     """
 

@@ -9,8 +9,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 - Improved the handling of multipart polygon features throughout the code. 
-  Previously, this was not correctly handling "bowtie" polygons that 
-  are attached at a single point.
+  Previously, scripts were not correctly handling "bowtie" polygons that 
+  are attached at a single point. Small gaps in the split unit catchment 
+  were also being filled in, even when configuration option `fill=False`.
+- Created new unit catchment spatialite databases, with correct handling 
+  of multipart features. Dangling features attached at a single point are 
+  no longer dropped, and holes are no longer filled in. Users of old 
+  versions will be prompted to re-download them and delete old copies.
 
 ### Added
 

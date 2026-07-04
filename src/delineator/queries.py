@@ -1,8 +1,7 @@
 import sqlite3
 from collections import defaultdict
 import geopandas as gpd
-import shapely
-from shapely.geometry import Polygon
+from shapely.geometry import Polygon, MultiPolygon
 from pyproj import Geod
 
 from delineator.data import _find_data_file
@@ -13,18 +12,16 @@ def get_upstream_comids(conn: sqlite3.Connection, home_unit_catchment: int) -> l
     """
     Query #1, gets a complete list of upstream basins comids
 
-    Parameters:
+    Parameters
     ----------
-    conn: a sqlite3 connection to the database
-    home_unit_catchment: the comid of the home unit catchment, e.g. 23016159
+    conn : sqlite3.Connection
+    home_unit_catchment : int
+        the comid of the home unit catchment, e.g. 23016159
 
-    Returns:
+    Returns
     -------
-    the list of upstream basins comids. The first element is the home unit catchment.
-
-    Example:
-
-        [23016159, 23016160, 23016603, .. , 23020142]
+    list of upstream basins comids. The first element is the home unit catchment.
+    Example: [23016159, 23016160, 23016603, .. , 23020142]
     """
     sql = """
     WITH RECURSIVE upstream(comid) AS (
@@ -171,16 +168,24 @@ def get_hiearchical_basins(conn: sqlite3.Connection, upstream_catchment_list: li
     return basin_collection
 
 
-def get_home_unit_catchment_geom_and_area(db_path: str, unit_catchment: int) -> tuple[shapely.geometry.Polygon, float]:
+def get_home_unit_catchment_geom_and_area(db_path: str, unit_catchment: int) -> tuple[Polygon | MultiPolygon, float]:
     """
     Retrieves the geometry of a specified unit catchment based on its `comid`.
     Gets the geometry from the 'l0_basins' table in the sqlite database `basins##.db`
-    params:
-        db_path: str, path to the sqlite database
-        unit_catchment: int, the comid of the unit catchment to retrieve the geometry for
-    returns:
-        geom: a shapely Polygon object representing the geometry of the unit catchment
-        area: the area of the unit catchment, in km²
+
+    Parameters
+    ----------
+    db_path : str
+        path to the sqlite database
+    unit_catchment : int
+        the comid of the unit catchment to retrieve the geometry for
+
+    Returns
+    -------
+    geom : shapely Polygon or MultiPolygon
+        The geometry of the home unit catchment
+    area : float
+        area of the unit catchment, in km²
     """
     table = "l0_basins"
     catchment_gdf = gpd.read_file(db_path, layer=table, where=f"comid = {unit_catchment}")
@@ -195,16 +200,16 @@ def get_upstream_area(home_unit_catchment: int, config: DelineatorConfig) -> flo
     Connects to the _rivers_ sqlite database and queries the table 'rivers'
     and the 'uparea' column.
 
-    Parameters:
-    -----------
-    home_unit_catchment (int): The catchment ID for which upstream area needs
-                               to be determined. The first two digits of this
-                               value identify the megabasin.
-    config (DelineatorConfig): Configuration object containing resource paths
-                                   and relevant settings.
+    Parameters
+    ----------
+    home_unit_catchment: int
+        The catchment ID for which upstream area needs to be determined.
+        The first two digits of this value identify the megabasin.
+    config : DelineatorConfig
+        Configuration object containing resource paths and relevant settings.
 
-    Returns:
-    --------
+    Returns
+    -------
     float: The upstream area of the specified catchment, in km²
     """
     if len(str(home_unit_catchment)) < 7:
@@ -226,7 +231,7 @@ def get_upstream_geometries(db_path: str, basins_dict: dict) -> list:
     Get the geometries of the upstream basins. Uses an efficient approach that
     is based on nested catchment hierarchies that have been pre-computed.
 
-    Parameters:
+    Parameters
     ----------
     basins_dict : dict
         A dictionary of basins, where the keys are the level names ('L0', 'L1', ... 'L4')
@@ -238,8 +243,8 @@ def get_upstream_geometries(db_path: str, basins_dict: dict) -> list:
             'L0': [23014799, 23014800, 23016113]
         }
 
-    Returns:
-    --------
+    Returns
+    -------
     A list of Shapely MultiPolygons (which we will dissolve later to create a single Polygon).
 
     """
@@ -271,15 +276,15 @@ def get_rivers(upstream_catchment_list: list,
     Retrieves river data for the specified catchments, optionally splitting the geometry of the most downstream
     river reach using a provided polygon.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     upstream_catchment_list (list): A list of catchment identifiers for which river data is queried.
     split_catchment_polygon (Polygon): A polygon used to split the geometry of the final river reach. Can be None if no splitting is required.
     config (DelineatorConfig): Configuration object containing settings for data processing, including the
         number of stream orders and file paths.
 
-    Returns:
-    --------
+    Returns
+    -------
     gpd.GeoDataFrame: A GeoDataFrame containing the queried river records, optionally with updated geometry for
         the downstream river reach. Returns None if no river data is found.
 

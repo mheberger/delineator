@@ -9,7 +9,7 @@ import pooch
 from pathlib import Path
 
 registry = {}
-data_dir = Path(r"C:\Users\mheberger\AppData\Local\delineator\vector")
+data_dir = Path(r"C:\Users\mheberger\AppData\Local\delineator")
 
 with open("hashes.txt", "w") as o:
     
@@ -17,5 +17,5 @@ with open("hashes.txt", "w") as o:
         if f.is_file():
             file = str(f.relative_to(data_dir))
             checksum = pooch.file_hash(str(f))  # sha256: prefix included
-            print( f'    "vector/{file}": "{checksum}",')
+            print( f'    "{file}": "{checksum}",')
             o.write(f'{checksum}  {file}\n')

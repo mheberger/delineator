@@ -1,3 +1,6 @@
+"""
+Command Line Interface for delineator
+"""
 from pathlib import Path
 import click
 import pandas as pd
@@ -46,8 +49,14 @@ def main(point, id, outlets_csv, data_dir, auto_download, high_res, output_dir,
     """Delineate watersheds from a CSV file or a single lat/lon point.
 
     Usage:
-        delineate --help
-        delineate --point 48.834 2.263
+        delineate --help  # List options
+
+        delineate --point 48.834 2.263  # Create watershed for a single outlet
+
+        # Single outlet with a variety of options
+        delineate --point 48.863, 2.314 --id alexandreIII --rivers --outlets --fill --simplify --output-dir D:/Projects/watersheds --output-format geojson
+
+        # Batch delienation of a list of outlet points in a CSV file; see docs for correct format
         delineate --csv outlets.csv
     """
 
@@ -108,14 +117,19 @@ def main(point, id, outlets_csv, data_dir, auto_download, high_res, output_dir,
 
     if not output_path.exists():
         click.echo(f"Creating output directory: {output_path}")
-        output_path.mkdir(parents=True, exist_ok=True)
+        try:
+            output_path.mkdir(parents=True, exist_ok=True)
+        except FileNotFoundError:
+            click.echo(f"ERROR: Could not find or create the directory: {output_path}")
+            click.echo("***No outputs written.***")
+            return
 
     # Run watershed delineation
     success = _delineate_dataframe(outlets_df, config)
     if success:
         click.echo(f"Done. Output written to {output_path}/")
     else:
-        click.echo("No outputs written.")
+        click.echo("***No outputs written.***")
 
 
 @click.command()
@@ -125,6 +139,9 @@ def delineator_dir():
     Will display the path to the data directory, which is either the default
     and depends on the operating system, or the custom location specified by the user,
     which can be set by setting the DELINEATOR_DATA environment variable.
+
+    Usage:
+        > delineator_dir
     """
     click.echo(_get_data_dir())
 
@@ -137,6 +154,13 @@ def delineator_download(basin, data_dir):
     """
     Download the data files needed for delineation in a megabasin.
     Use the command `delineator_dir` to get the location of the data directory.
+
+    Usaage:
+        # Download the data files for megabasin 11 (E. Africa) to the default data directory
+        delineator_download --basin 11
+
+        # Download data files to your preferred location
+        delineator_download --basin 11  --data_dir D:/Projects/watersheds
     """
     # Resolve output directory
     if data_dir is None:

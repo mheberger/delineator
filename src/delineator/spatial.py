@@ -322,31 +322,39 @@ def _find_with_geopandas(
 
     If a SpatiaLite R*Tree spatial index is present, the R*Tree is queried for
     candidate IDs and only those features are loaded via ``gpd.read_file()`` for
-    the exact ``contains()`` test.  If no spatial index is present, the whole
+    the exact ``contains()`` test. If no spatial index is present, the whole
     table is read once (with a warning for large tables) and reused for both the
     containment and the nearest tests.
 
-    If no polygon contains the point and search_dist is provided, the nearest
-    feature within search_dist is returned, mirroring the SpatiaLite path.
-    search_dist is in the geometry CRS units (degrees for EPSG:4326).
+    If no polygon contains the point and ``search_dist`` is provided, the nearest
+    feature within ``search_dist`` is returned, mirroring the SpatiaLite path.
+    ``search_dist`` is in the geometry CRS units (degrees for EPSG:4326).
 
-    Parameters:
-    -----------
-    conn: sqlite3.Connection to a database file
-    point: shapely.geometry.Point, the location to search for
-    table: str, the name of the table to search
-    geom_col: str, the name of the geometry column, usually "geometry" or "geom"
-    index_col: str, the name of the index column, usually "comid"
-    scan_threshold: int, the number of rows above which a warning is emitted
-    search_dist: optional nearest-feature tolerance in CRS units
+    Parameters
+    ----------
+    conn : sqlite3.Connection
+        Connection to a database file.
+    point : shapely.geometry.Point
+        The location to search for.
+    table : str
+        The name of the table to search.
+    geom_col : str
+        The name of the geometry column, usually "geometry" or "geom".
+    index_col : str
+        The name of the index column, usually "comid".
+    scan_threshold : int
+        The number of rows above which a warning is emitted.
+    search_dist : float, optional
+        Nearest-feature tolerance in CRS units.
 
-    Returns:
-    --------
-    index: int or string, the ID of the matching feature, or None if no match
+    Returns
+    -------
+    index : int or str or None
+        The ID of the matching feature, or None if no match.
 
-    Notes:
-    ------
-    Requires a file-backed database.  In-memory databases (conn opened with
+    Notes
+    -----
+    Requires a file-backed database. In-memory databases (``conn`` opened with
     ':memory:') are not supported and will raise RuntimeError.
     """
     db_path = _get_db_path(conn)
@@ -464,12 +472,13 @@ def _point_in_polygon_analysis(
         **degrees, not metres** (≈ 0.01 deg ≈ 1.1 km near the equator).  Project
         to a metric CRS if you need metre-based tolerances.
 
-    Returns:
+    Returns
     -------
-    index: The value of *id_col* for the matching catchment, or ``None`` if no
-    catchment contains the point (and none is within ``search_dist``).
+    index : int or str
+        The value of *id_col* for the matching catchment, or ``None`` if no
+        catchment contains the point (and none is within ``search_dist``).
 
-    Notes:
+    Notes
     -----
     If more than one polygon contains the point (overlapping geometries) the
     first match is returned.

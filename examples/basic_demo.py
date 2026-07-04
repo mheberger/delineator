@@ -14,11 +14,9 @@ from delineator.util import write_outputs
 
 def tryme():
     config = DelineatorConfig(verbose=True, fill=False, rivers=False, outlets=False, snapping=False)
-    #w, r, o = delineate(44.705, 4.206, config)  # France (23,
+    w, r, o = delineate(44.705, 4.206, config)  # France (23,
     #w, r, o = delineate(63.938, -21.004, config)  # Iceland (27, built in)
     #w, r, o = delineate(-0.854, 41.350, config)  # East Africa (11)
-    #w, r, o = delineate(48.982, 7.011, config)
-    w, r, o = delineate(65.85166667, -17.8975, config)
 
     write_outputs(w, r, o, config)
 
@@ -29,7 +27,7 @@ def try_one():
 
     config = DelineatorConfig(high_res=True,
                               output_format="geojson",
-                              outlets=False, # Skip outlets; will create watershed and rivers only
+                              outlets=False,  # Skip outlets; will create watershed and rivers only
                               simplify=True,
                               verbose=True
                               )
@@ -97,7 +95,7 @@ def try_downloader():
 
 
 if __name__ == "__main__":
-
+    # Uncomment to try different methods
     tryme()
     #try_one()
     #try_downloader()

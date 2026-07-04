@@ -45,7 +45,9 @@ def _validate_and_normalize_df(df: pd.DataFrame) -> pd.DataFrame | None:
     Validate a user-supplied DataFrame, normalizing column names to canonical forms.
 
     Renames columns to lowercase and resolves common synonyms for ``id``, ``lat``,
-    and ``lon``. Logs an error and returns None if any required field is missing
+    and ``lon``.
+
+    Logs an error and returns None if any required field is missing
     after normalization.
 
     Parameters

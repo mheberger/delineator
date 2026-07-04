@@ -27,17 +27,13 @@ from delineator.util import _validate_outlet_coordinates, _close_holes, _get_pol
 from delineator.spatial import _point_in_polygon_analysis
 from delineator.queries import get_upstream_comids, get_home_unit_catchment_geom_and_area, get_hiearchical_basins, \
     get_upstream_geometries, get_rivers, get_upstream_area
-from delineator.merit_detailed import split_catchment
+from delineator.merit_detailed import _split_catchment
 from delineator.settings import DelineatorConfig
 
 logger = logging.getLogger(__name__)
 
 
-def delineate(
-    lat: float,
-    lng: float,
-    config: DelineatorConfig | None = None
-) -> tuple[
+def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) -> tuple[
     gpd.GeoDataFrame | None,  # watershed
     gpd.GeoDataFrame | None,  # rivers
     gpd.GeoDataFrame | None,  # outlets
@@ -54,14 +50,18 @@ def delineate(
 
     Returns
     -------
-    3 GeoPandas GeoDataFrames:
-        - watershed
-        - rivers
-        - outlets
+    watershed : GeoDataFrame
+        The watershed boundary polygon.
+    rivers : GeoDataFrame
+        The river reaches within the watershed.
+    outlets : GeoDataFrame
+        The requested and snapped watershed outlets.
 
-    If any of these cannot be produced, they will be None.
-    This function will log a warning if the watershed cannot be created
-    but will not raise an error.
+    Notes
+    -----
+    Any of the returned objects will be None if it cannot be produced.
+    This function logs a warning if the watershed cannot be created but
+    does not raise an error.
     """
     if config is None:
         config = DelineatorConfig()
@@ -135,9 +135,9 @@ def delineate(
                                                                                              home_unit_catchment)
     if config.high_res:
         # Perform the split
-        split_catchment_polygon, lat_snapped, lon_snapped = split_catchment(megabasin, lat, lng,
-                                                                            home_unit_catchment_polygon, is_singleton,
-                                                                            config)
+        split_catchment_polygon, lat_snapped, lon_snapped = _split_catchment(megabasin, lat, lng,
+                                                                             home_unit_catchment_polygon, is_singleton,
+                                                                             config)
         if split_catchment_polygon is None:
             return None, None, None
 
@@ -243,9 +243,16 @@ def delineate(
 def downloader(basin: int, data_dir: str | None = None):
     """
     Utility function to download the data files for a given basin.
+    This will download the data files for megabasin 11 to the specified directory,
+    including the vector data (unit catchments, rivers) and raster data (flow
+    direction, accumulation)
 
-    Parameters:
-    -----------
+    Usage
+    -----
+    `downloader(basin=11, data_dir="path/to/data/directory")`
+
+    Parameters
+    ----------
     basin: int
         The megabasin ID, and integer from 11 to 86
         For example, megabasin 56 covers Australia
@@ -255,15 +262,8 @@ def downloader(basin: int, data_dir: str | None = None):
         defaults to your system's default data directory, for example, on Windows:
         C:\\Users\\<username>\\AppData\\Local\\delineator
 
-    Usage:
-    ------
-        `downloader(basin=11, data_dir="path/to/data/directory")`
-
-        This will download the data files for megabasin 11 to the specified directory,
-        including the vector data (unit catchments, rivers) and raster data (flow direction, accumulation)
-
-    Returns:
-    --------
+    Returns
+    -------
     Nothing. Raises an error if something goes wrong.
     """
     config = DelineatorConfig()
