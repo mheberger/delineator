@@ -1,0 +1,24 @@
+,id,lat,lng,name,area,Dist_moved,time_delineate,time_vectorize,delineated_area
+0,6401070,64.71072,-21.60337,Nordhura River at Stekkur,507,4,11.1,6.27,500.777
+1,6401080,64.69229,-21.41046,Hvita River at Kljafoss,1574,1,10.8,6.63,1718.74
+2,6401090,63.93796,-21.00666,Olfusa River at Selfoss,5662,1,11.1,6.46,5754.83
+3,6401111,64.1601,-20.55913,Bruara River at Dynjandi,640,0,11.1,6.13,704.126
+4,6401120,63.93362,-20.63135,Thjorsa River at Krokur,7314,5,10.8,6.22,7276.07
+5,6401130,64.9839,-15.0883,Jokulsa I River at Fljotsdal Holl,558,0,11.1,6.27,613.514
+6,6401140,63.79723,-20.11284,Eystri-Ranga River at Tungufoss,419,0,10.6,6.44,510.151
+7,6401150,63.86324,-20.34065,Ytri-Ranga River at Arbaejarfoss,621,1,10.7,6.33,563.141
+8,6401160,64.75281,-14.48605,Fossa River at Eyjolfsstadir,115,0,10.6,6.45,106.463
+9,6401200,65.3297,-19.08525,Vestri-Jokulsa River at Godhdala Bru,844,0,11.5,6.79,871.947
+10,6401240,65.49006,-20.11284,Blanda River at Langamyri,1699,-1,11.8,7.54,0.00717167
+11,6401250,65.30184,-20.10668,Vatnsdalsa River at Forsaeludalur,458,0,13.6,8.32,465.765
+12,6401300,66.06976,-21.75298,Hvala River at Op,193,2,14.4,6.9,207.359
+13,6401310,65.58876,-23.12719,Vatnsdalsa River at Eidhi,102,0,13.7,7.6,99.216
+14,6401400,65.8507,-17.89667,Fnjoska River at Arbugsa,1102,1,11.6,6.29,1126.96
+15,6401440,63.78048,-19.4171,Markarfljot River at Emstrur,517,1,11.5,6.75,574.4
+16,6401460,66.19809,-15.59652,Sanda River at Flogubru I,266,1,11.7,6.76,267.135
+17,6401500,63.9509,-17.63609,Djupa River at Djupa Bru,226,2,11.9,7.03,642.06
+18,6401601,65.49459,-19.384,Svarta River at Reykjafoss,396,1,12.4,7.89,389.106
+19,6401610,65.37076,-17.34691,Skjalfandafljot River at Aldeyjarfoss,2163,1,13.9,8.26,1925.31
+20,6401702,65.6233,-16.18933,Jokulsa River at Grimsstadir,5097,0,14.0,8.23,5377.96
+21,6401703,65.06074,-16.21187,Jokulsa River at  Upptyppingar,2023,0,12.7,6.5,1771.13
+22,6401800,65.50253,-14.36201,Lagarfljot River at Lagarfoss,2819,0,13.3,7.86,2830.4

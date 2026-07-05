@@ -1,0 +1,21 @@
+,id,lat,lng,name,area,Dist_moved,time_delineate,time_vectorize,delineated_area
+0,3627360,-9.8869,-62.9847,"Branco, Rio @ Fazenda Rio Branco",989,0,51.3,23.6,992.963
+1,3649511,-15.9222,-50.1717,"Vermelho, Rio @ Balneario Cachoeira Grande",231,0,49.3,25.0,228.539
+2,3618121,0.2494,-69.785,"Tiquie, Rio @ Pari Cachoeira",1617,2,65.1,27.2,1969.45
+3,3624320,-7.9511,-71.4822,"Gregorio, Rio @ Fazenda Paranacre",2041,1,72.1,25.4,2075.45
+4,3627451,-11.7489,-60.8678,"Comemoracao, Rio @ Fazenda Flor Do Campo",4360,3,59.8,23.3,4338.3
+5,3617800,-15.2,-59.33,"Guapore, Rio @ Pontes E Lacerda",5050,24,52.7,23.9,2406.18
+6,3649630,-12.8836,-50.8322,"Cristalino, Rio @ Jusante Barra Do Forquilha",8039,5,57.3,24.4,10838.8
+7,3618731,2.7317,-62.0172,"Mucajai, Rio @ Pã?Sto Funai",9300,1,63.5,26.0,9625.98
+8,3618730,2.8708,-61.4406,"Mucajai, Rio @ Fe E Esperance",13658,1,63.6,24.6,12458.9
+9,3649012,-15.27528,-49.55194,"Almas, Rio Das @ Ceres (Posto Biquinha)",10538,2,54.9,25.4,10611.4
+10,3627550,-9.8169,-60.6919,"Roosevelt, Rio @ Concisa",24300,2,54.8,30.2,24336.4
+11,3649321,-9.9633,-47.6747,"Sono, Rio Do @ Novo Acordo",18500,2,58.8,27.4,18050.5
+12,3630200,-6.7453,-51.7736,"Fresco, Rio @ Boa Esperanca",43030,3,52.3,24.4,42439.1
+13,3624200,-4.2211,-67.8925,"Jutai, Rio @ Barreira Alta",35880,2,52.9,24.2,35413.3
+14,3627551,-7.5928,-60.7094,"Roosevelt, Rio @ Fazenda Boa Lembranca",59400,2,55.3,26.8,59299.9
+15,3630150,-5.6967,-54.2456,"Iriri, Rio @ Laranjeiras",60058,4,56.3,23.9,58657.8
+16,3618052,-0.2006,-66.8022,"Negro, Rio @ Curicuriari",194462,7,54.7,24.2,193618.0
+17,3649409,-11.6181,-50.6625,"Araguaia, Rio @ Sao Felix Do Araguaia",193923,2,52.7,24.1,193796.0
+18,3627035,-7.5028,-63.0183,"Madeira, Rio @ Humaita",1090000,3,62.3,24.5,1089050.0
+19,3629180,-7.3397,-58.1553,"Tapajos, Rio @ Barra Do Sao Manuel-Jusante",333000,5,52.5,23.8,332937.0

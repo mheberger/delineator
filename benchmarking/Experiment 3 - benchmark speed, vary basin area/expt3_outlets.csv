@@ -1,0 +1,83 @@
+megabasin,id,lat,lng,area,name
+23,6604635,56.35972781,-4.001442498,100,"Ruchill, Water of Cultybraggan"
+23,6140700,50.0651,16.5404,182,Divoka Orlice Nekor
+23,6125620,44.398157,2.845471,270,Aveyron Palmas (Pont de Manson)
+23,6606900,52.38287092,1.273911074,370,"Waveney, River Needham Mill"
+23,6136520,48.981897,7.010775,407,Albe Sarralbe (Rech)
+23,6335675,48.959297,9.261206,506,Murr Murr
+23,6935540,46.9746,9.6121,616,Landquart Felsenbach
+23,6220162,50.762011,3.867336,785,Dendre Overboerlare
+23,6607150,50.99546875,-3.985041306,826,"Taw, River Umberleigh"
+23,6118230,49.863055,1.184846,946,Bethune Saint-Aubin-Le-Cauf
+23,6607500,50.76389745,-1.842093942,1073,"Stour, River Throop Mill"
+23,6337504,51.155679,8.898182,1202,Eder Schmittlotheim
+23,6503501,52.144604,-8.51627,1257,"Blackwater, River Killavullen"
+23,6335681,49.268549,9.219941,1825,Jagst Untergriesheim
+23,6338161,52.682624,7.602417,2218,Hase Herzlake
+23,6140300,49.3165,14.1435,2914,Otava Pisek
+23,6335030,51.39975,7.161034,4078,Ruhr Hattingen
+23,6118800,50.1,1.83,5560,"Somme R. at Abbeville, FR"
+23,6337510,52.683,9.604,6443,Leine Schwarmstedt
+23,6140250,49.9586,14.0874,8286,Berounka Beroun
+23,6221102,50.092133,4.806524,10120,Maas Chooz
+23,6337100,52.176,8.862,17618,Weser Vlotho
+23,6421501,51.82,5.54,28980,Maas Megen
+23,6335400,47.561464,7.800326,34550,Rhine River Rheinfelden
+23,6140401,50.6539,14.0425,48561,Elbe River Usti Nad Labem
+23,6340190,51.558968,13.010575,55211,Elbe River Torgau
+23,6335180,49.64112,8.376019,68827,Rhine River Worms
+23,6340170,51.86316,12.059195,70093,Elbe River Aken
+23,6340160,52.546603,11.978396,97780,Elbe River Tangermuende
+23,6335070,50.443386,7.39205,139549,Rhine River Andernach
+27,6401310,65.58876,-23.12719,102,Vatnsdalsa River at Eidhi
+27,6401160,64.75281,-14.48605,115,Fossa River at Eyjolfsstadir
+27,6401300,66.06976,-21.75298,193,Hvala River at Op
+27,6401500,63.9509,-17.63609,226,Djupa River at Djupa Bru
+27,6401460,66.19809,-15.59652,266,Sanda River at Flogubru I
+27,6401601,65.49459,-19.384,396,Svarta River at Reykjafoss
+27,6401140,63.79723,-20.11284,419,Eystri-Ranga River at Tungufoss
+27,6401250,65.30184,-20.10668,458,Vatnsdalsa River at Forsaeludalur
+27,6401070,64.71072,-21.60337,507,Nordhura River at Stekkur
+27,6401440,63.78048,-19.4171,517,Markarfljot River at Emstrur
+27,6401150,63.86324,-20.34065,621,Ytri-Ranga River at Arbaejarfoss
+27,6401111,64.1601,-20.55913,640,Bruara River at Dynjandi
+27,6401200,65.3297,-19.08525,844,Vestri-Jokulsa River at Godhdala Bru
+27,6401400,65.8507,-17.89667,1102,Fnjoska River at Arbugsa
+27,6401080,64.69229,-21.41046,1574,Hvita River at Kljafoss
+27,6401240,65.49006,-20.11284,1699,Blanda River at Langamyri
+27,6401703,65.06074,-16.21187,2023,Jokulsa River at  Upptyppingar
+27,6401610,65.37076,-17.34691,2163,Skjalfandafljot River at Aldeyjarfoss
+27,6401800,65.50253,-14.36201,2819,Lagarfljot River at Lagarfoss
+27,6401702,65.6233,-16.18933,5097,Jokulsa River at Grimsstadir
+27,6401090,63.93796,-21.00666,5662,Olfusa River at Selfoss
+27,6401120,63.93362,-20.63135,7314,Thjorsa River at Krokur
+62,3649511,-15.9222,-50.1717,231,"Vermelho, Rio @ Balneario Cachoeira Grande"
+62,3627360,-9.8869,-62.9847,989,"Branco, Rio @ Fazenda Rio Branco"
+62,3618121,0.2494,-69.785,1617,"Tiquie, Rio @ Pari Cachoeira"
+62,3624320,-7.9511,-71.4822,2041,"Gregorio, Rio @ Fazenda Paranacre"
+62,3627451,-11.7489,-60.8678,4360,"Comemoracao, Rio @ Fazenda Flor Do Campo"
+62,3617800,-15.2,-59.33,5050,"Guapore, Rio @ Pontes E Lacerda"
+62,3649630,-12.8836,-50.8322,8039,"Cristalino, Rio @ Jusante Barra Do Forquilha"
+62,3618731,2.7317,-62.0172,9300,"Mucajai, Rio @ Pa-Sto Funai"
+62,3649012,-15.27528,-49.55194,10538,"Almas, Rio Das @ Ceres (Posto Biquinha)"
+62,3618730,2.8708,-61.4406,13658,"Mucajai, Rio @ Fe E Esperance"
+62,3649321,-9.9633,-47.6747,18500,"Sono, Rio Do @ Novo Acordo"
+62,3627550,-9.8169,-60.6919,24300,"Roosevelt, Rio @ Concisa"
+62,3624200,-4.2211,-67.8925,35880,"Jutai, Rio @ Barreira Alta"
+62,3630200,-6.7453,-51.7736,43030,"Fresco, Rio @ Boa Esperanca"
+62,3627551,-7.5928,-60.7094,59400,"Roosevelt, Rio @ Fazenda Boa Lembranca"
+62,3630150,-5.6967,-54.2456,60058,"Iriri, Rio @ Laranjeiras"
+62,3649409,-11.6181,-50.6625,193923,"Araguaia, Rio @ Sao Felix Do Araguaia"
+62,3618052,-0.2006,-66.8022,194462,"Negro, Rio @ Curicuriari"
+62,3649905,-8.3917,-48.1114,243841,"Tocantins, Rio Tupiratins"
+62,3649416,-8.2694,-49.2594,320290,"Araguaia, Rio Conceicao Do Araguaia"
+62,3629180,-7.3397,-58.1553,333000,"Tapajos, Rio @ Barra Do Sao Manuel-Jusante"
+62,3630050,-3.218,-52.164,446203,Xingu R. at Altamira
+62,3627110,-10.7925,-65.3478,609000,"Mamore, Rio Guajara-Mirim"
+62,3649950,-3.75778,-49.65333,742300,"Tocantins, Rio Tucurui"
+62,3627035,-7.5028,-63.0183,1090000,"Madeira, Rio @ Humaita"
+62,3625000,-4.0578,-63.0278,1769000,Amazon River Itapeua
+62,3621000,-3.325,-60.6094,2147736,Amazon River Manacapuru
+62,3618001,-3.112,-59.882,2583079,"Careiro, Parana Do Careiro"
+62,3629001,-1.9192,-55.5131,4680000,Amazon River Obidos - Linigrafo
+62,9,-0.437,-50.738,,Amazon at Most Downstream Location Available
