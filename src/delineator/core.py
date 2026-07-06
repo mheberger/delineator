@@ -151,14 +151,14 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
         split_catchment_polygon = None
 
     # Step 6: Find the set of upstream catchments
-    # If the watershed is a singleton, we don't need to do anything
+    # For a singleton the watershed is just the split home catchment; otherwise
+    # we assemble it from the set of upstream unit catchments.
     if is_singleton:
         if split_catchment_polygon is None:
             return None, None, None
 
-        watershed_gdf = gpd.GeoDataFrame(geometry=[split_catchment_polygon], crs='epsg:4326')
+        watershed_polygon = split_catchment_polygon
     else:
-        # Otherwise, we need to find the set of upstream catchments
         # First, we need to get the hierarchical nested set of catchments
         basins_dict = get_hiearchical_basins(basins_db_conn, upstream_unit_catchments[1:])
 
@@ -176,11 +176,18 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
         # Step 7: Merge and dissolve the polygons
         watershed_polygon = unary_union(upstream_polygons)
 
-        if config.fill:
-            watershed_polygon = _close_holes(watershed_polygon, config.fill_threshold * PIXEL_AREA)
+    # Fill interior "donut holes". These appear both in raster-split home
+    # catchments (including single-catchment watersheds) and in the gaps between
+    # dissolved unit catchments, so filling applies to every watershed.
+    if config.fill:
+        watershed_polygon = _close_holes(watershed_polygon, config.fill_threshold * PIXEL_AREA)
 
-        watershed_gdf = gpd.GeoDataFrame(geometry=[watershed_polygon], crs='epsg:4326')
-        
+    watershed_gdf = gpd.GeoDataFrame(geometry=[watershed_polygon], crs='epsg:4326')
+
+    # The snapped outlet only exists in high-res mode (the low-res path does no
+    # snapping and never defines lat_snapped/lon_snapped). Singletons are always
+    # high-res, so this reports the snapped outlet for them too.
+    if config.high_res:
         watershed_gdf["outlet_lat"] = round(lat_snapped, 4)
         watershed_gdf["outlet_lng"] = round(lon_snapped, 4)
 
@@ -192,6 +199,15 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
             watershed_area = upstream_area - home_catchment_area  # Check this!!!
 
         watershed_gdf["area_km2"] = round(watershed_area, 1)
+
+        # area_km2 is the drainage area summed from the source-dataset unit
+        # catchments. When fill=True, _close_holes adds the area of the filled
+        # interior holes to the polygon, so its geometric area no longer matches
+        # that figure. Rather than distort area_km2, report the added area
+        # separately as area_filled (actual polygon area minus area_km2).
+        if config.fill:
+            filled_polygon_area = _get_polygon_area(watershed_polygon)
+            watershed_gdf["area_filled"] = round(filled_polygon_area - watershed_area, 1)
 
     # Step 7.5: optionally clean and simplify the watershed
     if config.simplify:
