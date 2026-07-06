@@ -4,10 +4,10 @@ Configuration settings for the `delineator` package
 The `DelineatorConfig` is used by several functions in the `delineator` package
 including:
 
-  - `delineator.core.delineate_watershed`
-  - `delineator.core.downloder`
+  - `delineator.core.delineate`
+  - `delineator.core.downloader`
   - `delineator.util.write_outputs`
-  - `delineator.cli.delineate_dataframe`
+  - `delineator.cli._delineate_dataframe`
 
 Allows the user to specify various options for the watershed delineation process
 such as the output format, whether to include rivers, directory locations, etc.
@@ -74,9 +74,10 @@ class DelineatorConfig:
     data_dir : Path or str, optional
         Directory where the script will look for data files and store downloaded
         data files needed for watershed delineation. If not provided,
-        the script will use the default cache directory. For example, on Windows:
-        C:\\Users\\<username>\\.delineator\\data
-        Or on macOS/Linux: ~/.delineator/data
+        the script will use the platform default data directory. For example:
+        Windows: C:\\Users\\<username>\\AppData\\Local\\delineator
+        Linux:   ~/.local/share/delineator
+        macOS:   ~/Library/Application Support/delineator
 
     high_res : bool
         If True, the script will split the unit catchment around the outlet point
@@ -94,15 +95,15 @@ class DelineatorConfig:
         Only meaningful if fill=True. Holes smaller than this number of pixels
         (on the 3 arcsecond grid) will be filled. For example, enter 100 to fill
         holes smaller than 100 pixels in size. Holes larger than this will
-        be preserved. Set to 0 to fill all holes. Default is 0.
+        be preserved. Set to 0 to fill all holes. Default is 100.
 
     low_res_threshold : float
         Watershed area in km² above which the script will automatically switch to
         lower-resolution mode, regardless of the high_res setting.
-        Default is 80,000 km², meaning that the script will automatically switch to
-        lower-resolution mode for watersheds over 80,000 km². Set it to a large
-        number (6e6 or higher) to disable lower-resolution mode. (The largest
-        basin in the dataset is the Amazon at 5.9 × 10⁶ km².)
+        Default is 6 × 10⁶ km² (6e6), so lower-resolution mode effectively only
+        engages for watersheds larger than the Amazon, the largest basin in the
+        dataset at 5.9 × 10⁶ km². Lower this value to trade some accuracy near
+        the outlet for speed on large watersheds.
 
     num_stream_orders : int
         Number of stream orders to include in the river network. This will only
@@ -130,7 +131,7 @@ class DelineatorConfig:
     search_dist : float
         If the outlet point does not fall inside any catchment, the script will
         search for the nearest catchment within this distance (in decimal degrees).
-        Default is 0.025°, which is roughly 2-3 km near the equator.
+        Default is 0.1°, which is roughly 10 km near the equator.
 
     simplify : bool
         Used by the `write_outputs` utility function to simplify the output
@@ -177,7 +178,7 @@ class DelineatorConfig:
     custom_data_dir: bool = field(init=False, default=False)
     data_dir: Path | str | None = None
     fill: bool = True
-    fill_threshold: int = 0
+    fill_threshold: int = 100
     high_res: bool = True
     low_res_threshold: float = 6e6
     num_stream_orders: int = 4

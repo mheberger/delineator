@@ -6,13 +6,12 @@ A lightweight web app inspired by Global Watersheds web app,
 https://mghydro.com/watersheds, but able to run locally without
 a server or even a web connection.
 
-Created with Gemini, by Matt H, June 2026.
-
 Lets the user open http://localhost:5000 in your browser, then
 click anywhere on the map to delineate the upstream watershed.
 Very fast, easy to use, and facilitates iteration and review.
 """
 
+import copy
 import json
 import logging
 import traceback
@@ -475,6 +474,26 @@ map.on('click', async (e) => {
 # Routes
 # ---------------------------------------------------------------------------
 
+# Flask config key under which serve() stashes the user-supplied DelineatorConfig.
+_CONFIG_KEY = "DELINEATOR_CONFIG"
+
+
+def _request_config() -> DelineatorConfig:
+    """Return the DelineatorConfig to use for one delineation request.
+
+    Uses the config passed to serve() if there is one, otherwise a sensible
+    default for the interactive app (rivers, outlets, and a cleaned boundary).
+
+    The object is copied per request because core.delineate() may mutate it
+    (e.g. flipping high_res off for very large watersheds); without the copy
+    that change would leak into every later request sharing the same config.
+    """
+    base = app.config.get(_CONFIG_KEY)
+    if base is None:
+        return DelineatorConfig(rivers=True, outlets=True, clean=True)
+    return copy.deepcopy(base)
+
+
 @app.route("/")
 def index() -> Response:
     return Response(HTML, mimetype="text/html")
@@ -497,11 +516,7 @@ def delineate_endpoint() -> Response:
 
     logger.info(f"Delineating watershed at lat={lat:.3f}, lng={lng:.3f}")
 
-    config = DelineatorConfig(
-        rivers=True,
-        outlets=True,
-        clean=True,
-    )
+    config = _request_config()
 
     try:
         watershed_gdf, rivers_gdf, outlets_gdf = delineate(lat, lng, config=config)
@@ -532,7 +547,12 @@ def delineate_endpoint() -> Response:
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
-def serve(host: str = "127.0.0.1", port: int = 5000, debug: bool = False) -> None:
+def serve(
+    config: DelineatorConfig | None = None,
+    host: str = "127.0.0.1",
+    port: int = 5000,
+    debug: bool = False,
+) -> None:
     """Start the local watershed delineation web app.
 
     Works both from the command line and when called from Python, e.g.::
@@ -542,8 +562,17 @@ def serve(host: str = "127.0.0.1", port: int = 5000, debug: bool = False) -> Non
         from delineator.serve import serve
         serve()
 
+        # Customize how every click is delineated:
+        from delineator import DelineatorConfig
+        serve(DelineatorConfig(high_res=False, num_stream_orders=6, fill=False))
+
     Parameters:
     -----------
+    config: DelineatorConfig applied to every delineation the app performs.
+        If None, a default suited to interactive review is used
+        (rivers, outlets, and a cleaned boundary). The output_format option
+        is ignored here since results are streamed to the browser as GeoJSON;
+        the map shows whichever layers the config produces.
     host: Interface to bind. Defaults to localhost only.
     port: Port to listen on.
     debug: Enable Flask's debug error pages. The auto-reloader is always
@@ -552,6 +581,8 @@ def serve(host: str = "127.0.0.1", port: int = 5000, debug: bool = False) -> Non
         server. Leave debug off when distributing the package.
 
     """
+    app.config[_CONFIG_KEY] = config
+
     print("\n  Global Watershed Delineator Local Web App")
     print("  ─────────────────────────────────────────")
     print(f"  Open http://{host}:{port} in your browser")

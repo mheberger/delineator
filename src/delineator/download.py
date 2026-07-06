@@ -24,7 +24,7 @@ def _local_path(relative_path: str, config: DelineatorConfig) -> Path:
     Return the full path to a data file.
 
     For the managed default directory, files live under a version-named
-    subfolder, e.g. C:\Users\<USER>\AppData\Local\delineator\v2.1\basins73.db
+    subfolder, e.g. C:\Users\<USER>\AppData\Local\delineator\v2.2\basins73.db
 
     For a custom (user-supplied) directory, files live directly in it, with
     no version subfolder, e.g. D:\GIS\delineator_data\basins73.db

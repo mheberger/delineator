@@ -246,7 +246,7 @@ All options with their defaults:
 | `clean`              | `False`        | Apply a small buffer/unbuffer to repair seam artifacts in the watershed polygon.                                                                                                                                                   |
 | `data_dir`           | system default | Override the default data directory location.                                                                                                                                                                                      |
 | `fill`               | `True`         | Fill small interior holes caused by topological gaps in MERIT-Hydro data.                                                                                                                                                          |
-| `fill_threshold`     | `100`          | Maximum hole size to fill, in pixels on the 3″ grid (~90 m/pixel near the equator). Set `0` to fill all holes.                                                                                                                     |
+| `fill_threshold`     | `100`          | Maximum hole size to fill, in pixels on the 3″ grid (~90 m/pixel near the equator). Holes larger than this are preserved (e.g. genuine endorheic basins). Set `0` to fill all holes.                                                                                                                     |
 | `high_res`           | `True`         | Refine the watershed boundary at the outlet using raster methods. More accurate but slower. Set `False` to skip (watershed will include some area downstream of the outlet).                                                       |
 | `low_res_threshold`  | `6e6`          | Area in km² above which the script automatically falls back to low-res mode. The Amazon is ~5.9×10⁶ km².                                                                                                                           |
 | `rivers`             | `True`         | Include the upstream river network in output.                                                                                                                                                                                      |
@@ -258,8 +258,8 @@ All options with their defaults:
 | `search_dist`        | `0.1`          | Search radius in decimal degrees when the outlet falls outside all unit catchments (~10 km at the equator). Set `0` to require an exact hit.                                                                                       |
 | `simplify`           | `False`        | Simplify output geometry using Douglas-Peucker. Reduces file size and removes staircase artifacts from raster-origin boundaries.                                                                                                   |
 | `snapping`           | `True`         | Snap the provided watershed outlet to a stream on the raster data grid. Most users should keep the default snapping behavior. Provided as an alternative for testing or for those who wish to implement a custom snapping routine. |
-| `threshold_single`   | `3000`         | Number of upstream pixels that defines a stream for snapping the outlet, when the outlet is in a unit catchment with no upstream contributing catchments.                                                                          |
-| `threshold_multiple` | `5000`         | Number of upstream pixels that defines a stream for snapping the outlet, when the outlet is in a unit catchment wih upstream contributing catchments.                                                                              |
+| `threshold_single`   | `300`          | Number of upstream pixels that defines a stream for snapping the outlet, when the outlet is in a unit catchment with no upstream contributing catchments.                                                                          |
+| `threshold_multi`    | `5000`         | Number of upstream pixels that defines a stream for snapping the outlet, when the outlet is in a unit catchment with upstream contributing catchments.                                                                              |
 | `verbose`            | `False`        | Print messages to the console to monitor the script's progress.                                                                                                                                                                    |
 
 
@@ -302,7 +302,7 @@ The `simplify_tolerance` parameter is equivalent to the threshold for
 
 The process of "snapping" the outlet point to a river centerline is where 
 watershed delineation becomes both an art and a science. The `threshold_single` 
-and `threshold_multiple` parameters control how many upstream pixels are 
+and `threshold_multi` parameters control how many upstream pixels are 
 required to define a stream for snapping the outlet point. The values for these 
 parameters define how many upstream pixels are required to define a stream. 
 
