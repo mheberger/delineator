@@ -173,7 +173,7 @@ class DelineatorConfig:
     round_coordinates: bool = True
     search_dist: float = 5.0
     simplify: bool = False
-    simplify_tolerance: float = 0.09  # km; ≈ the old default of 0.0008 decimal degrees
+    simplify_tolerance: float = 0.10  # km; ≈ the old default of 0.0008 decimal degrees
     snapping: bool = True
     stream_threshold_km2: float = 25.0
     user_id: bool = False
