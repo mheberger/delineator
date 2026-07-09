@@ -9,11 +9,13 @@ A Python package for fast, accurate watershed delineation for any point
 on Earth's land surface, using a hybrid of vector- and raster-based methods with
 data from 
 [MERIT-Hydro](https://global-hydrodynamics.github.io/MERIT_Hydro/) 
-and [MERIT-Basins](https://www.reachhydro.org/home/params/merit-basins). Features
+and [MERIT-Basins](https://www.reachhydro.org/home/params/merit-basins). Features include:
 
 - Near-global coverage (excludes Greenland, Antarctica, and some small islands).
+- Returns watershed, river network, and outlet points.
+- Can ouput to multiple formats: GeoPackage, GeoJSON, Shapefile, KML, parquet.
+- Includes a local web app for interactive exploration.
 - Bundled sample data for Iceland; other regions download automatically on first use.
-- Returns watershed, river network, and outlet points as GeoPandas GeoDataFrames.
 
 ## Contents
 
