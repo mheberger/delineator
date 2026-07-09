@@ -10,6 +10,12 @@ DATA_DIR_NAME = "v2.2"  # bump when the data files change
 EARTH_RADIUS_KM = 6371.0088  # authalic sphere radius, WGS84
 KM_PER_DEGREE = math.pi * EARTH_RADIUS_KM / 180  # great-circle km per degree of arc, ≈111.195
 
+
+# For small watersheds, the stream threshold is capped at this fraction of
+# the home unit catchment's area, so that some cells always qualify as snap
+# targets. See the threshold logic in merit_detailed.py > _split_catchment.snap_outlet().
+ADAPTIVE_THRESHOLD_FRACTION = 0.25
+
 # MERIT-Hydro flow direction uses the ESRI standard for flow direction
 DIRMAP = (64, 128, 1, 2, 4, 8, 16, 32)
 

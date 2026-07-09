@@ -97,14 +97,6 @@ class DelineatorConfig:
        **Set to 0 to fill all holes.**
        Default is 1.0 -- only holes smaller than 1.0 km² will be filled.
 
-    low_res_threshold : float
-        Watershed area in km² above which the script will automatically switch to
-        lower-resolution mode, regardless of the high_res setting.
-        Default is 6 × 10⁶ km² (6e6), meaning that lower-resolution mode will never
-        activate. (The Amazon, the largest basin in the world, has an area of
-        5.9 × 10⁶ km² in our dataset.) Lower this value to trade some accuracy near
-        the outlet for speed on large watersheds.
-
     num_stream_orders : int
         Number of stream orders to include in the river network. This will only
         have an effect if rivers=True.
@@ -152,20 +144,11 @@ class DelineatorConfig:
         provided as an alternative to the built-in pour-point snapping function
         for testing or for those who wish to implement a custom snapping routine.
 
-    threshold_single : int
-        Threshold for number of upstream pixels that defines a stream for
-        purposes of snapping the outlet to a river centerline. The script
-        uses the `threshold_single` value when the outlet falls within a
-        unit catchment with no upstream contributing catchments. A default
-        value of 300 - 500 worked well in my testing.
-
-    threshold_multi : int
-        Threshold for number of upstream pixels that defines a stream for
-        snapping the outlet to a river centerline. The script uses the
-        `threshold_multi` value when the outlet falls within a unit catchment
-        that has upstream contributing catchments. A default value of 5000 or
-        higher will typically force the outlet to be snapped to a larger river,
-        i.e. one with a larger upstream area.
+    stream_threshold_km2: float
+        Minimum upstream drainage area, in km², for a grid cell to be considered
+        part of a stream when snapping the outlet. Cells below this are not valid
+        snap targets. Applies to watersheds spanning multiple unit catchments;
+        setting this too low causes incorrect results and topology problems.
 
     verbose: bool
         Set verbose=True to see messages about the progress of the script.
@@ -182,7 +165,6 @@ class DelineatorConfig:
     fill: bool = True
     fill_area_max: float = 1.0
     high_res: bool = True
-    low_res_threshold: float = 6e6
     num_stream_orders: int = 4
     output_dir: Path | str = field(default_factory=_default_output_dir)
     output_format: str = "gpkg"
@@ -193,8 +175,7 @@ class DelineatorConfig:
     simplify: bool = False
     simplify_tolerance: float = 0.0008
     snapping: bool = True
-    threshold_single: int = 300
-    threshold_multi: int = 5000
+    stream_threshold_km2: float = 25.0
     user_id: bool = False
     verbose: bool = False
 
@@ -226,13 +207,6 @@ class DelineatorConfig:
         if self.num_stream_orders < 1:
             raise ValueError("num_stream_orders must be greater than or equal to 1.")
 
-        self.low_res_threshold = self._coerce_float(
-            self.low_res_threshold,
-            "low_res_threshold",
-        )
-        if self.low_res_threshold <= 0:
-            raise ValueError("low_res_threshold must be greater than 0.")
-
         self.search_dist = self._coerce_float(self.search_dist, "search_dist")
         if self.search_dist <= 0:
             raise ValueError("search_dist (in km) must be greater than 0.")
@@ -245,6 +219,15 @@ class DelineatorConfig:
         )
         if self.simplify_tolerance < 0:
             raise ValueError("simplify_tolerance must be greater than or equal to 0.")
+
+        self.stream_threshold_km2 = self._coerce_float(
+            self.stream_threshold_km2,
+            "threshold_multi",
+        )
+        if self.stream_threshold_km2 <= 0:
+            raise ValueError("stream_threshold_km2 must be greater than 0.")
+        if self.stream_threshold_km2 > 50000:
+            raise ValueError("threshold_multi must be less than or equal to 50000.")
 
         if not isinstance(self.output_format, str):
             raise TypeError("output_format must be a string.")

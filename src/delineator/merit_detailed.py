@@ -11,14 +11,12 @@ from pysheds.grid import Grid
 from shapely.geometry import Polygon, MultiPolygon, shape
 from shapely import wkb
 
-from delineator.constants import DIRMAP
+from delineator.constants import DIRMAP, EARTH_RADIUS_KM, ADAPTIVE_THRESHOLD_FRACTION
 from delineator.data import _find_data_file
 from delineator.settings import DelineatorConfig
+from delineator.util import pixel_area
 
 logger = logging.getLogger(__name__)
-
-# Radius of the authalic sphere in km, used for haversine distances.
-EARTH_RADIUS_KM = 6371.0088
 
 
 def _snap_to_stream(streams: np.ndarray, affine, lat: float, lng: float,
@@ -93,7 +91,7 @@ def _snap_to_stream(streams: np.ndarray, affine, lat: float, lng: float,
 logging.getLogger("rasterio._env").setLevel(logging.ERROR)
 
 def _split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon | MultiPolygon,
-                    bSingleCatchment: bool, config: DelineatorConfig,) -> \
+                    home_catchment_area_km2: float, config: DelineatorConfig,) -> \
         tuple[Polygon | MultiPolygon | None, float | None, float | None]:
     """
     Performs the detailed pixel-scale raster-based delineation for a watershed.
@@ -113,9 +111,12 @@ def _split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon
         longitude
     catchment_poly : Shapely Polygon or MultiPolygon
         a Shapely polygon; we'll use it to clip the flow accumulation raster to get an accurate snap
-    bSingleCatchment : bool
-        is the watershed small, i.e. there is only one unit catchment in it?
-            If so, we'll use a lower snap threshold for the outlet.
+    home_catchment_area_km2 : float
+        area of the home unit catchment in km². Used to adapt the stream
+        threshold for small watersheds: the effective threshold is
+        min(config.stream_threshold_km2, 0.25 * home_catchment_area_km2),
+        so that small catchments (whose accumulation values are small
+        everywhere) always have valid snap targets.
     config : DelineatorConfig
         a DelineatorConfig dataclass object
 
@@ -240,15 +241,29 @@ def _split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon
         acc[mymask == 0] = 0
 
         # Snap the outlet to the nearest stream.
-        if bSingleCatchment:
-            numpixels = config.threshold_single
-        else:
-            # Case where there are 2 or more unit catchments in the watershed
-            # setting this value too low causes incorrect results and weird topology problems in the output
-            numpixels = config.threshold_multi
+        #
+        # The stream threshold defines which cells are valid snap targets:
+        # cells whose upstream drainage area exceeds the threshold. A fixed
+        # threshold fails for small watersheds, where accumulation values are
+        # small everywhere and nothing would qualify; capping the threshold
+        # at a fraction of the home unit catchment's area guarantees that
+        # some cells always qualify, without a separate config parameter.
+        threshold_km2 = min(
+            config.stream_threshold_km2,
+            ADAPTIVE_THRESHOLD_FRACTION * home_catchment_area_km2,
+        )
+
+        # The accumulation raster counts upstream PIXELS, and the physical
+        # area of a pixel depends on latitude (a 3-arcsecond pixel is about
+        # 8,600 m2 at the equator but only 4,300 m2 at 60 degrees). Convert
+        # the drainage-area threshold from km2 to a pixel count using the
+        # pixel area at the pour point's latitude. The pixel dimensions are
+        # read from the raster's own transform rather than assumed.
+        cell_area_km2 = float(pixel_area(lat, abs(acc.affine.e), abs(acc.affine.a)))
+        numpixels = threshold_km2 / cell_area_km2
 
         logger.info(
-            "Using threshold of {} for number of upstream pixels.".format(numpixels)
+            f"Using stream threshold of {threshold_km2:.4g} km2 "
         )
 
         # Snap the pour point to a point on the accumulation grid where accum (# of upstream pixels)

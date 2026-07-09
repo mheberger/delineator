@@ -122,13 +122,6 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
 
     upstream_area = get_upstream_area(int(home_unit_catchment), config)
 
-    # Step 4.5 Determine if the watershed is so huge that the user would prefer to use the low-res mode
-    if config.high_res:
-        # Get the area of the home unit catchment
-        if upstream_area > config.low_res_threshold:
-            logger.info(f"Switching to low-resolution mode; watershed area = {upstream_area:.2f} km²")
-            config.high_res = False
-
     # Step 5: Split the home unit catchment at the outlet
     # First, we need to get the home unit catchment geometry as a shapely Polygon
     home_unit_catchment_polygon, home_catchment_area = get_home_unit_catchment_geom_and_area(basins_db_path,
@@ -136,7 +129,8 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
     if config.high_res:
         # Perform the split
         split_catchment_polygon, lat_snapped, lon_snapped = _split_catchment(megabasin, lat, lng,
-                                                                             home_unit_catchment_polygon, is_singleton,
+                                                                             home_unit_catchment_polygon,
+                                                                             home_catchment_area,
                                                                              config)
         if split_catchment_polygon is None:
             return None, None, None

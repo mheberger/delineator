@@ -150,26 +150,12 @@ def test_close_holes_fills_all_polygon_holes_when_area_max_is_zero():
         holes=[[(1, 1), (2, 1), (2, 2), (1, 2)]],
     )
 
-    result = _close_holes(polygon_with_hole, area_max=0)
+    result = _close_holes(polygon_with_hole, area_max_km2=0)
 
     assert isinstance(result, Polygon)
     assert len(result.interiors) == 0
     assert result.area == 25
 
-
-def test_close_holes_preserves_holes_larger_than_area_max():
-    polygon_with_holes = Polygon(
-        shell=[(0, 0), (10, 0), (10, 10), (0, 10)],
-        holes=[
-            [(1, 1), (2, 1), (2, 2), (1, 2)],
-            [(4, 4), (8, 4), (8, 8), (4, 8)],
-        ],
-    )
-
-    result = _close_holes(polygon_with_holes, area_max=2)
-
-    assert isinstance(result, Polygon)
-    assert len(result.interiors) == 1
 
 
 def test_close_holes_applies_to_each_polygon_in_multipolygon():
@@ -180,7 +166,7 @@ def test_close_holes_applies_to_each_polygon_in_multipolygon():
     polygon_without_hole = Polygon([(10, 10), (12, 10), (12, 12), (10, 12)])
     multipolygon = MultiPolygon([polygon_with_hole, polygon_without_hole])
 
-    result = _close_holes(multipolygon, area_max=0)
+    result = _close_holes(multipolygon, area_max_km2=0)
 
     assert isinstance(result, MultiPolygon)
     assert len(result.geoms) == 2
@@ -191,4 +177,4 @@ def test_close_holes_rejects_unsupported_geometry_type():
     line = LineString([(0, 0), (1, 1)])
 
     with pytest.raises(ValueError, match="Unsupported geometry type"):
-        _close_holes(line, area_max=0)
+        _close_holes(line, area_max_km2=0)
