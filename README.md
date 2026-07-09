@@ -275,7 +275,7 @@ All options with their defaults:
 
 Setting `fill=True` removes small interior gaps or "donut holes" in the watershed polygon. These 
 arise from slivers between unit catchments in the source data and are usually unwanted. 
-The `fill_area_max` parameter (in km²) controls which holes are filled — 
+The `fill_area_max` parameter (in km²) controls which holes are filled; 
 larger holes representing genuine endorheic (internally draining) basins can 
 be preserved by setting a threshold.
 
@@ -314,7 +314,7 @@ boundary with
 [Chaikin corner cutting](https://en.wikipedia.org/wiki/Chaikin%27s_algorithm). 
 Smoothing is applied *after* simplification and works best with 
 `simplify=True`: without it, the smoothed line faithfully traces the raster 
-staircase instead of removing it. Smoothing is cosmetic — it adds vertices 
+staircase instead of removing it. Smoothing is cosmetic; it adds vertices 
 and slightly cuts polygon corners, so leave it off if you need the output to 
 match the source data exactly.
 
@@ -371,7 +371,7 @@ set DELINEATOR_DATADIR=D:\GIS\delineator_data
 
 ## Always review your results!
 
-**No automated watershed delineation software can replace human judgment. Always visually inspect every watershed you create with this package — there is no guarantee the output is correct.**
+**No automated watershed delineation software can replace human judgment. Always visually inspect every watershed you create with this package. There is no guarantee the output is correct.**
 
 Errors are common and often easy to miss without inspection. The good news is 
 that many mistakes can be fixed by slightly adjusting the outlet coordinates 
@@ -400,14 +400,13 @@ pipelines can reroute water in ways that no terrain-based algorithm can detect.
 ### The most common error: incorrect pour point snapping
 
 Even in well-behaved terrain, the most frequent source of error is pour point 
-snapping — the outlet being snapped to the wrong river reach, often a nearby 
+snapping, where the outlet is snapped to the wrong river reach, often a nearby 
 tributary. This produces a watershed on a completely different branch of the 
 river network. Such errors are not correlated with watershed size or geography 
 and can be subtle if you are not looking carefully.
 
 If the result looks wrong, try nudging the outlet coordinates toward the river 
-centerline and re-running. Overlaying the MERIT-Basins river network on your 
-map makes this much easier. The interactive map is useful for this kind of 
+centerline and re-running. The interactive map is useful for this kind of 
 iterative review.
 
 ### Areas with no data
