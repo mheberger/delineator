@@ -78,7 +78,7 @@ def test_delineator_config_rejects_non_bool_boolean_fields(field_name):
         ({"num_stream_orders": 0}, ValueError, "num_stream_orders must be greater than or equal to 1"),
         ({"search_dist": True}, TypeError, "search_dist must be a number, not bool"),
         ({"search_dist": 0}, ValueError, r"search_dist \(in km\) must be greater than 0"),
-        ({"search_dist": 10.5}, ValueError, r"search_dist \(in km\) must be less than or equal to 10"),
+        ({"search_dist": 100}, ValueError, r"search_dist \(in km\) must be less than or equal to 50"),
         ({"simplify_tolerance": True}, TypeError, "simplify_tolerance must be a number, not bool"),
         ({"simplify_tolerance": -0.1}, ValueError, "simplify_tolerance must be greater than or equal to 0"),
         ({"stream_threshold_km2": 0}, ValueError, "stream_threshold_km2 must be greater than 0"),
