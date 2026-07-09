@@ -24,11 +24,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 #### Units / defaults changed (same field name)
 
-| Field | Old | New              | Change |
-|---|---|------------------|---|
-| `search_dist: float` | `0.1` decimal degrees | `5.0` kilometers | Unit changed to km; now validated to the range 0–10 km |
-| `simplify_tolerance: float` | `0.0008` decimal degrees | `0.1` kilometers | Unit changed to km (`0.09` km ≈ the old `0.0008°`) |
-| `clean: bool` | `False` | `True`           | Default flipped — seam-cleaning is now on by default |
+| Field | Old | New              | Change                                                                |
+|---|---|------------------|-----------------------------------------------------------------------|
+| `search_dist: float` | `0.1` decimal degrees | `5.0` kilometers | Unit changed to km; now validated to the range 0–10 km                |
+| `simplify_tolerance: float` | `0.0008` decimal degrees | `0.1` kilometers | Unit changed to km  |
+| `clean: bool` | `False` | `True`           | Default flipped — seam-cleaning is now on by default                  |
 
   
 ### Fixed
