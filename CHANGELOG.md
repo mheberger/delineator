@@ -45,9 +45,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Added documentation for how to output to parquet and flatgeobuf formats.
 - The watershed geodata now contains the two fields: 
   - `area_km2`: The actual area of the final watershed, as delivered
-  - `fill_area`: The area of any internal holes that have been filled. 
-    This will be 0 if you chose fill=False, or if the script did not find any 
+  - `fill_area`: The area of any internal holes that have been filled, in km²
+    This will be `0` if you chose `fill=False`, or if the script did not find any 
     donut holes to fill in.
+- Added smoothing option for watersheds and rivers, similar to the 
+  feature on the Global Watersheds web app.
 - Added the configuration options to the demo web app.  
 
 ## [2.2.0] - 2026-07-05
