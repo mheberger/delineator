@@ -5,14 +5,18 @@ Written by the PyCharm AI Assistant.
 
 import math
 from pathlib import Path
+import geopandas as gpd
 import pytest
 from shapely.geometry import LineString, MultiLineString, MultiPolygon, Polygon
 
 from delineator.settings import DelineatorConfig
 from delineator.util import (
+    KM_PER_DEGREE,
     _close_holes,
     _get_overlap_lines,
+    _ring_area_km2,
     _validate_outlet_coordinates,
+    write_outputs,
 )
 
 
@@ -24,9 +28,10 @@ def test_delineator_config_coerces_string_paths_and_normalizes_output_format(tmp
         data_dir=str(data_dir),
         output_dir=str(output_dir),
         output_format=".GeoJSON",
-        low_res_threshold=100,
+        fill_area_max=2,
         search_dist=1,
         simplify_tolerance=0,
+        stream_threshold_km2=30,
     )
 
     assert config.data_dir == data_dir
@@ -34,9 +39,10 @@ def test_delineator_config_coerces_string_paths_and_normalizes_output_format(tmp
     assert isinstance(config.data_dir, Path)
     assert isinstance(config.output_dir, Path)
     assert config.output_format == "geojson"
-    assert config.low_res_threshold == 100.0
+    assert config.fill_area_max == 2.0
     assert config.search_dist == 1.0
     assert config.simplify_tolerance == 0.0
+    assert config.stream_threshold_km2 == 30.0
 
 
 @pytest.mark.parametrize(
@@ -48,7 +54,9 @@ def test_delineator_config_coerces_string_paths_and_normalizes_output_format(tmp
         "high_res",
         "outlets",
         "rivers",
+        "round_coordinates",
         "simplify",
+        "snapping",
     ],
 )
 def test_delineator_config_rejects_non_bool_boolean_fields(field_name):
@@ -63,16 +71,18 @@ def test_delineator_config_rejects_non_bool_boolean_fields(field_name):
     [
         ({"data_dir": 123}, TypeError, "data_dir must be a pathlib.Path or string"),
         ({"output_dir": 123}, TypeError, "output_dir must be a pathlib.Path or string"),
-        ({"fill_threshold": 1.5}, TypeError, "fill_threshold must be an int"),
-        ({"fill_threshold": -1}, ValueError, "fill_threshold must be greater than or equal to 0"),
+        ({"fill_area_max": "big"}, TypeError, "fill_area_max must be a number"),
+        ({"fill_area_max": True}, TypeError, "fill_area_max must be a number, not bool"),
+        ({"fill_area_max": -1}, ValueError, "fill_area_max must be greater than or equal to 0"),
         ({"num_stream_orders": 1.5}, TypeError, "num_stream_orders must be an int"),
         ({"num_stream_orders": 0}, ValueError, "num_stream_orders must be greater than or equal to 1"),
-        ({"low_res_threshold": True}, TypeError, "low_res_threshold must be a number, not bool"),
-        ({"low_res_threshold": 0}, ValueError, "low_res_threshold must be greater than 0"),
         ({"search_dist": True}, TypeError, "search_dist must be a number, not bool"),
-        ({"search_dist": 0}, ValueError, "search_dist must be greater than 0"),
+        ({"search_dist": 0}, ValueError, r"search_dist \(in km\) must be greater than 0"),
+        ({"search_dist": 10.5}, ValueError, r"search_dist \(in km\) must be less than or equal to 10"),
         ({"simplify_tolerance": True}, TypeError, "simplify_tolerance must be a number, not bool"),
         ({"simplify_tolerance": -0.1}, ValueError, "simplify_tolerance must be greater than or equal to 0"),
+        ({"stream_threshold_km2": 0}, ValueError, "stream_threshold_km2 must be greater than 0"),
+        ({"stream_threshold_km2": 60000}, ValueError, "must be less than or equal to 50000"),
         ({"output_format": "definitely_not_supported"}, ValueError, "Unsupported output_format"),
     ],
 )
@@ -173,8 +183,52 @@ def test_close_holes_applies_to_each_polygon_in_multipolygon():
     assert all(len(poly.interiors) == 0 for poly in result.geoms)
 
 
+def test_ring_area_km2_approximates_equatorial_square():
+    ring = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)]).exterior
+
+    # A 1° x 1° square near the equator is about KM_PER_DEGREE² in km²
+    assert _ring_area_km2(ring) == pytest.approx(KM_PER_DEGREE ** 2, rel=0.01)
+
+
+def test_close_holes_keeps_holes_larger_than_area_max_km2():
+    # Near the equator, a 0.005° square hole is ~0.3 km²; a 1° square is ~12,000 km²
+    small_hole = [(0.2, 0.2), (0.205, 0.2), (0.205, 0.205), (0.2, 0.205)]
+    large_hole = [(1, 1), (2, 1), (2, 2), (1, 2)]
+    polygon = Polygon(
+        shell=[(0, 0), (3, 0), (3, 3), (0, 3)],
+        holes=[small_hole, large_hole],
+    )
+
+    result = _close_holes(polygon, area_max_km2=1.0)
+
+    assert len(result.interiors) == 1
+    assert Polygon(result.interiors[0]).equals(Polygon(large_hole))
+
+
 def test_close_holes_rejects_unsupported_geometry_type():
     line = LineString([(0, 0), (1, 1)])
 
     with pytest.raises(ValueError, match="Unsupported geometry type"):
         _close_holes(line, area_max_km2=0)
+
+
+def test_write_outputs_parquet_passes_path_per_layer(tmp_path, monkeypatch):
+    # to_parquet needs pyarrow, which may not be installed; intercept it and
+    # check the path argument instead (a regression here once passed a tuple)
+    paths = []
+
+    def fake_to_parquet(self, path, **kwargs):
+        paths.append(path)
+
+    monkeypatch.setattr(gpd.GeoDataFrame, "to_parquet", fake_to_parquet)
+
+    watershed_gdf = gpd.GeoDataFrame(
+        geometry=[Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])],
+        crs="EPSG:4326",
+    )
+    config = DelineatorConfig(output_dir=tmp_path, output_format="parquet")
+
+    write_outputs(watershed_gdf, None, None, config, id="test")
+
+    assert paths == [tmp_path / "watershed_test.parquet"]
+    assert all(isinstance(p, Path) for p in paths)

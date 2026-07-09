@@ -261,7 +261,7 @@ def write_outputs(watershed_gdf: gpd.GeoDataFrame | None,
     if output_format in {"parquet", "geoparquet"}:
         for layer_name, gdf in layers.items():
             if gdf is not None:
-                fname = output_dir / f"{layer_name}{suffix}.parquet",
+                fname = output_dir / f"{layer_name}{suffix}.parquet"
                 gdf.to_parquet(
                     fname,
                     index=False,

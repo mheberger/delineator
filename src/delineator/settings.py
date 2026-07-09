@@ -173,7 +173,7 @@ class DelineatorConfig:
     round_coordinates: bool = True
     search_dist: float = 1.0
     simplify: bool = False
-    simplify_tolerance: float = 0.0008
+    simplify_tolerance: float = 0.09  # km; ≈ the old default of 0.0008 decimal degrees
     snapping: bool = True
     stream_threshold_km2: float = 25.0
     user_id: bool = False
@@ -222,12 +222,12 @@ class DelineatorConfig:
 
         self.stream_threshold_km2 = self._coerce_float(
             self.stream_threshold_km2,
-            "threshold_multi",
+            "stream_threshold_km2",
         )
         if self.stream_threshold_km2 <= 0:
             raise ValueError("stream_threshold_km2 must be greater than 0.")
         if self.stream_threshold_km2 > 50000:
-            raise ValueError("threshold_multi must be less than or equal to 50000.")
+            raise ValueError("stream_threshold_km2 must be less than or equal to 50000.")
 
         if not isinstance(self.output_format, str):
             raise TypeError("output_format must be a string.")

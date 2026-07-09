@@ -135,11 +135,7 @@ def test_delineator_config_uses_output_dir_environment_variable(monkeypatch, tmp
 
     monkeypatch.setenv("DELINEATOR_OUTPUT_DIR", str(output_dir))
 
-    config = DelineatorConfig(
-        low_res_threshold=100,
-        search_dist=1,
-        simplify_tolerance=0,
-    )
+    config = DelineatorConfig()
 
     assert config.output_dir == output_dir
 
@@ -148,11 +144,7 @@ def test_delineator_config_uses_data_dir_environment_variable(monkeypatch, tmp_p
 
     monkeypatch.setenv("DELINEATOR_DATA_DIR", str(data_dir))
 
-    config = DelineatorConfig(
-        low_res_threshold=100,
-        search_dist=1,
-        simplify_tolerance=0,
-    )
+    config = DelineatorConfig()
 
     assert config.data_dir == data_dir
 

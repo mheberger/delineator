@@ -21,6 +21,7 @@ from delineator.constants import (
     VALID_MEGABASINS,
     USE_SPATIALITE,
     ROUNDING_DECIMALS,
+    KM_PER_DEGREE,
 )
 from delineator.data import _find_data_file
 from delineator.util import _validate_outlet_coordinates, _close_holes, _get_polygon_area
@@ -206,7 +207,7 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
 
     # Step 7.5: optionally clean and simplify the watershed
     if config.simplify:
-        tolerance_deg = config.simplify_tolerance_km / 111.195
+        tolerance_deg = config.simplify_tolerance / KM_PER_DEGREE
         watershed_gdf.geometry = watershed_gdf.geometry.simplify(
             tolerance=tolerance_deg, preserve_topology=True)
 
