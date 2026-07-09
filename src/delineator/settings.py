@@ -125,7 +125,7 @@ class DelineatorConfig:
         or to snap the outlet point to a river centerline.
         If the outlet point does not fall inside any catchment. the script will
         search for the nearest catchment within this distance (in kilometers).
-        Default is 1.0 km. Accepts values from 0 to 10 km.
+        Default is 5.0 km. Accepts values from 0 to 50 km.
 
     simplify : bool
         Used by the `write_outputs` utility function to simplify the output
@@ -171,7 +171,7 @@ class DelineatorConfig:
     outlets: bool = True
     rivers: bool = True
     round_coordinates: bool = True
-    search_dist: float = 1.0
+    search_dist: float = 5.0
     simplify: bool = False
     simplify_tolerance: float = 0.09  # km; ≈ the old default of 0.0008 decimal degrees
     snapping: bool = True
@@ -210,8 +210,8 @@ class DelineatorConfig:
         self.search_dist = self._coerce_float(self.search_dist, "search_dist")
         if self.search_dist <= 0:
             raise ValueError("search_dist (in km) must be greater than 0.")
-        if self.search_dist > 10:
-            raise ValueError("search_dist (in km) must be less than or equal to 10.")
+        if self.search_dist > 50:
+            raise ValueError("search_dist (in km) must be less than or equal to 50.")
 
         self.simplify_tolerance = self._coerce_float(
             self.simplify_tolerance,

@@ -9,10 +9,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
-- The configuration option `fill_threshold` is now in km² rather than number
-  of pixels.
-- The configuration options `threshold_single` was renamed `snap_threshold_single`
-- The configuration options `threshold_multi` was renamed `snap_threshold_multi`
+- All the configuration options that were previously in units of decimal degrees
+  are now in units of kilometers, and those with units of number of pixels
+  are now in units of square kilometers.
+
+#### Removed / replaced fields
+
+| Old field | Old default | Replaced by | New default | Notes |
+|---|---|---|---|---|
+| `fill_threshold: int` | `100` (pixels on 3-arcsec grid) | `fill_area_max: float` | `1.0` (km²) | Hole-fill cutoff is now a real area, not a pixel count |
+| `threshold_multi: int` | `5000` (upstream pixels) | `stream_threshold_km2: float` | `25.0` (km²) | Stream-definition threshold for outlet snapping, now in km² of drainage area |
+| `threshold_single: int` | `300` (upstream pixels) | *(folded into adaptive logic)* | — | No longer a config field; small-catchment threshold is derived adaptively (see `ADAPTIVE_THRESHOLD_FRACTION` in `constants.py`) |
+| `low_res_threshold: float` | `6e6` (km²) | *(removed)* | — | Auto-switch-to-low-res threshold is gone; low-res is controlled by `high_res` |
+
+#### Units / defaults changed (same field name)
+
+| Field | Old | New | Change |
+|---|---|---|---|
+| `search_dist: float` | `0.1` decimal degrees | `1.0` kilometers | Unit changed to km; now validated to the range 0–10 km |
+| `simplify_tolerance: float` | `0.0008` decimal degrees | `0.09` kilometers | Unit changed to km (`0.09` km ≈ the old `0.0008°`) |
+| `clean: bool` | `False` | `True` | Default flipped — seam-cleaning is now on by default |
 
   
 ### Fixed
@@ -25,7 +41,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## Added
 
 - Added documentation for how to output to parquet and flatgeobuf formats.
-
+- The watershed geodata now contains the two fields: 
+  - `area_km2`: The actual area of the final watershed, as delivered
+  - `fill_area`: The area of any internal holes that have been filled. 
+    This will be 0 if you chose fill=False, or if the script did not find any 
+    donut holes to fill in.
 
 ## [2.2.0] - 2026-07-05
 

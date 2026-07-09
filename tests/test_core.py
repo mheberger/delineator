@@ -73,14 +73,6 @@ def test_write_outputs_creates_file_for_iceland(tmp_path):
 
 
 def test_iceland_csv_outlets_can_be_delineated(tmp_path):
-    config = DelineatorConfig(
-        high_res=True,
-        # The Blanda River gauge (id 6401240) is ~3 km from the nearest
-        # MERIT-Hydro stream cell, beyond the default snap distance of 1 km.
-        search_dist=5.0,
-        output_dir=tmp_path,
-        output_format="geojson",
-    )
 
     df = pd.read_csv(TESTS_DIR / "iceland_outlets.csv")
 
@@ -88,7 +80,6 @@ def test_iceland_csv_outlets_can_be_delineated(tmp_path):
         watershed_gdf, rivers_gdf, outlets_gdf = delineate(
             float(row.lat),
             float(row.lng),
-            config,
         )
 
         assert watershed_gdf is not None
