@@ -271,6 +271,46 @@
     }
     #options-panel .opt-actions button:hover { border-color: var(--accent); }
 
+    /* ── Option info icons + tooltip ── */
+    .opt-info {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 15px; height: 15px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.6rem;
+      font-style: normal;
+      font-weight: 700;
+      line-height: 1;
+      cursor: help;
+      flex-shrink: 0;
+      vertical-align: middle;
+      user-select: none;
+    }
+    .opt-info:hover, .opt-info:focus {
+      color: var(--accent);
+      border-color: var(--accent);
+      outline: none;
+    }
+    #opt-tooltip {
+      position: fixed;
+      z-index: 3000;
+      max-width: 230px;
+      background: var(--text);
+      color: #fff;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 0.72rem;
+      line-height: 1.35;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.28);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.12s;
+    }
+    #opt-tooltip.show { opacity: 1; }
+
     /* ── Error toast ── */
     #error-toast {
       position: absolute;
@@ -304,37 +344,38 @@
   <div class="hint">Settings apply to your next click on the map.</div>
 
   <div class="opt-group">
-    <label class="opt-check"><input type="checkbox" id="opt-rivers" checked> Return rivers</label>
-    <label class="opt-check"><input type="checkbox" id="opt-outlets" checked> Return outlet points</label>
-    <label class="opt-check"><input type="checkbox" id="opt-high_res" checked> High-resolution outlet split</label>
-    <label class="opt-check"><input type="checkbox" id="opt-snapping" checked> Snap outlet to river</label>
-  </div>
-
-  <div class="opt-group">
-    <label class="opt-check"><input type="checkbox" id="opt-fill" checked> Fill holes</label>
+    <label class="opt-check"><input type="checkbox" id="opt-high_res" checked> High-resolution outlet split<span class="opt-info" data-tip="Split the outlet's unit catchment using pixel-scale raster data for an accurate boundary. If off, the watershed comes out slightly too large and includes some area just downstream of the outlet — often fine for very large watersheds.">i</span></label>
+    <label class="opt-check"><input type="checkbox" id="opt-outlets" checked> Return outlet points<span class="opt-info" data-tip="Show the outlet on the map: the point you clicked (requested) and, when snapping is on, the point it was moved to on the river (snapped).">i</span></label>
+    <label class="opt-check"><input type="checkbox" id="opt-rivers" checked> Return rivers<span class="opt-info" data-tip="Return the river flowlines within the watershed as a separate layer.">i</span></label>
     <div class="opt-num">
-      <label for="opt-fill_area_max">Max hole area (km²)</label>
-      <input type="number" id="opt-fill_area_max" min="0" step="0.5" value="1.0">
-    </div>
-    <label class="opt-check"><input type="checkbox" id="opt-clean" checked> Clean boundary</label>
-    <label class="opt-check"><input type="checkbox" id="opt-simplify"> Simplify boundary</label>
-    <div class="opt-num">
-      <label for="opt-simplify_tolerance">Simplify tol. (km)</label>
-      <input type="number" id="opt-simplify_tolerance" min="0" step="0.05" value="0.10">
-    </div>
-  </div>
-
-  <div class="opt-group">
-    <div class="opt-num">
-      <label for="opt-num_stream_orders">Stream orders</label>
+      <label for="opt-num_stream_orders">Stream orders <span class="opt-info" data-tip="How many stream orders of rivers to include. Higher values add more small tributaries; 9 or more returns every reach. Only used when 'Return rivers' is on.">i</span></label>
       <input type="number" id="opt-num_stream_orders" min="1" step="1" value="4">
     </div>
+  </div>
+
+  <div class="opt-group">
+    <label class="opt-check"><input type="checkbox" id="opt-fill" checked> Fill holes<span class="opt-info" data-tip="Fill small interior 'donut holes' caused by minor errors in the source data, giving a cleaner boundary and smaller files.">i</span></label>
     <div class="opt-num">
-      <label for="opt-search_dist">Search dist. (km)</label>
+      <label for="opt-fill_area_max">Max hole area (km²) <span class="opt-info" data-tip="Only fill holes smaller than this, in km². Set to 0 to fill every hole. Only used when 'Fill holes' is on.">i</span></label>
+      <input type="number" id="opt-fill_area_max" min="0" step="0.5" value="1.0">
+    </div>
+    <label class="opt-check"><input type="checkbox" id="opt-clean" checked> Clean boundary<span class="opt-info" data-tip="Repair tiny seams and slivers in the boundary polygon with a small buffer in-and-out.">i</span></label>
+    <label class="opt-check"><input type="checkbox" id="opt-simplify"> Simplify boundary<span class="opt-info" data-tip="Simplify the watershed boundary and river lines using the Douglas–Peucker algorithm to reduce file size and smooth the jagged 'staircase' look of raw pixel edges.">i</span></label>
+    <div class="opt-num">
+      <label for="opt-simplify_tolerance">Simplify tol. (km) <span class="opt-info" data-tip="Maximum distance (km) a boundary vertex may move when simplifying. Larger values give a simpler, coarser boundary. Only used when 'Simplify boundary' is on.">i</span></label>
+      <input type="number" id="opt-simplify_tolerance" min="0" step="0.05" value="0.10">
+    </div>
+    <label class="opt-check"><input type="checkbox" id="opt-smooth"> Smooth output<span class="opt-info" data-tip="Smooth the output for a more natural look: Catmull-Rom splines for rivers, Chaikin corner-cutting for the watershed boundary. Works best with 'Simplify boundary' on — smoothing runs after simplification.">i</span></label>
+  </div>
+
+  <div class="opt-group">
+    <label class="opt-check"><input type="checkbox" id="opt-snapping" checked> Snap outlet to river<span class="opt-info" data-tip="Move the outlet to the nearest river cell before delineating. Turn off to use your exact click — useful only if you have already placed the point precisely on the channel.">i</span></label>
+    <div class="opt-num">
+      <label for="opt-search_dist">Search dist. (km) <span class="opt-info" data-tip="How far (km) to search for a catchment containing the outlet, or for a river to snap to. Range 0–50 km.">i</span></label>
       <input type="number" id="opt-search_dist" min="0.1" max="50" step="0.5" value="5.0">
     </div>
     <div class="opt-num">
-      <label for="opt-stream_threshold_km2">Stream threshold (km²)</label>
+      <label for="opt-stream_threshold_km2">Stream threshold (km²) <span class="opt-info" data-tip="Minimum upstream drainage area (km²) for a cell to count as a river when snapping. Applies to watersheds spanning several unit catchments; setting it too low causes bad snaps and topology errors.">i</span></label>
       <input type="number" id="opt-stream_threshold_km2" min="0.1" step="1" value="25.0">
     </div>
   </div>
@@ -375,6 +416,9 @@
 
 <!-- Error toast -->
 <div id="error-toast"></div>
+
+<!-- Floating tooltip for option info icons -->
+<div id="opt-tooltip"></div>
 
 <script>
 // ── Map init ──────────────────────────────────────────────────────────────
@@ -503,8 +547,39 @@ document.getElementById('opt-close').addEventListener('click', () => {
   optionsPanel.style.display = 'none';
 });
 
+// Info-icon tooltips. A single floating element is positioned with fixed
+// coordinates so it is never clipped by the options panel's scroll container.
+const optTooltip = document.getElementById('opt-tooltip');
+
+function showTip(el) {
+  optTooltip.textContent = el.dataset.tip;
+  optTooltip.classList.add('show');
+  // Measure after the text is set (the element is always laid out; only its
+  // opacity changes), then place it to the left of the icon, clamped on-screen.
+  const r = el.getBoundingClientRect();
+  const tw = optTooltip.offsetWidth;
+  const th = optTooltip.offsetHeight;
+  const left = Math.max(8, r.left - tw - 8);
+  const top = Math.max(8, Math.min(r.top + r.height / 2 - th / 2, window.innerHeight - th - 8));
+  optTooltip.style.left = left + 'px';
+  optTooltip.style.top = top + 'px';
+}
+function hideTip() {
+  optTooltip.classList.remove('show');
+}
+
+document.querySelectorAll('#options-panel .opt-info').forEach((el) => {
+  el.setAttribute('tabindex', '0');            // keyboard-focusable for accessibility
+  el.addEventListener('mouseenter', () => showTip(el));
+  el.addEventListener('mouseleave', hideTip);
+  el.addEventListener('focus', () => showTip(el));
+  el.addEventListener('blur', hideTip);
+  // Icons live inside <label>s; swallow clicks so they don't toggle the control.
+  el.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); });
+});
+
 // Checkbox option ids -> config field names.
-const BOOL_OPTS = ['rivers', 'outlets', 'high_res', 'snapping', 'fill', 'clean', 'simplify'];
+const BOOL_OPTS = ['rivers', 'outlets', 'high_res', 'snapping', 'fill', 'clean', 'simplify', 'smooth'];
 // Number option ids -> config field names.
 const NUM_OPTS = [
   'fill_area_max', 'simplify_tolerance',

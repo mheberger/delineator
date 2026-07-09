@@ -58,6 +58,7 @@ _WEB_OPTIONS = frozenset({
     "search_dist",
     "simplify",
     "simplify_tolerance",
+    "smooth",
     "snapping",
     "stream_threshold_km2",
 })

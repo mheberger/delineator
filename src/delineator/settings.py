@@ -138,6 +138,14 @@ class DelineatorConfig:
         With the Douglas-Peucker algorithm, the tolerance value is the maximum
         distance (in kilometers) that a vertex can be from the original.
 
+    smooth: bool
+        If True, smooth the output geometries for a more natural appearance:
+        rivers with centripetal Catmull-Rom splines, and the watershed
+        boundary with Chaikin corner cutting. Best used together with
+        `simplify=True` -- smoothing is applied after simplification, and
+        without it the smoothed line faithfully traces the raster
+        "staircase" instead of removing it. Default is False.
+
     snapping: bool
         If snapping=False, the script will not attempt to snap the outlet point.
         Instead, it will use the coordinates provided by the user. This is
@@ -174,9 +182,9 @@ class DelineatorConfig:
     search_dist: float = 5.0
     simplify: bool = False
     simplify_tolerance: float = 0.10  # km; ≈ the old default of 0.0008 decimal degrees
+    smooth: bool = False
     snapping: bool = True
     stream_threshold_km2: float = 25.0
-    user_id: bool = False
     verbose: bool = False
 
     def __post_init__(self) -> None:
@@ -193,6 +201,7 @@ class DelineatorConfig:
         self._validate_bool("rivers", self.rivers)
         self._validate_bool("round_coordinates", self.round_coordinates)
         self._validate_bool("simplify", self.simplify)
+        self._validate_bool("smooth", self.smooth)
         self._validate_bool("snapping", self.snapping)
 
         self.fill_area_max = self._coerce_float(

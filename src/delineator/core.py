@@ -31,6 +31,7 @@ from delineator.queries import get_upstream_comids, get_home_unit_catchment_geom
     get_upstream_geometries, get_rivers, get_upstream_area
 from delineator.merit_detailed import _split_catchment
 from delineator.settings import DelineatorConfig
+from delineator.smoothing import _smooth_river_geometry, _smooth_watershed_geometry
 
 logger = logging.getLogger(__name__)
 
@@ -237,7 +238,14 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
             watershed_gdf["area_km2"] = round(filled_polygon_area, 1)
             watershed_gdf["filled_area"] = round(filled_polygon_area - watershed_area, 1)
 
-    # Step 7.5: optionally clean and simplify the watershed
+    # Step 7.5: optionally clean, simplify, and smooth the watershed
+    if config.smooth and not config.simplify:
+        logger.warning(
+            "smooth=True works best together with simplify=True: without "
+            "simplification, the smoothed geometry traces the raster "
+            "'staircase' instead of removing it."
+        )
+
     if config.simplify:
         tolerance_deg = config.simplify_tolerance / KM_PER_DEGREE
         watershed_gdf.geometry = watershed_gdf.geometry.simplify(
@@ -249,6 +257,11 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
             warnings.filterwarnings("ignore", message="Geometry is in a geographic CRS")
             watershed_gdf.geometry = watershed_gdf.geometry.buffer(0.0001, join_style="mitre").buffer(-0.0001, join_style="mitre")
 
+    # Smoothing runs last, after simplify and clean: it is a cosmetic
+    # refinement of whatever boundary the earlier steps settled on.
+    if config.smooth:
+        watershed_gdf.geometry = watershed_gdf.geometry.apply(_smooth_watershed_geometry)
+
     # Step 8: Get the rivers if requested by the user
     if config.rivers:
         logger.info("Getting rivers")
@@ -256,9 +269,13 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
         # (split) reach; the upstream reaches do not drain to this outlet.
         rivers_catchments = [upstream_unit_catchments[0]] if local_only else upstream_unit_catchments
         rivers_gdf = get_rivers(rivers_catchments, split_catchment_polygon, config)
-        if config.simplify:
-            rivers_gdf.geometry = rivers_gdf.geometry.simplify(
-                tolerance=tolerance_deg, preserve_topology=True)
+        if rivers_gdf is not None:
+            if config.simplify:
+                rivers_gdf.geometry = rivers_gdf.geometry.simplify(
+                    tolerance=tolerance_deg, preserve_topology=True)
+            # Catmull-Rom must come after simplification (see smoothing.py).
+            if config.smooth:
+                rivers_gdf.geometry = rivers_gdf.geometry.apply(_smooth_river_geometry)
     else:
         rivers_gdf = None
 

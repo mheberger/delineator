@@ -25,6 +25,14 @@ ADAPTIVE_THRESHOLD_FRACTION = 0.25
 # See the disconnection check in core.delineate.
 DISCONNECT_TOL_DEG = 0.005
 
+# Output smoothing (config.smooth). Rivers are smoothed with centripetal
+# Catmull-Rom splines; the watershed boundary with Chaikin corner cutting.
+# See smoothing.py. Values carried over from the Global Watersheds web app,
+# where they were tuned by eye.
+CATMULL_ROM_POINTS_PER_SEGMENT = 8   # interpolated points per input segment
+CATMULL_ROM_ALPHA = 0.75             # 0=uniform, 0.5=centripetal, 1=chordal
+CHAIKIN_ITERATIONS = 3               # each iteration doubles ring vertex count
+
 # MERIT-Hydro flow direction uses the ESRI standard for flow direction
 DIRMAP = (64, 128, 1, 2, 4, 8, 16, 32)
 
