@@ -12,6 +12,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - All the configuration options that were previously in units of decimal degrees
   are now in units of kilometers, and those with units of number of pixels
   are now in units of square kilometers.
+- Several configuration options have been renamed or changed:
 
 #### Removed / replaced fields
 
@@ -37,6 +38,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   `fill = True`. The attribute `filled_area` is now calculated and added to 
   the geodata attributes. This reports the area in km² for any of the "donut
   holes" in the watershed that were filled in. 
+- A variety of minor code optimizations and cleanups. 
 
 ## Added
 
@@ -46,6 +48,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - `fill_area`: The area of any internal holes that have been filled. 
     This will be 0 if you chose fill=False, or if the script did not find any 
     donut holes to fill in.
+- Added the configuration options to the demo web app.  
 
 ## [2.2.0] - 2026-07-05
 

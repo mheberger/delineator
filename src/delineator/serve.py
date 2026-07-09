@@ -40,6 +40,47 @@ HTML = files("delineator").joinpath("static", "index.html").read_text(encoding="
 # Flask config key under which serve() stashes the user-supplied DelineatorConfig.
 _CONFIG_KEY = "DELINEATOR_CONFIG"
 
+# The only DelineatorConfig fields the browser client is allowed to override per
+# request. Deliberately excludes filesystem/download options (data_dir,
+# output_dir, output_format, auto_download): those either don't apply here
+# (results are streamed to the browser as GeoJSON, never written) or would let a
+# page trigger arbitrary filesystem writes or large downloads.
+_WEB_OPTIONS = frozenset({
+    "calc_area",
+    "clean",
+    "fill",
+    "fill_area_max",
+    "high_res",
+    "num_stream_orders",
+    "outlets",
+    "rivers",
+    "round_coordinates",
+    "search_dist",
+    "simplify",
+    "simplify_tolerance",
+    "snapping",
+    "stream_threshold_km2",
+})
+
+
+def _apply_web_options(config: DelineatorConfig, options: dict) -> DelineatorConfig:
+    """Apply whitelisted client options to a per-request config, in place.
+
+    Only keys in _WEB_OPTIONS are considered; anything else is ignored. Values
+    are validated (and coerced, e.g. int -> float) by constructing a throwaway
+    DelineatorConfig, which raises ValueError/TypeError on bad input. The
+    validated values are then copied onto the caller's config so its resolved
+    data_dir/output_dir and custom_data_dir flag are preserved.
+    """
+    opts = {k: v for k, v in options.items() if k in _WEB_OPTIONS}
+    if not opts:
+        return config
+
+    validated = DelineatorConfig(**opts)  # raises on invalid input
+    for key in opts:
+        setattr(config, key, getattr(validated, key))
+    return config
+
 
 def _request_config() -> DelineatorConfig:
     """Return the DelineatorConfig to use for one delineation request.
@@ -80,6 +121,10 @@ def delineate_endpoint() -> Response:
     logger.info(f"Delineating watershed at lat={lat:.3f}, lng={lng:.3f}")
 
     config = _request_config()
+    try:
+        _apply_web_options(config, body.get("options") or {})
+    except (ValueError, TypeError) as exc:
+        return jsonify({"error": f"Invalid option: {exc}"}), 400
 
     try:
         watershed_gdf, rivers_gdf, outlets_gdf = delineate(lat, lng, config=config)
@@ -147,7 +192,7 @@ def serve(
     app.config[_CONFIG_KEY] = config
 
     print("\n  Global Watershed Delineator Local Web App")
-    print("  ─────────────────────────────────────────")
+    print("  -----------------------------------------")
     print(f"  Open http://{host}:{port} in your browser")
     print("  Click anywhere on the map to delineate\n")
     # use_reloader=False is essential: the reloader runs the real server in a

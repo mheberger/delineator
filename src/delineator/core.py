@@ -22,6 +22,7 @@ from delineator.constants import (
     USE_SPATIALITE,
     ROUNDING_DECIMALS,
     KM_PER_DEGREE,
+    DISCONNECT_TOL_DEG,
 )
 from delineator.data import _find_data_file
 from delineator.util import _validate_outlet_coordinates, _close_holes, _get_polygon_area
@@ -148,6 +149,12 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
     # Step 6: Find the set of upstream catchments
     # For a singleton the watershed is just the split home catchment; otherwise
     # we assemble it from the set of upstream unit catchments.
+    #
+    # local_only records that we collapsed a non-singleton watershed down to just
+    # the home catchment's local split because the outlet turned out to be off the
+    # mainstem (see the disconnection check below). It changes how area and rivers
+    # are handled downstream.
+    local_only = False
     if is_singleton:
         if split_catchment_polygon is None:
             return None, None, None
@@ -163,13 +170,34 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
 
         upstream_polygons = get_upstream_geometries(basins_db_path, basins_dict)
 
-        # In high-res mode, do not include the geoometries of the home unit catchment, as we will use the
-        # split unit catchment polygon obtained in step 5
         if config.high_res:
-            upstream_polygons.append(split_catchment_polygon)
-
-        # Step 7: Merge and dissolve the polygons
-        watershed_polygon = unary_union(upstream_polygons)
+            # The upstream neighbours are only genuinely upstream of the outlet
+            # when the raster split of the home catchment reaches the shared edge
+            # where their rivers enter -- which requires the outlet to lie on the
+            # mainstem. Snapping guarantees that; with snapping disabled the user
+            # may place the outlet off-stream, and then the split is a small local
+            # catchment that does not connect to the upstream block. Splicing the
+            # two together would produce a disconnected polygon and credit the
+            # outlet with upstream drainage area that does not reach it. Detect
+            # that and keep only the local catchment above the outlet.
+            upstream_union = unary_union(upstream_polygons)
+            if split_catchment_polygon.distance(upstream_union) > DISCONNECT_TOL_DEG:
+                logger.warning(
+                    "The outlet's local catchment is disconnected from its upstream "
+                    "catchments: the outlet appears to lie off the river network "
+                    "while snapping is disabled. Returning only the local catchment "
+                    "above the outlet. Enable snapping (or move the outlet onto a "
+                    "river) to delineate the full upstream watershed."
+                )
+                local_only = True
+                watershed_polygon = split_catchment_polygon
+            else:
+                # Merge the split home catchment into the upstream block.
+                watershed_polygon = unary_union([upstream_union, split_catchment_polygon])
+        else:
+            # Step 7: Merge and dissolve the polygons (low-res: home catchment
+            # geometry is already included in upstream_polygons).
+            watershed_polygon = unary_union(upstream_polygons)
 
     # Fill interior "donut holes". These appear both in raster-split home
     # catchments (including single-catchment watersheds) and in the gaps between
@@ -188,7 +216,11 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
 
     # Calculate the area of the watershed
     if config.calc_area:
-        if config.high_res:
+        if local_only:
+            # Collapsed to the home catchment's local split; the upstream
+            # catchments are not actually upstream of this outlet.
+            watershed_area = split_catchment_area
+        elif config.high_res:
             watershed_area = upstream_area - home_catchment_area + split_catchment_area
         else:
             watershed_area = upstream_area - home_catchment_area  # Check this!!!
@@ -220,7 +252,10 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
     # Step 8: Get the rivers if requested by the user
     if config.rivers:
         logger.info("Getting rivers")
-        rivers_gdf = get_rivers(upstream_unit_catchments, split_catchment_polygon, config)
+        # When collapsed to local-only, restrict rivers to the home catchment's
+        # (split) reach; the upstream reaches do not drain to this outlet.
+        rivers_catchments = [upstream_unit_catchments[0]] if local_only else upstream_unit_catchments
+        rivers_gdf = get_rivers(rivers_catchments, split_catchment_polygon, config)
         if config.simplify:
             rivers_gdf.geometry = rivers_gdf.geometry.simplify(
                 tolerance=tolerance_deg, preserve_topology=True)

@@ -16,6 +16,15 @@ KM_PER_DEGREE = math.pi * EARTH_RADIUS_KM / 180  # great-circle km per degree of
 # targets. See the threshold logic in merit_detailed.py > _split_catchment.snap_outlet().
 ADAPTIVE_THRESHOLD_FRACTION = 0.25
 
+# Maximum distance (in decimal degrees) between the raster split of the home
+# unit catchment and the block of upstream unit catchments for the two to still
+# be considered connected. When the outlet lies on the mainstem the split
+# overlaps its upstream neighbours (distance 0); an off-mainstem outlet
+# (possible only when snapping is disabled) leaves a gap of order a kilometre
+# (~0.015°+). This threshold sits in the wide band between those two regimes.
+# See the disconnection check in core.delineate.
+DISCONNECT_TOL_DEG = 0.005
+
 # MERIT-Hydro flow direction uses the ESRI standard for flow direction
 DIRMAP = (64, 128, 1, 2, 4, 8, 16, 32)
 
