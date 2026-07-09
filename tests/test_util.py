@@ -7,13 +7,12 @@ import math
 from pathlib import Path
 import geopandas as gpd
 import pytest
-from shapely.geometry import LineString, MultiLineString, MultiPolygon, Polygon
+from shapely.geometry import LineString, MultiPolygon, Polygon
 
+from delineator.constants import KM_PER_DEGREE
 from delineator.settings import DelineatorConfig
 from delineator.util import (
-    KM_PER_DEGREE,
     _close_holes,
-    _get_overlap_lines,
     _ring_area_km2,
     _validate_outlet_coordinates,
     write_outputs,
@@ -91,6 +90,24 @@ def test_delineator_config_validation_errors(kwargs, error_type, message):
         DelineatorConfig(**kwargs)
 
 
+def test_delineator_config_treats_data_dir_env_var_as_custom(monkeypatch, tmp_path):
+    monkeypatch.setenv("DELINEATOR_DATA_DIR", f"  {tmp_path}  ")
+
+    config = DelineatorConfig()
+
+    assert config.custom_data_dir is True
+    assert config.data_dir == tmp_path
+
+
+def test_delineator_config_ignores_whitespace_only_data_dir_env_var(monkeypatch):
+    monkeypatch.setenv("DELINEATOR_DATA_DIR", "   ")
+
+    config = DelineatorConfig()
+
+    # A blank env var falls back to the managed platform default
+    assert config.custom_data_dir is False
+
+
 def test_validate_outlet_coordinates_accepts_valid_float_coordinates():
     assert _validate_outlet_coordinates(45.0, -120.0) == (45.0, -120.0)
 
@@ -109,49 +126,6 @@ def test_validate_outlet_coordinates_accepts_valid_float_coordinates():
 def test_validate_outlet_coordinates_rejects_invalid_coordinates(lat, lng, error_type, message):
     with pytest.raises(error_type, match=message):
         _validate_outlet_coordinates(lat, lng)
-
-
-def test_get_overlap_lines_returns_line_segments_inside_polygon():
-    polygon = Polygon([(0, 0), (2, 0), (2, 2), (0, 2)])
-    line = LineString([(-1, 1), (3, 1)])
-
-    result = _get_overlap_lines(line, polygon)
-
-    assert len(result) == 1
-    assert result[0].equals(LineString([(0, 1), (2, 1)]))
-
-
-def test_get_overlap_lines_returns_empty_list_when_no_overlap():
-    polygon = Polygon([(0, 0), (2, 0), (2, 2), (0, 2)])
-    line = LineString([(3, 3), (4, 4)])
-
-    result = _get_overlap_lines(line, polygon)
-
-    assert result == []
-
-
-def test_get_overlap_lines_handles_multiline_overlap():
-    polygon = Polygon([(0, 0), (2, 0), (2, 2), (0, 2)])
-    multiline = MultiLineString(
-        [
-            [(-1, 1), (1, 1)],
-            [(1, 1.5), (3, 1.5)],
-        ]
-    )
-
-    result = _get_overlap_lines(multiline, polygon)
-
-    assert len(result) == 2
-    assert all(segment.geom_type == "LineString" for segment in result)
-
-
-def test_get_overlap_lines_ignores_point_only_touches():
-    polygon = Polygon([(0, 0), (2, 0), (2, 2), (0, 2)])
-    line = LineString([(-1, -1), (0, 0)])
-
-    result = _get_overlap_lines(line, polygon)
-
-    assert result == []
 
 
 def test_close_holes_fills_all_polygon_holes_when_area_max_is_zero():

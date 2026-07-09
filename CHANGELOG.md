@@ -5,6 +5,43 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
+## [2.2.3] - 2026-07-09
+
+### Fixed
+
+- Fixed a crash when rivers were requested but none exist for the watershed
+  (for example, coastal catchments have no river geometries) and coordinate
+  rounding was enabled — which is the default configuration.
+- `delineate()` no longer raises an error when a rivers database is missing
+  or contains no record for the outlet's catchment. In keeping with its
+  contract (log a warning and return rather than raise), it now returns the
+  watershed without the `area_km2` attribute and logs a warning.
+- Fixed a latent `KeyError` in low-res mode that could occur when every
+  upstream unit catchment was aggregated into higher-level groups.
+- A whitespace-only `DELINEATOR_DATA_DIR` environment variable is now
+  ignored (falling back to the platform default data directory) instead of
+  creating a directory with a whitespace name.
+- All SQLite database connections are now closed promptly after use.
+  Previously, `delineate()` left connections open, which could keep the
+  `.db` data files locked for the life of the process, especially on Windows.
+
+### Changed
+
+- Input coordinates are now validated before any database connection or
+  other resource is opened.
+- `rasterio` is now declared as a direct dependency. It was previously
+  relied upon transitively through `pysheds`, even though the package
+  imports it directly.
+- Internal code cleanup: removed unused helper functions, consolidated
+  duplicate definitions of `KM_PER_DEGREE` and of the data-directory
+  resolution logic into single sources of truth, and updated stale
+  docstrings, comments, and developer documentation.
+
+### Added
+
+- New regression tests covering the fixes above, including a check that
+  all database connections are closed after delineation.
+
 ## [2.2.1] - 2026-07-06
 
 ### Changed

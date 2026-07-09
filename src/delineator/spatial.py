@@ -15,11 +15,9 @@ import warnings
 import geopandas as gpd
 from shapely.geometry import Point
 
-logger = logging.getLogger(__name__)
+from delineator.constants import KM_PER_DEGREE
 
-# Kilometers per degree of latitude on the authalic sphere (R = 6371.0088 km).
-# Used to convert km-based search tolerances to degrees.
-KM_PER_DEGREE = 111.195
+logger = logging.getLogger(__name__)
 
 
 def _search_box_degrees(point: Point, search_dist_km: float) -> tuple[float, float]:

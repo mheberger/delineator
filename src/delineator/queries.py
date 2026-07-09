@@ -1,3 +1,4 @@
+import logging
 import sqlite3
 from collections import defaultdict
 import geopandas as gpd
@@ -6,6 +7,8 @@ from pyproj import Geod
 
 from delineator.data import _find_data_file
 from delineator.settings import DelineatorConfig
+
+logger = logging.getLogger(__name__)
 
 
 def get_upstream_comids(conn: sqlite3.Connection, home_unit_catchment: int) -> list:
@@ -194,7 +197,7 @@ def get_home_unit_catchment_geom_and_area(db_path: str, unit_catchment: int) -> 
     return multi_poly, area
 
 
-def get_upstream_area(home_unit_catchment: int, config: DelineatorConfig) -> float:
+def get_upstream_area(home_unit_catchment: int, config: DelineatorConfig) -> float | None:
     """
     Retrieves the upstream area of a specified home unit catchment.
     Connects to the _rivers_ sqlite database and queries the table 'rivers'
@@ -210,7 +213,9 @@ def get_upstream_area(home_unit_catchment: int, config: DelineatorConfig) -> flo
 
     Returns
     -------
-    float: The upstream area of the specified catchment, in km²
+    float or None: The upstream area of the specified catchment, in km²,
+        or None if the rivers database is unavailable or contains no
+        record for this catchment.
     """
     if len(str(home_unit_catchment)) < 7:
         return 0
@@ -218,12 +223,25 @@ def get_upstream_area(home_unit_catchment: int, config: DelineatorConfig) -> flo
     megabasin = str(home_unit_catchment)[0:2]
     rivers_db_file = f"rivers{megabasin}.db"
     rivers_db_path = _find_data_file(rivers_db_file, config)
-    sql = f"SELECT uparea FROM rivers WHERE comid = {home_unit_catchment}"
+    if rivers_db_path is None:
+        # _find_data_file has already logged a warning
+        return None
+
     conn = sqlite3.connect(rivers_db_path)
-    cur = conn.cursor()
-    cur.execute(sql)
-    rows = cur.fetchall()
-    return rows[0][0]
+    try:
+        row = conn.execute(
+            "SELECT uparea FROM rivers WHERE comid = ?", (home_unit_catchment,)
+        ).fetchone()
+    finally:
+        conn.close()
+
+    if row is None:
+        logger.warning(
+            f"No record for catchment {home_unit_catchment} in {rivers_db_file}; "
+            f"upstream area is unknown."
+        )
+        return None
+    return row[0]
 
 
 def get_upstream_geometries(db_path: str, basins_dict: dict) -> list:
@@ -299,6 +317,9 @@ def get_rivers(upstream_catchment_list: list,
     megabasin = str(upstream_catchment_list[0])[0:2]
     rivers_db_file = f"rivers{megabasin}.db"
     rivers_db_path = _find_data_file(rivers_db_file, config)
+    if rivers_db_path is None:
+        # _find_data_file has already logged a warning
+        return None
 
     if len(upstream_catchment_list) == 1:
         sql = f"SELECT * FROM rivers WHERE comid = {upstream_catchment_list[0]}"

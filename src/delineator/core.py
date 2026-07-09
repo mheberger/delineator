@@ -8,6 +8,7 @@ Formerly a collection of Python scripts, rewritten as a Python package
 """
 
 import logging
+from contextlib import closing
 from pathlib import Path
 import geopandas as gpd
 import shapely
@@ -49,7 +50,7 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
     lat, lng : float
         Coordinates of the outlet point in decimal degrees.
     config : DelineatorConfig, optional
-        Configuration object. If not provided, one is created from kwargs.
+        Configuration object. If not provided, one is created with default settings.
 
     Returns
     -------
@@ -77,10 +78,7 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
             handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
             pkg_logger.addHandler(handler)
 
-    # Set up database connection
-    megabasins_db_conn = sqlite3.connect(MEGABASINS_DB_FILE)
-
-    # Step 1: Validate the input coordinates
+    # Step 1: Validate the input coordinates (before opening any resources)
     try:
         lat, lng = _validate_outlet_coordinates(lat, lng)
     except Exception as e:
@@ -91,9 +89,10 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
 
     # Step 2: Determine the megabasin
     requested_outlet = Point(lng, lat)
-    megabasin = _point_in_polygon_analysis(megabasins_db_conn, requested_outlet, table='megabasins',
-                                           geom_col='geometry', id_col='basin', use_spatialite=USE_SPATIALITE,
-                                           search_dist_km=config.search_dist)
+    with closing(sqlite3.connect(MEGABASINS_DB_FILE)) as megabasins_db_conn:
+        megabasin = _point_in_polygon_analysis(megabasins_db_conn, requested_outlet, table='megabasins',
+                                               geom_col='geometry', id_col='basin', use_spatialite=USE_SPATIALITE,
+                                               search_dist_km=config.search_dist)
     if megabasin is None:
         logger.warning(
             "The requested outlet is not in any megabasin. Check that it is over land. Maybe you flipped the lat/lng?")
@@ -107,21 +106,29 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
     if basins_db_path is None:
         logger.warning(f"Could not load unit catchment database: {basins_db_file}")
         return None, None, None
-    basins_db_conn = sqlite3.connect(basins_db_path)
-    home_unit_catchment = _point_in_polygon_analysis(basins_db_conn, requested_outlet, table='l0_basins',
-                                                     id_col='comid', use_spatialite=USE_SPATIALITE,
-                                                     search_dist_km=config.search_dist)
+    # The connection is scoped to the queries that need it, so the database
+    # file is closed (and unlocked) before the heavier geometry work begins.
+    with closing(sqlite3.connect(basins_db_path)) as basins_db_conn:
+        home_unit_catchment = _point_in_polygon_analysis(basins_db_conn, requested_outlet, table='l0_basins',
+                                                         id_col='comid', use_spatialite=USE_SPATIALITE,
+                                                         search_dist_km=config.search_dist)
 
-    # If the outlet is not in any unit catchment, return None
-    if home_unit_catchment is None:
-        logger.warning("The requested outlet is not in any unit catchment. Check that it is over land.")
-        return None, None, None
+        # If the outlet is not in any unit catchment, return None
+        if home_unit_catchment is None:
+            logger.warning("The requested outlet is not in any unit catchment. Check that it is over land.")
+            return None, None, None
 
-    logger.info(f"Your watershed is in unit catchment {home_unit_catchment}")
+        logger.info(f"Your watershed is in unit catchment {home_unit_catchment}")
 
-    # Step 4: Get the collection of upstream catchment polygons
-    upstream_unit_catchments = get_upstream_comids(basins_db_conn, int(home_unit_catchment))
-    is_singleton = len(upstream_unit_catchments) == 1
+        # Step 4: Get the collection of upstream catchment polygons
+        upstream_unit_catchments = get_upstream_comids(basins_db_conn, int(home_unit_catchment))
+        is_singleton = len(upstream_unit_catchments) == 1
+
+        # For a non-singleton, also fetch the hierarchical nested set of
+        # catchments while the connection is open; it is used in Step 6.
+        basins_dict = None
+        if not is_singleton:
+            basins_dict = get_hiearchical_basins(basins_db_conn, upstream_unit_catchments[1:])
 
     upstream_area = get_upstream_area(int(home_unit_catchment), config)
 
@@ -162,12 +169,12 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
 
         watershed_polygon = split_catchment_polygon
     else:
-        # First, we need to get the hierarchical nested set of catchments
-        basins_dict = get_hiearchical_basins(basins_db_conn, upstream_unit_catchments[1:])
-
+        # basins_dict, the hierarchical nested set of catchments, was fetched
+        # in Step 4 while the basins database connection was open.
+        #
         # In low-res mode, we do need to include the home unit catchment, as we will use the original geometry
         if not config.high_res:
-            basins_dict['L0'].append(home_unit_catchment)
+            basins_dict.setdefault('L0', []).append(home_unit_catchment)
 
         upstream_polygons = get_upstream_geometries(basins_db_path, basins_dict)
 
@@ -221,22 +228,30 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
             # Collapsed to the home catchment's local split; the upstream
             # catchments are not actually upstream of this outlet.
             watershed_area = split_catchment_area
+        elif upstream_area is None:
+            # The rivers database (which stores the pre-computed upstream
+            # area) was unavailable or had no record for this catchment;
+            # return the watershed without area attributes rather than fail.
+            logger.warning("Could not determine the upstream area; "
+                           "the watershed is returned without area_km2.")
+            watershed_area = None
         elif config.high_res:
             watershed_area = upstream_area - home_catchment_area + split_catchment_area
         else:
             watershed_area = upstream_area - home_catchment_area  # Check this!!!
 
-        watershed_gdf["area_km2"] = round(watershed_area, 1)
+        if watershed_area is not None:
+            watershed_gdf["area_km2"] = round(watershed_area, 1)
 
-        # area_km2 is the drainage area summed from the source-dataset unit
-        # catchments. When fill=True, _close_holes adds the area of the filled
-        # interior holes to the polygon, so its geometric area no longer matches
-        # that figure. Rather than distort area_km2, report the added area
-        # separately as area_filled (actual polygon area minus area_km2).
-        if config.fill:
-            filled_polygon_area = _get_polygon_area(watershed_polygon)
-            watershed_gdf["area_km2"] = round(filled_polygon_area, 1)
-            watershed_gdf["filled_area"] = round(filled_polygon_area - watershed_area, 1)
+            # area_km2 is the drainage area summed from the source-dataset unit
+            # catchments. When fill=True, _close_holes adds the area of the filled
+            # interior holes to the polygon, so its geometric area no longer matches
+            # that figure. Rather than distort area_km2, report the added area
+            # separately as area_filled (actual polygon area minus area_km2).
+            if config.fill:
+                filled_polygon_area = _get_polygon_area(watershed_polygon)
+                watershed_gdf["area_km2"] = round(filled_polygon_area, 1)
+                watershed_gdf["filled_area"] = round(filled_polygon_area - watershed_area, 1)
 
     # Step 7.5: optionally clean, simplify, and smooth the watershed
     if config.smooth and not config.simplify:
@@ -299,7 +314,9 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
     if config.round_coordinates:
         grid_size = 10 ** -ROUNDING_DECIMALS
         watershed_gdf['geometry'] = shapely.set_precision(watershed_gdf['geometry'], grid_size=grid_size)
-        if config.rivers:
+        # rivers_gdf is None when rivers were requested but none exist
+        # (e.g. coastal catchments have no river geometries)
+        if rivers_gdf is not None:
             rivers_gdf['geometry'] = shapely.set_precision(rivers_gdf['geometry'], grid_size=grid_size)
         
     return watershed_gdf, rivers_gdf, outlets_gdf

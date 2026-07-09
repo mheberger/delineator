@@ -33,12 +33,19 @@ def _default_auto_download() -> bool:
     return True
 
 
-def _default_data_dir() -> Path:
-    """Return the default data directory, respecting DELINEATOR_DATA_DIR env var."""
-    custom = os.environ.get("DELINEATOR_DATA_DIR")
+def _resolve_default_data_dir() -> tuple[Path, bool]:
+    """
+    Return ``(data_dir, is_custom)``: the DELINEATOR_DATA_DIR environment
+    variable if set to a non-blank value (custom, flat layout), otherwise
+    the platform user-data directory (managed, versioned layout).
+
+    This is the single source of truth for the environment-variable
+    fallback; both DelineatorConfig and data._get_data_dir use it.
+    """
+    custom = os.environ.get("DELINEATOR_DATA_DIR", "").strip()
     if custom:
-        return Path(custom).expanduser()
-    return Path(user_data_dir("delineator", appauthor=False))
+        return Path(custom).expanduser(), True
+    return Path(user_data_dir("delineator", appauthor=False)), False
 
 
 def _default_output_dir() -> Path:
@@ -288,13 +295,6 @@ class DelineatorConfig:
             self.data_dir.mkdir(parents=True, exist_ok=True)
             return
 
-        env = os.environ.get("DELINEATOR_DATA_DIR")
-        if env:
-            self.custom_data_dir = True
-            self.data_dir = Path(env).expanduser()
-        else:
-            self.custom_data_dir = False
-            self.data_dir = Path(user_data_dir("delineator", appauthor=False))
-
+        self.data_dir, self.custom_data_dir = _resolve_default_data_dir()
         self.data_dir.mkdir(parents=True, exist_ok=True)
         

@@ -89,9 +89,9 @@ def _request_config() -> DelineatorConfig:
     Uses the config passed to serve() if there is one, otherwise a sensible
     default for the interactive app (rivers, outlets, and a cleaned boundary).
 
-    The object is copied per request because core.delineate() may mutate it
-    (e.g. flipping high_res off for very large watersheds); without the copy
-    that change would leak into every later request sharing the same config.
+    The object is copied per request because _apply_web_options() writes the
+    client's per-request option overrides onto it; without the copy those
+    overrides would leak into every later request sharing the same config.
     """
     base = app.config.get(_CONFIG_KEY)
     if base is None:

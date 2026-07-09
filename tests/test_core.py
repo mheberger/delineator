@@ -1,8 +1,10 @@
+import sqlite3
 from pathlib import Path
 import pandas as pd
 import pytest
 import shapely
 
+import delineator.core
 from delineator.util import write_outputs
 from delineator.core import delineate, downloader
 from delineator.settings import DelineatorConfig
@@ -180,6 +182,75 @@ def test_delineate_outlet_beyond_snap_distance_returns_none(tmp_path):
     assert watershed_gdf is None
     assert rivers_gdf is None
     assert outlets_gdf is None
+
+
+def test_delineate_survives_rivers_query_returning_none(tmp_path, monkeypatch):
+    # get_rivers returns None when no river geometries exist (e.g. coastal
+    # catchments). With rivers=True and round_coordinates=True (both defaults)
+    # this used to crash in the coordinate-rounding step.
+    monkeypatch.setattr(delineator.core, "get_rivers", lambda *args: None)
+
+    config = DelineatorConfig(
+        rivers=True,
+        round_coordinates=True,
+        output_dir=tmp_path,
+    )
+
+    watershed_gdf, rivers_gdf, outlets_gdf = delineate(
+        64.71072,
+        -21.60337,
+        config,
+    )
+
+    assert watershed_gdf is not None
+    assert rivers_gdf is None
+    assert outlets_gdf is not None
+
+
+def test_delineate_omits_area_when_upstream_area_unknown(tmp_path, monkeypatch):
+    # get_upstream_area returns None when the rivers database is unavailable;
+    # the watershed should still be delineated, just without area attributes
+    monkeypatch.setattr(delineator.core, "get_upstream_area", lambda *args: None)
+
+    config = DelineatorConfig(
+        calc_area=True,
+        output_dir=tmp_path,
+    )
+
+    watershed_gdf, rivers_gdf, outlets_gdf = delineate(
+        64.71072,
+        -21.60337,
+        config,
+    )
+
+    assert watershed_gdf is not None
+    assert "area_km2" not in watershed_gdf.columns
+    assert "filled_area" not in watershed_gdf.columns
+
+
+def test_delineate_closes_all_database_connections(tmp_path, monkeypatch):
+    # delineate opens sqlite connections to the megabasins, basins, and
+    # rivers databases; all of them must be closed by the time it returns,
+    # or the .db files stay locked (a real problem on Windows)
+    opened = []
+    real_connect = sqlite3.connect
+
+    def tracking_connect(*args, **kwargs):
+        conn = real_connect(*args, **kwargs)
+        opened.append(conn)
+        return conn
+
+    monkeypatch.setattr(sqlite3, "connect", tracking_connect)
+
+    config = DelineatorConfig(output_dir=tmp_path)
+    watershed_gdf, _, _ = delineate(64.71072, -21.60337, config)
+
+    assert watershed_gdf is not None
+    assert opened  # the tracking wrapper actually saw connections
+    for conn in opened:
+        # executing on a closed connection raises ProgrammingError
+        with pytest.raises(sqlite3.ProgrammingError):
+            conn.execute("SELECT 1")
 
 
 def test_downloader_accepts_bundled_iceland_data(tmp_path, capsys):

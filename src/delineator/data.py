@@ -12,13 +12,11 @@ DELINEATOR_DATA_DIR.
 
 """
 
-import os
 import logging
 from importlib.resources import files
 from pathlib import Path
-from platformdirs import user_data_dir
 from delineator.download import _download_file, _local_path
-from delineator.settings import DelineatorConfig
+from delineator.settings import DelineatorConfig, _resolve_default_data_dir
 from delineator.constants import DATA_DIR_NAME
 
 logger = logging.getLogger(__name__)
@@ -163,11 +161,6 @@ def _get_data_dir() -> Path:
         The base data directory, created (including parents) if it does not
         already exist.
     """
-    custom_path = os.environ.get("DELINEATOR_DATA_DIR", "").strip("")
-    if custom_path:
-        data_dir = Path(custom_path).expanduser()
-    else:
-        data_dir = Path(user_data_dir("delineator", appauthor=False))
-
+    data_dir, _ = _resolve_default_data_dir()
     data_dir.mkdir(parents=True, exist_ok=True)
     return data_dir

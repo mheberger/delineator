@@ -3,39 +3,15 @@ import logging
 
 import numpy as np
 from pyproj import Transformer, CRS
-from shapely.ops import transform, unary_union
+from shapely.ops import transform
 import shapely
-from shapely.geometry import MultiPolygon, Polygon, LineString, MultiLineString
+from shapely.geometry import MultiPolygon, Polygon
 import geopandas as gpd
 
+from delineator.constants import KM_PER_DEGREE
 from delineator.settings import DelineatorConfig
 
 logger = logging.getLogger(__name__)
-
-
-def _get_overlap_lines(line: LineString | MultiLineString,
-                       polygon: Polygon | MultiPolygon) \
-        -> list[LineString | MultiLineString]:
-    """
-    Return the portion of a line that falls within a polygon,
-
-    Always returns a list of LineStrings.
-    Uses shapely library functions only, no spatialite queries.
-
-    """
-    result = line.intersection(polygon)
-
-    if result.is_empty:
-        return []
-    elif result.geom_type == "LineString":
-        return [result]
-    elif result.geom_type == "MultiLineString":
-        return list(result.geoms)
-    elif result.geom_type == "GeometryCollection":
-        # Filter out any Point/MultiPoint components (tangent touches)
-        return [g for g in result.geoms if g.geom_type in ("LineString", "MultiLineString")]
-    else:
-        return []  # Pure Point result — no real overlap
 
 
 def _validate_outlet_coordinates(lat: float, lng: float) -> tuple[float, float]:
@@ -60,19 +36,14 @@ def _validate_outlet_coordinates(lat: float, lng: float) -> tuple[float, float]:
     Raises
     ------
     TypeError
-        If latitude or longitude are not float values.
+        If latitude or longitude cannot be converted to float
+        (e.g. None or a non-numeric object).
     ValueError
-        If latitude or longitude are not finite or fall outside the allowed
-        range.
+        If latitude or longitude are unparseable strings, not finite,
+        or fall outside the allowed range.
     """
     lat = float(lat)
     lng = float(lng)
-
-    if not isinstance(lat, float):
-        raise TypeError(f"Latitude must be a float. Got {type(lat).__name__}: {lat}")
-
-    if not isinstance(lng, float):
-        raise TypeError(f"Longitude must be a float. Got {type(lng).__name__}: {lng}")
 
     if not math.isfinite(lat):
         raise ValueError(f"Latitude must be finite. Got {lat}")
@@ -93,13 +64,6 @@ def _validate_outlet_coordinates(lat: float, lng: float) -> tuple[float, float]:
         raise ValueError("Longitude must be less than 180°")
 
     return lat, lng
-
-
-# Kilometers per degree of great-circle arc on the authalic sphere
-# (R = 6371.0088 km): pi * R / 180. Used for local degree <-> km conversions.
-# TODO: move to delineator.constants alongside EARTH_RADIUS_KM (also defined
-# in merit_detailed.py) so the package defines the Earth exactly once.
-KM_PER_DEGREE = math.pi * 6371.0088 / 180  # ~111.195
 
 
 def _ring_area_km2(ring) -> float:
@@ -196,18 +160,6 @@ def _get_polygon_area(poly: Polygon | MultiPolygon) -> float:
 
     # Get the area in m -> km²
     return projected_poly.area / 1e6
-
-
-def safe_simplify(geom, tolerance):
-    if geom is None or geom.is_empty:
-        return geom
-    # Flatten GeometryCollections to just polygonal parts
-    if geom.geom_type == 'GeometryCollection':
-        polys = [g for g in geom.geoms if g.geom_type in ('Polygon', 'MultiPolygon')]
-        if not polys:
-            return geom  # or return None
-        geom = unary_union(polys)
-    return geom.simplify(tolerance, preserve_topology=True)
 
 
 def write_outputs(watershed_gdf: gpd.GeoDataFrame | None,
