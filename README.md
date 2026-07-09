@@ -1,6 +1,6 @@
 # delineator: Global Watershed Delineation with Python
 
-[![Python](https://img.shields.io/pypi/requires-python/delineator)](https://pypi.org/project/delineator/)
+[![Python](https://img.shields.io/python/required-version-toml?tomlFilePath=https://raw.githubusercontent.com/mheberger/delineator/main/pyproject.toml)](https://pypi.org/project/delineator/)
 [![Release](https://img.shields.io/github/v/release/mheberger/delineator)](https://github.com/mheberger/delineator/releases)
 [![License](https://img.shields.io/github/license/mheberger/delineator)](https://github.com/mheberger/delineator/blob/main/LICENSE.txt)
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.7314287-blue)](https://zenodo.org/badge/latestdoi/564865701)
