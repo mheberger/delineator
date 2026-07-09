@@ -2,16 +2,13 @@
 Constants for the delineator Python package.
 """
 from importlib.resources import files
+import math
 
 # Folder name (within the user's data directory) to put the downloaded data files
 DATA_DIR_NAME = "v2.2"  # bump when the data files change
 
-# The width of half a pixel on the MERIT-Hydro grid, in decimal degrees
-HALF_PIXEL = 0.000416667
-
-# The area of a single pixel in the MERIT-Hydro datasets (flow accumulation
-# and flow direction), in decimal degrees. 3 arcseconds or 0.008333°
-PIXEL_AREA = (1 / 1200) ** 2
+EARTH_RADIUS_KM = 6371.0088  # authalic sphere radius, WGS84
+KM_PER_DEGREE = math.pi * EARTH_RADIUS_KM / 180  # great-circle km per degree of arc, ≈111.195
 
 # MERIT-Hydro flow direction uses the ESRI standard for flow direction
 DIRMAP = (64, 128, 1, 2, 4, 8, 16, 32)

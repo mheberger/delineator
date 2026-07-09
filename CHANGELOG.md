@@ -4,6 +4,29 @@ All notable changes to this project are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+
+## [2.2.1] - 2026-07-06
+
+### Changed
+
+- The configuration option `fill_threshold` is now in km² rather than number
+  of pixels.
+- The configuration options `threshold_single` was renamed `snap_threshold_single`
+- The configuration options `threshold_multi` was renamed `snap_threshold_multi`
+
+  
+### Fixed
+
+- The watershed area is now correctly reported when the configuration option
+  `fill = True`. The attribute `filled_area` is now calculated and added to 
+  the geodata attributes. This reports the area in km² for any of the "donut
+  holes" in the watershed that were filled in. 
+
+## Added
+
+- Added documentation for how to output to parquet and flatgeobuf formats.
+
+
 ## [2.2.0] - 2026-07-05
 
 ### Fixed

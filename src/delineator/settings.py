@@ -69,7 +69,7 @@ class DelineatorConfig:
     clean : bool
         If True, the watershed boundary polygon will be "cleaned"
         which repairs artifacts such as seams that affect
-        the appearance of the watershed polygon.
+        the appearance of the watershed polygon. Default is True.
 
     data_dir : Path or str, optional
         Directory where the script will look for data files and store downloaded
@@ -91,18 +91,18 @@ class DelineatorConfig:
         to minor topological errors in the input data. If True, these holes will be
         filled in, resulting in a cleaner appearance and smaller output files.
 
-    fill_threshold : int
-        Only meaningful if fill=True. Holes smaller than this number of pixels
-        (on the 3 arcsecond grid) will be filled. For example, enter 100 to fill
-        holes smaller than 100 pixels in size. Holes larger than this will
-        be preserved. Set to 0 to fill all holes. Default is 100.
+    fill_area_max : float
+        Only used when fill=True. Fill holes smaller than this value, in km².
+        For example, enter 10 to fill holes  smaller than 10 km².
+       **Set to 0 to fill all holes.**
+       Default is 1.0 -- only holes smaller than 1.0 km² will be filled.
 
     low_res_threshold : float
         Watershed area in km² above which the script will automatically switch to
         lower-resolution mode, regardless of the high_res setting.
-        Default is 6 × 10⁶ km² (6e6), so lower-resolution mode effectively only
-        engages for watersheds larger than the Amazon, the largest basin in the
-        dataset at 5.9 × 10⁶ km². Lower this value to trade some accuracy near
+        Default is 6 × 10⁶ km² (6e6), meaning that lower-resolution mode will never
+        activate. (The Amazon, the largest basin in the world, has an area of
+        5.9 × 10⁶ km² in our dataset.) Lower this value to trade some accuracy near
         the outlet for speed on large watersheds.
 
     num_stream_orders : int
@@ -110,6 +110,12 @@ class DelineatorConfig:
         have an effect if rivers=True.
         Default is 4. Higher values will result in more detailed stream network.
         Set this to a value of 9 or greater to get every river reach available.
+
+    output_format: str
+        Specify the output format for geodata files. Options are "gpkg" (default)
+        or "geojson", "shp", "kml", and others supported by your installation of geopandas.
+        See https://geopandas.org/en/stable/docs/user_guide/io.html#supported-drivers-file-formats
+        for more details.
 
     rivers: bool
         If True, return the river flow lines in the watershed. These will be saved
@@ -122,16 +128,12 @@ class DelineatorConfig:
         with minimal impact on the quality of the output. Default is True.
         Rounds to 6 decimal places, which is about 10 cm precision near the equator.
 
-    output_format: str
-        Specify the output format for geodata files. Options are "gpkg" (default)
-        or "geojson", "shp", "kml", and others supported by your installation of geopandas.
-        See https://geopandas.org/en/stable/docs/user_guide/io.html#supported-drivers-file-formats
-        for more details.
-
     search_dist : float
-        If the outlet point does not fall inside any catchment, the script will
-        search for the nearest catchment within this distance (in decimal degrees).
-        Default is 0.1°, which is roughly 10 km near the equator.
+        The distance (in km) to search for a catchment that contains the outlet point,
+        or to snap the outlet point to a river centerline.
+        If the outlet point does not fall inside any catchment. the script will
+        search for the nearest catchment within this distance (in kilometers).
+        Default is 1.0 km. Accepts values from 0 to 10 km.
 
     simplify : bool
         Used by the `write_outputs` utility function to simplify the output
@@ -139,10 +141,10 @@ class DelineatorConfig:
         Douglas-Peucker algorithm. This will result in a smaller file size,
         and also less of a jagged "staircase" appearance in the output.
 
-    simplify_tolerance: bool
+    simplify_tolerance: float
         If `simplify=True`, this is the tolerance value for the simplification.
         With the Douglas-Peucker algorithm, the tolerance value is the maximum
-        distance (in decimal degrees) that a vertex can be from the original.
+        distance (in kilometers) that a vertex can be from the original.
 
     snapping: bool
         If snapping=False, the script will not attempt to snap the outlet point.
@@ -174,11 +176,11 @@ class DelineatorConfig:
 
     auto_download: bool = field(default_factory=_default_auto_download)
     calc_area: bool = True
-    clean: bool = False
+    clean: bool = True
     custom_data_dir: bool = field(init=False, default=False)
     data_dir: Path | str | None = None
     fill: bool = True
-    fill_threshold: int = 100
+    fill_area_max: float = 1.0
     high_res: bool = True
     low_res_threshold: float = 6e6
     num_stream_orders: int = 4
@@ -187,7 +189,7 @@ class DelineatorConfig:
     outlets: bool = True
     rivers: bool = True
     round_coordinates: bool = True
-    search_dist: float = 0.1
+    search_dist: float = 1.0
     simplify: bool = False
     simplify_tolerance: float = 0.0008
     snapping: bool = True
@@ -212,10 +214,12 @@ class DelineatorConfig:
         self._validate_bool("simplify", self.simplify)
         self._validate_bool("snapping", self.snapping)
 
-        if not isinstance(self.fill_threshold, int):
-            raise TypeError("fill_threshold must be an int.")
-        if self.fill_threshold < 0:
-            raise ValueError("fill_threshold must be greater than or equal to 0.")
+        self.fill_area_max = self._coerce_float(
+            self.fill_area_max,
+            "fill_area_max",
+        )
+        if self.fill_area_max < 0:
+            raise ValueError("fill_area_max must be greater than or equal to 0.")
 
         if not isinstance(self.num_stream_orders, int):
             raise TypeError("num_stream_orders must be an int.")
@@ -231,7 +235,9 @@ class DelineatorConfig:
 
         self.search_dist = self._coerce_float(self.search_dist, "search_dist")
         if self.search_dist <= 0:
-            raise ValueError("search_dist must be greater than 0.")
+            raise ValueError("search_dist (in km) must be greater than 0.")
+        if self.search_dist > 10:
+            raise ValueError("search_dist (in km) must be less than or equal to 10.")
 
         self.simplify_tolerance = self._coerce_float(
             self.simplify_tolerance,

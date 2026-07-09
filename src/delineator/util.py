@@ -1,5 +1,7 @@
 import math
 import logging
+
+import numpy as np
 from pyproj import Transformer, CRS
 from shapely.ops import transform, unary_union
 import shapely
@@ -93,7 +95,30 @@ def _validate_outlet_coordinates(lat: float, lng: float) -> tuple[float, float]:
     return lat, lng
 
 
-def _close_holes(poly: Polygon | MultiPolygon, area_max: float) -> Polygon | MultiPolygon:
+# Kilometers per degree of great-circle arc on the authalic sphere
+# (R = 6371.0088 km): pi * R / 180. Used for local degree <-> km conversions.
+# TODO: move to delineator.constants alongside EARTH_RADIUS_KM (also defined
+# in merit_detailed.py) so the package defines the Earth exactly once.
+KM_PER_DEGREE = math.pi * 6371.0088 / 180  # ~111.195
+
+
+def _ring_area_km2(ring) -> float:
+    """
+    Approximate area in km² of a shapely LinearRing (e.g. a polygon interior),
+    using a local equirectangular conversion at the ring's own latitude:
+
+        km² = deg² * KM_PER_DEGREE² * cos(latitude)
+
+    Accurate to within about 1% (the residual is mostly the spherical-Earth
+    approximation, not hole size); ample for threshold tests. For accurate
+    areas of large geometries use _get_polygon_area instead.
+    """
+    p = Polygon(ring)
+    lat = p.representative_point().y
+    return p.area * KM_PER_DEGREE ** 2 * abs(math.cos(math.radians(lat)))
+
+
+def _close_holes(poly: Polygon | MultiPolygon, area_max_km2: float) -> Polygon | MultiPolygon:
     """
     Close polygon holes by limitation to the exterior ring.
     Updated to accept a MultiPolygon as input.
@@ -103,18 +128,18 @@ def _close_holes(poly: Polygon | MultiPolygon, area_max: float) -> Polygon | Mul
     Parameters
     ----------
     poly: shapely Polygon or MultiPolygon
-    area_max: float
-        Keep holes that are larger than this.
+    area_max_km2: float
+        Keep holes that are larger than this, in square kilometers.
         Fill any holes less than or equal to this.
         Enter 0 to fill all holes.
-        We're working with unprojected lat, lng coordinates
-        so this needs to be in square decimal degrees.
+        The geometry is in unprojected lat/lng coordinates (EPSG:4326); each
+        hole's area is converted to km² locally at the hole's own latitude.
 
     """
 
     if isinstance(poly, Polygon):
         # Handle Polygon case
-        if area_max == 0:
+        if area_max_km2 == 0:
             if poly.interiors:
                 return Polygon(list(poly.exterior.coords))
             else:
@@ -124,8 +149,7 @@ def _close_holes(poly: Polygon | MultiPolygon, area_max: float) -> Polygon | Mul
             list_interiors = []
 
             for interior in poly.interiors:
-                p = Polygon(interior)
-                if p.area > area_max:
+                if _ring_area_km2(interior) > area_max_km2:
                     list_interiors.append(interior)
 
             return Polygon(poly.exterior.coords, holes=list_interiors)
@@ -134,7 +158,7 @@ def _close_holes(poly: Polygon | MultiPolygon, area_max: float) -> Polygon | Mul
         # Handle MultiPolygon case
         result_polygons = []
         for sub_poly in poly.geoms:
-            new_sub_poly = _close_holes(sub_poly, area_max)
+            new_sub_poly = _close_holes(sub_poly, area_max_km2)
             result_polygons.append(new_sub_poly)
         return MultiPolygon(result_polygons)
     else:
@@ -284,3 +308,70 @@ def write_outputs(watershed_gdf: gpd.GeoDataFrame | None,
         gdf.to_file(**write_kwargs)
 
         logger.info(f"Wrote {output_path}")
+
+
+def earth_radius(lat=None, unit='m'):
+    """
+    Earth_radius gives the radius of the Earth.
+
+    Python port from the Climate Data Toolbox for Matlab.
+
+    Args:
+    lat (float or array-like, optional): Latitude(s) at which to calculate the Earth's radius.
+    unit (str, optional): Unit of the output, 'm' for meters or 'km' for kilometers. Default is 'm'.
+
+    Returns:
+    float or ndarray: The radius of the Earth. If lat is None, returns the nominal radius.
+                      If lat is provided, returns the radius as a function of latitude.
+    """
+    # Nominal radius of the Earth in meters
+    r = 6371000
+
+    # If latitude is provided, calculate the radius as a function of latitude
+    if lat is not None:
+        a = 6378137  # equatorial radius in meters, WGS84
+        b = 6356752  # polar radius in meters, WGS84
+        lat = np.asarray(lat)
+        lat_rad = np.deg2rad(lat)
+        r = np.sqrt(((a ** 2 * np.cos(lat_rad)) ** 2 + (b ** 2 * np.sin(lat_rad)) ** 2) /
+                    ((a * np.cos(lat_rad)) ** 2 + (b * np.sin(lat_rad)) ** 2))
+
+    # Convert to kilometers if requested
+    if unit.lower() == 'km':
+        r = r / 1000
+
+    return r
+
+
+def pixel_area(latitude: float, lat_resolution: float, lon_resolution: float | None) -> float:
+    """
+    Calculate the area of a pixel on Earth's surface in CRS 4326
+    for a given latitude and a given resolution
+
+    Python port from the Climate Data Toolbox for Matlab.
+
+    Args:
+    latitude (float): Latitude of the pixel.
+    lat_resolution (float): Latitude resolution in degrees.
+    lon_resolution (float or None): Longitude resolution in degrees. If
+      none, assume equal to lat_resolution (square pixels, most common)
+
+    Returns:
+    area: pixel area in square kilometers.
+    """
+
+    # If no longitude resolution given, assume square pixels
+    if lon_resolution is None:
+        lon_resolution = lat_resolution
+
+    # Calculate the Earth's radius at each latitude
+    R = earth_radius(lat=latitude)
+
+    # Calculate dy and dx
+    dy = lat_resolution * np.pi / 180 * R  # in meters
+    dx = lon_resolution * np.pi / 180 * R * np.cos(np.deg2rad(latitude))  # in meters
+
+    # Calculate the area of each pixel
+    pixel_area = np.abs(dx * dy) / 1e6  # convert from square meters to square kilometers
+
+    return pixel_area

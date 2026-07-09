@@ -8,6 +8,7 @@ GeoPandas, which uses the same R*Tree spatial index when one is present.
 """
 
 import logging
+import math
 import numbers
 import sqlite3
 import warnings
@@ -15,6 +16,29 @@ import geopandas as gpd
 from shapely.geometry import Point
 
 logger = logging.getLogger(__name__)
+
+# Kilometers per degree of latitude on the authalic sphere (R = 6371.0088 km).
+# Used to convert km-based search tolerances to degrees.
+KM_PER_DEGREE = 111.195
+
+
+def _search_box_degrees(point: Point, search_dist_km: float) -> tuple[float, float]:
+    """
+    Convert a search distance in km to degree half-widths (dx, dy) at the
+    latitude of *point*.
+
+    A symmetric radius in km is an *anisotropic* box in degrees: away from
+    the equator, one km spans more degrees of longitude than of latitude, by
+    a factor of 1/cos(latitude). Using a single degree value for both axes
+    would either miss features east-west or over-include them north-south.
+
+    The longitude half-width is clamped to 180 degrees so the box remains
+    valid arbitrarily close to the poles.
+    """
+    dy = search_dist_km / KM_PER_DEGREE
+    cos_lat = abs(math.cos(math.radians(point.y)))
+    dx = min(dy / cos_lat, 180.0) if cos_lat > 1e-12 else 180.0
+    return dx, dy
 
 # A geographic CRS makes shapely/GeoPandas .distance() emit this warning; we use
 # planar distance deliberately (consistent with the SpatiaLite path), so it is
@@ -182,24 +206,24 @@ def _find_with_spatialite(
     table: str,
     geom_col: str,
     id_col: str,
-    search_dist: float | None = None,
+    search_dist_km: float | None = None,
 ) -> int | str | None:
     """
     Use SpatiaLite for a database-side point-in-polygon query.
 
-    If no polygon contains the point and search_dist is provided, return the
-    nearest feature whose geometry is within search_dist of the point.
+    If no polygon contains the point and search_dist_km is provided, return
+    the nearest feature whose geometry is within search_dist_km kilometers of
+    the point, measured with SpatiaLite's ellipsoidal (geodesic) ST_Distance.
 
     Note
     ----
     SpatiaLite does *not* use the R*Tree automatically for ``ST_Within`` or
     ``ST_Distance``; a bare predicate scans the whole table.  When a spatial
     index exists we restrict candidates with the ``SpatialIndex`` meta-table
-    first (a point frame for containment, a +/- search_dist box for the nearest
-    search).  We only do this when an index is actually present: on an
+    first (a point frame for containment, a km-derived degree box for the
+    nearest search).  We only do this when an index is actually present: on an
     unindexed table the index sub-query returns no rows and would silently hide
-    a genuine match.  search_dist is in the geometry CRS units (degrees for
-    EPSG:4326 — not metres).
+    a genuine match.
     """
     rtree = _get_rtree_table(conn, table, geom_col)
 
@@ -232,18 +256,25 @@ def _find_with_spatialite(
         return row[0]
 
     # ── nearest-feature fallback ──
-    if search_dist is None or search_dist <= 0:
+    if search_dist_km is None or search_dist_km <= 0:
         return None
 
-    minx, miny = point.x - search_dist, point.y - search_dist
-    maxx, maxy = point.x + search_dist, point.y + search_dist
+    # R*Tree prefilter box: km converted to degrees, anisotropically
+    dx, dy = _search_box_degrees(point, search_dist_km)
+    minx, miny = point.x - dx, point.y - dy
+    maxx, maxy = point.x + dx, point.y + dy
 
-    # ST_Distance is computed once per candidate via the subquery alias.
+    # The exact test uses ellipsoidal (geodesic) ST_Distance: the third
+    # argument = 1 requests ellipsoidal computation, which returns METERS
+    # for geographic geometry (supported for point-to-polygon since
+    # SpatiaLite 4.x). ST_Distance is computed once per candidate via the
+    # subquery alias.
+    search_dist_m = search_dist_km * 1000.0
     if rtree:
         nearest_sql = f"""
             SELECT {id_col} FROM (
                 SELECT {id_col},
-                       ST_Distance({geom_col}, ST_Point(?, ?)) AS _dist
+                       ST_Distance({geom_col}, MakePoint(?, ?, 4326), 1) AS _dist
                 FROM   {table}
                 WHERE  ROWID IN (
                     SELECT ROWID FROM SpatialIndex
@@ -260,20 +291,20 @@ def _find_with_spatialite(
             point.x, point.y,
             table, geom_col,
             minx, miny, maxx, maxy,
-            search_dist,
+            search_dist_m,
         )
     else:
         nearest_sql = f"""
             SELECT {id_col} FROM (
                 SELECT {id_col},
-                       ST_Distance({geom_col}, ST_Point(?, ?)) AS _dist
+                       ST_Distance({geom_col}, MakePoint(?, ?, 4326), 1) AS _dist
                 FROM   {table}
             )
             WHERE _dist <= ?
             ORDER BY _dist
             LIMIT 1
         """
-        nearest_params = (point.x, point.y, search_dist)
+        nearest_params = (point.x, point.y, search_dist_m)
 
     row = conn.execute(nearest_sql, nearest_params).fetchone()
     return row[0] if row else None
@@ -294,15 +325,27 @@ def _containing_id(gdf, point: Point, index_col: str):
     return _to_py_scalar(matches.index[0])
 
 
-def _nearest_id(gdf, point: Point, index_col: str, search_dist: float):
-    """Nearest feature within search_dist on a loaded GeoDataFrame, or None."""
+def _nearest_id(gdf, point: Point, index_col: str, search_dist_km: float):
+    """
+    Nearest feature within search_dist_km on a loaded GeoDataFrame, or None.
+
+    Distances are measured in kilometers using a local equirectangular
+    approximation: longitudes are scaled by cos(latitude) so that planar
+    distance in scaled degree space, multiplied by KM_PER_DEGREE, gives km.
+    A raw planar degree distance would be anisotropic (biased toward
+    north-south neighbors away from the equator); at search-tolerance scales
+    (a few km) the equirectangular error is negligible.
+    """
     if gdf.empty:
         return None
     gdf = gdf.set_index(index_col)
+    cos_lat = abs(math.cos(math.radians(point.y)))
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", message=_GEOGRAPHIC_CRS_WARNING)
-        dist = gdf.geometry.distance(point)
-    within = dist[dist <= search_dist]
+        scaled = gdf.geometry.scale(xfact=cos_lat, yfact=1.0, origin=(0, 0))
+        scaled_point = Point(point.x * cos_lat, point.y)
+        dist_km = scaled.distance(scaled_point) * KM_PER_DEGREE
+    within = dist_km[dist_km <= search_dist_km]
     if within.empty:
         return None
     return _to_py_scalar(within.idxmin())
@@ -315,7 +358,7 @@ def _find_with_geopandas(
     geom_col: str,
     index_col: str,
     scan_threshold: int,
-    search_dist: float | None = None,
+    search_dist_km: float | None = None,
 ) -> int | str | None:
     """
     GeoPandas-based fallback for the containment (and nearest) lookup.
@@ -326,9 +369,9 @@ def _find_with_geopandas(
     table is read once (with a warning for large tables) and reused for both the
     containment and the nearest tests.
 
-    If no polygon contains the point and ``search_dist`` is provided, the nearest
-    feature within ``search_dist`` is returned, mirroring the SpatiaLite path.
-    ``search_dist`` is in the geometry CRS units (degrees for EPSG:4326).
+    If no polygon contains the point and ``search_dist_km`` is provided, the
+    nearest feature within ``search_dist_km`` kilometers is returned, mirroring
+    the SpatiaLite path.
 
     Parameters
     ----------
@@ -344,8 +387,8 @@ def _find_with_geopandas(
         The name of the index column, usually "comid".
     scan_threshold : int
         The number of rows above which a warning is emitted.
-    search_dist : float, optional
-        Nearest-feature tolerance in CRS units.
+    search_dist_km : float, optional
+        Nearest-feature tolerance in kilometers.
 
     Returns
     -------
@@ -365,7 +408,7 @@ def _find_with_geopandas(
         )
 
     rtree_table = _get_rtree_table(conn, table, geom_col)
-    has_dist = search_dist is not None and search_dist > 0
+    has_dist = search_dist_km is not None and search_dist_km > 0
 
     if rtree_table:
         # ── containment via point-in-envelope candidates ──
@@ -384,11 +427,13 @@ def _find_with_geopandas(
             return None
 
         # ── nearest via envelope-intersects-box candidates ──
+        # km converted to an anisotropic degree box at this latitude
+        dx, dy = _search_box_degrees(point, search_dist_km)
         bbox_ids = [
             row[0] for row in _query_rtree_bbox(
                 conn, rtree_table, table, index_col,
-                point.x - search_dist, point.y - search_dist,
-                point.x + search_dist, point.y + search_dist,
+                point.x - dx, point.y - dy,
+                point.x + dx, point.y + dy,
             )
         ]
         if not bbox_ids:
@@ -397,7 +442,7 @@ def _find_with_geopandas(
             db_path, layer=table,
             where=f"{index_col} IN ({_sql_in_list(bbox_ids)})",
         )
-        return _nearest_id(ngdf, point, index_col, search_dist)
+        return _nearest_id(ngdf, point, index_col, search_dist_km)
 
     # ── no spatial index: one full read, reused for containment + nearest ──
     count = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
@@ -416,7 +461,7 @@ def _find_with_geopandas(
         return hit
     if not has_dist:
         return None
-    return _nearest_id(gdf, point, index_col, search_dist)
+    return _nearest_id(gdf, point, index_col, search_dist_km)
 
 
 def _point_in_polygon_analysis(
@@ -427,7 +472,7 @@ def _point_in_polygon_analysis(
     id_col: str = "comid",
     scan_threshold: int = 50_000,
     use_spatialite: bool = True,
-    search_dist: float = 0.1,
+    search_dist_km: float = 10.0,
 ) -> int | str | None:
     """
     Return the ID of the unit catchment that contains *point*.
@@ -465,12 +510,13 @@ def _point_in_polygon_analysis(
         ``True`` (default) – use SpatiaLite if the mod_spatialite extension
         loads, and fall back to the GeoPandas path if it cannot be loaded.
         ``False`` – always use the GeoPandas path; never attempt SpatiaLite.
-    search_dist:
-        Optional nearest-feature tolerance.  If no polygon contains the point,
-        the nearest feature within this distance is returned (supported on both
-        paths).  The value is in the geometry CRS units — for EPSG:4326 that is
-        **degrees, not metres** (≈ 0.01 deg ≈ 1.1 km near the equator).  Project
-        to a metric CRS if you need metre-based tolerances.
+    search_dist_km:
+        Optional nearest-feature tolerance, in **kilometers**.  If no polygon
+        contains the point, the nearest feature within this distance is
+        returned (supported on both paths).  The SpatiaLite path measures
+        geodesic (ellipsoidal) distance; the GeoPandas path uses a local
+        equirectangular approximation, accurate to well under 1% at tolerance
+        scales.  Set to 0 or None to disable the nearest-feature fallback.
 
     Returns
     -------
@@ -493,9 +539,9 @@ def _point_in_polygon_analysis(
             logger.warning("SpatiaLite not available; falling back to GeoPandas: %s", e)
 
         if spatialite_loaded:
-            return _find_with_spatialite(conn, point, table, geom_col, id_col, search_dist)
+            return _find_with_spatialite(conn, point, table, geom_col, id_col, search_dist_km)
 
     # ── GeoPandas / GDAL path ─────
     return _find_with_geopandas(
-        conn, point, table, geom_col, id_col, scan_threshold, search_dist
+        conn, point, table, geom_col, id_col, scan_threshold, search_dist_km
     )

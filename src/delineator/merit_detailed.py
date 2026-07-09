@@ -5,16 +5,88 @@ but only inside of a *single* unit catchment.
 import os
 import logging
 import numpy as np
+import rasterio
 from numpy import floor, ceil
 from pysheds.grid import Grid
 from shapely.geometry import Polygon, MultiPolygon, shape
 from shapely import wkb
 
-from delineator.constants import HALF_PIXEL, DIRMAP
+from delineator.constants import DIRMAP
 from delineator.data import _find_data_file
 from delineator.settings import DelineatorConfig
 
 logger = logging.getLogger(__name__)
+
+# Radius of the authalic sphere in km, used for haversine distances.
+EARTH_RADIUS_KM = 6371.0088
+
+
+def _snap_to_stream(streams: np.ndarray, affine, lat: float, lng: float,
+                    max_dist_km: float) -> tuple[float | None, float | None, float | None]:
+    """
+    Snap a pour point to the nearest stream cell by *geodesic* distance,
+    subject to a maximum snap distance in kilometers.
+
+    This replaces pysheds' `snap_to_mask()`, which finds the nearest cell in
+    raw coordinate (degree) space. Degree-space distance is anisotropic: away
+    from the equator, one degree of longitude is much shorter than one degree
+    of latitude, so degree-nearest snapping is biased toward north-south
+    neighbors by up to a factor of 1/cos(latitude). This function measures
+    true (haversine) distances instead, and also returns the snap distance,
+    which newer versions of pysheds no longer provide.
+
+    Parameters
+    ----------
+    streams : array-like of bool
+        Boolean raster; True where flow accumulation exceeds the stream threshold.
+    affine : affine.Affine
+        The affine transform of the streams raster.
+    lat, lng : float
+        Coordinates of the pour point provided by the user.
+    max_dist_km : float
+        Maximum allowed snap distance in kilometers. If the nearest stream
+        cell is farther than this, the snap fails.
+
+    Returns
+    -------
+    (lat_snap, lng_snap, dist_km), or (None, None, None) if there are no
+    stream cells or the nearest one is beyond max_dist_km.
+
+    Coordinate convention: the returned coordinates are the *center* of the
+    snapped cell, i.e. affine * (col + 0.5, row + 0.5). Distances are also
+    measured to cell centers. Callers passing the result to pysheds'
+    grid.catchment() should use snap='center', which resolves a cell-center
+    coordinate to its cell unambiguously.
+    """
+    rows, cols = np.nonzero(streams)
+    if rows.size == 0:
+        logger.warning("No stream cells above the accumulation threshold in the unit catchment.")
+        return None, None, None
+
+    # Cell centers for the distance calculation
+    x_ctr = affine.c + (cols + 0.5) * affine.a
+    y_ctr = affine.f + (rows + 0.5) * affine.e
+
+    # Haversine distance from the pour point to every candidate cell.
+    # Unit catchments are small, so this is at most a few thousand cells.
+    phi1 = np.deg2rad(lat)
+    phi2 = np.deg2rad(y_ctr)
+    dphi = phi2 - phi1
+    dlam = np.deg2rad(x_ctr - lng)
+    h = np.sin(dphi / 2.0) ** 2 + np.cos(phi1) * np.cos(phi2) * np.sin(dlam / 2.0) ** 2
+    dist_km = 2.0 * EARTH_RADIUS_KM * np.arcsin(np.sqrt(h))
+
+    i = int(np.argmin(dist_km))
+    d = float(dist_km[i])
+    if d > max_dist_km:
+        logger.warning(
+            f"Nearest stream cell is {d:.2f} km from the pour point, "
+            f"beyond the maximum snap distance of {max_dist_km:.2f} km."
+        )
+        return None, None, None
+
+    # Return the cell center (we already computed centers for the distances)
+    return float(y_ctr[i]), float(x_ctr[i]), d
 
 # Suppress a harmless warning from rasterio:
 # "DeprecationWarning: 'Memory' driver is deprecated since GDAL 3.11. Use 'MEM' onwards. Further messages of this type will be suppressed."
@@ -60,38 +132,60 @@ def _split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon
 
     # Get a bounding box for the unit catchment
     bounds = catchment_poly.bounds
-    bounds_list = [float(i) for i in bounds]
 
-    # The coordinates of the bounding box edges that we get from the above query
-    # do not correspond well with the edges of the grid pixels.
-    # We need to round them to the nearest whole pixel and then
-    # adjust them by a half-pixel width to get good results in pysheds.
-
-    # Bounding box is xmin, ymin, xmax, ymax
-    # round the elements DOWN, DOWN, UP, UP
-    # The number 1200 is because the MERIT-Hydro rasters have 3 arsecond resolution, or 1/1200 of a decimal degree.
-    # So we just multiply it by 1200, round up or down to the nearest whole number, then divide by 1200
-    # to put it back in its regular units of decimal degrees. Then, since pysheds wants the *center*
-    # of the pixel, not its edge, add or subtract a half-pixel width as appropriate.
-    # This took me a while to figure out but was essential to getting results that look correct
-    bounds_list[0] = floor(bounds_list[0] * 1200) / 1200 - HALF_PIXEL
-    bounds_list[1] = floor(bounds_list[1] * 1200) / 1200 - HALF_PIXEL
-    bounds_list[2] = ceil(bounds_list[2] * 1200) / 1200 + HALF_PIXEL
-    bounds_list[3] = ceil(bounds_list[3] * 1200) / 1200 + HALF_PIXEL
-    # The bounding box needs to be a tuple for pysheds.
-    bounding_box = tuple(bounds_list)
-
-    # Open the flow direction raster *using windowed reading mode*
+    # Locate the flow direction raster (we will open it *using windowed
+    # reading mode*, but first we need its transform to align the window).
     fdir_file = f"flowdir{basin}.tif"
     fdir_path = _find_data_file(fdir_file, config)
     if fdir_path is None:
-        logging.warning(f"Could not load flow direction raster: {fdir_file}")
+        logger.warning(f"Could not load flow direction raster: {fdir_file}")
         return None, None, None
     logger.info("Loading flow direction raster from: {}".format(fdir_path))
 
     if not os.path.isfile(fdir_path):
-        logging.warning("Could not find flow flow direction raster: {}".format(fdir_path))
+        logger.warning("Could not find flow flow direction raster: {}".format(fdir_path))
         return None, None, None
+
+    # Align the bounding box to the source raster's own pixel grid.
+    #
+    # pysheds uses the window bbox coordinates VERBATIM as the affine origin
+    # of the windowed grid, pulling source pixels by nearest-index rounding.
+    # If the bbox does not fall exactly on the source raster's pixel edges,
+    # the windowed grid is georeferenced up to half a pixel away from where
+    # the data truly sits, and everything downstream (snapping, delineation,
+    # polygonization) comes out misregistered by that amount.
+    #
+    # Crucially, we make NO assumption about the raster's registration
+    # (pixel edges vs. pixel centers on round-number coordinates). We read
+    # the raster's affine transform and round the bounds outward to whole
+    # pixel indices of THAT grid, padded by one pixel so that boundary-pixel
+    # inclusion is robust to floating-point jitter when a polygon bound
+    # lands exactly on a grid line.
+    with rasterio.open(fdir_path) as src:
+        T = src.transform
+        src_height, src_width = src.height, src.width
+
+    # Fractional pixel indices of the polygon bounds. T.e is negative for
+    # north-up rasters, so ymax (north) maps to the smallest row index.
+    col_min = int(floor((bounds[0] - T.c) / T.a)) - 1
+    col_max = int(ceil((bounds[2] - T.c) / T.a)) + 1
+    row_min = int(floor((bounds[3] - T.f) / T.e)) - 1
+    row_max = int(ceil((bounds[1] - T.f) / T.e)) + 1
+
+    # Clamp to the raster extent
+    col_min = max(col_min, 0)
+    row_min = max(row_min, 0)
+    col_max = min(col_max, src_width)
+    row_max = min(row_max, src_height)
+
+    # Convert back to coordinates: these lie exactly on the source pixel grid
+    xmin_aligned = T.c + col_min * T.a
+    xmax_aligned = T.c + col_max * T.a
+    ymax_aligned = T.f + row_min * T.e
+    ymin_aligned = T.f + row_max * T.e
+
+    # Bounding box is xmin, ymin, xmax, ymax; it needs to be a tuple for pysheds.
+    bounding_box = (xmin_aligned, ymin_aligned, xmax_aligned, ymax_aligned)
 
     # Get the Grid object that matches the flow direction grid, which we
     # can use to rasterize the unit catchment polygon
@@ -160,34 +254,39 @@ def _split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon
         # Snap the pour point to a point on the accumulation grid where accum (# of upstream pixels)
         # is greater than our threshold. This is conventionally called the streams layer.
         streams = acc > numpixels
-        xy = (lng, lat)
+
+        # Snap to the nearest stream cell by true (geodesic) distance, limited
+        # to a maximum snap distance in km. See _snap_to_stream for details.
+        max_dist_km = config.search_dist
         try:
-            [lng_snap, lat_snap] = grid.snap_to_mask(
-                streams, xy
-            )  # New version of pysheds does not give you the snap distance.
+            lat_snap, lng_snap, snap_dist_km = _snap_to_stream(
+                streams, acc.affine, lat, lng, max_dist_km
+            )
+            if lat_snap is None:
+                return None, None
+            logger.info(f"Snapped pour point moved {snap_dist_km:.3f} km.")
             return lat_snap, lng_snap
 
         except Exception as e:
             logger.warning(f"Could not snap the pour point. Error: {e}")
             return None, None
 
-    # Snap the pour point
+    # Snap the pour point.
+    # Both paths use the cell-center coordinate convention: _snap_to_stream
+    # returns cell centers, and raw user coordinates resolved with
+    # snap='center' is consistent with TauDEM's behavior.
     if config.snapping:
         lat_snap, lng_snap = snap_outlet()
         if lat_snap is None:
             return None, None, None
-        snap_setting = "corner"
-        #snap_setting = "center"
     else:
-        # Snapping to center is consistent with TauDEM
         lat_snap, lng_snap = lat, lng
-        snap_setting = "center"
 
     # Finally, here is the raster based watershed delineation with pysheds!
     logger.info("Splitting home unit catchment")
     try:
         catch = grid.catchment(fdir=fdir, x=lng_snap, y=lat_snap, dirmap=DIRMAP,
-                               xytype='coordinate', recursionlimit=15000, snap=snap_setting)
+                               xytype='coordinate', recursionlimit=15000, snap='center')
         # Clip the bounding box to the catchment
         grid.clip_to(catch)
         clipped_catch = grid.view(catch, dtype=np.uint8)
@@ -202,8 +301,7 @@ def _split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon
     polygons = [shape(geom) for geom, value in shapes]
     multi = MultiPolygon(polygons)
 
-    # The snapped vertices need to be nudged down and right by one half pixel
-    lng_snap += HALF_PIXEL
-    lat_snap -= HALF_PIXEL
-
+    # No coordinate adjustment needed: the window grid is aligned to the
+    # source raster, snapped coordinates are true cell centers, and the
+    # polygonized boundary vertices fall on true pixel edges.
     return multi, lat_snap, lng_snap

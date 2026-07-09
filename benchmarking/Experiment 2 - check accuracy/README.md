@@ -1,46 +1,52 @@
 # Experiment 2 - Checking the accuracy of delineator
 
+This experiment was to determine whether the watersheds created with 
+`delineator` are reasonable and accurate, i.e. whether the boundaries are true, 
+by comparing them to US Geological Survey watershed boundaries for river gaging
+stations in the continental United States. 
 
-This was an experiment to check whether the the watersheds
-created by delineator are accurate, by comparing them to the official watershed
-boundaries for a set of USGS gages. 
+In one sense, this experiment is a test of the MERIT-Hydro dataset, which has a
+relatively coarse resolution (~90 m) compared to publicly-available US datasets
+like the 10 m resolution National Elevation Dataset.
+
 
 ## Sampling
 
 First, I created a set of outlet points by sampling 120 gages from the catalog
 of USGS gaging stations. (Why n = 120? First I sampled 100 points from the 
- Federal Priorities Streamgage dataset, reasoning that gages that are currently
- operating are more likely to have updated watershed boundaries, compared to 
- historical gages. I later realized there were no west coast stations in CA, OR, and WA. So I drew 20
-more samples so that region would be included.) 
+Federal Priorities Streamgage dataset, reasoning that gages that are currently
+operating are more likely to have updated watershed boundaries, compared to 
+historical gages. I later realized there were no west coast stations in 
+CA, ID, OR, NV, and WA. So I drew 20 more samples so the western region would be included.) 
 
 I did stratified sampling, to ensure that I got samples from across
 the range of watershed sizes.
 
 First step was to get a list of all of the active gages. I obtained this 
-from:  https://water.usgs.gov/networks/fps/
+from: https://water.usgs.gov/networks/fps/
 
 This is a list of 4,356 "federal priority stream gages"
 and it has a field saying whether the gage is active or not. 
 I downloaded this table, and saved it as: `FPS_States_and_Territories.xlsx`.
-
 
 To delineate the watersheds for these gages, I needed their latitude
 and longitude coordinates. As these were not in the FPS table, I got
 them from a different data source and did a table join to look up
 the coordinates for my sample gages. 
 
-The gage metadata came from:
+The gage metadata came from the page:
 https://water.usgs.gov/GIS/metadata/usgswrd/XML/streamgages.xml#stdorder
 
 I downloaded the file: https://water.usgs.gov/GIS/dsdl/USGS_Streamgages-NHD_Locations_GEODB.zip
 
-This was a Geodatabase file, `.mdb` I saved the database table as a CSV, 
+This is an ESRI Geodatabase file, `.mdb` I saved the database table as a CSV, 
 which stripped the geometry data. 
-We don't need that because we have the lat, lng coordinates of the point, 
+We don't need the geomerty because the attribute table contains the lat, lng coordinates of the point, 
 which is sufficient. I saved a table of my 120 samples as: `samples_tbl.csv`
 
 The manuscript map was created with QGIS in `expt2_sample_locations_MAP.qgz`.
+
+![Map of sampled USGS gages for benchmarking experiment 2](expt2_MAP.jpg)
 
 ## USGS Watersheds
 
@@ -68,7 +74,6 @@ USGS watersheds) in QGIS failed. This was overcome by running the QGIS's
 Initially, I used QGIS to calculate the area of each watershed polygon, in square 
 kilometers. These results are in `AREA Comparison.xlsx`. 
 
-
 However, I realized that comparing areas is a poor indicator of 
 similarity for two watersheds. Two watersheds may have similar areas but
 be totally nonoverlapping. After some research on this, I discovered that there
@@ -82,7 +87,7 @@ This Python function for this is in `compare_watersheds.py`
 
 ## Results
 
-I analyzed the results by calculating the area for the watershds and the 
+I analyzed the results by calculating the area for the watersheds and the 
 CAC to compare watersheds created by delineator and ESRI. 
 
 I used the following files to analyze the results:
@@ -91,12 +96,19 @@ I used the following files to analyze the results:
 by mapping the watershed boundaries. The Python script `qgis_map_each_watershed.py`
 zooms to every watershed and then outputs the map as a JPG image. Scrolling
 through the maps allows one to quickly review the results. 
+
+![expt2_MAP.jpg](expt2_MAP.jpg)
+
 - `AREA Comparison.xlsx` - Scatterplot of the delineated watershed areas, 
 comparing delineator with ESRI. 
+
+![scatterplot.png](scatterplot.png)
+
 - `make_histogram.m` - Makes a histogram of the CACs, for the manuscript. 
 
+![expt2_histogram.png](expt2_histogram.png)
 
-## Conclusions
+## Conclusion
 
 The results were slightly surprising to me. I quickly realized that ESRI's
 methods must be based on USGS data. Often 

@@ -20,7 +20,7 @@ from delineator.constants import (
     MEGABASINS_DB_FILE,
     VALID_MEGABASINS,
     USE_SPATIALITE,
-    PIXEL_AREA, ROUNDING_DECIMALS,
+    ROUNDING_DECIMALS,
 )
 from delineator.data import _find_data_file
 from delineator.util import _validate_outlet_coordinates, _close_holes, _get_polygon_area
@@ -90,7 +90,7 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
     requested_outlet = Point(lng, lat)
     megabasin = _point_in_polygon_analysis(megabasins_db_conn, requested_outlet, table='megabasins',
                                            geom_col='geometry', id_col='basin', use_spatialite=USE_SPATIALITE,
-                                           search_dist=config.search_dist)
+                                           search_dist_km=config.search_dist)
     if megabasin is None:
         logger.warning(
             "The requested outlet is not in any megabasin. Check that it is over land. Maybe you flipped the lat/lng?")
@@ -107,7 +107,7 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
     basins_db_conn = sqlite3.connect(basins_db_path)
     home_unit_catchment = _point_in_polygon_analysis(basins_db_conn, requested_outlet, table='l0_basins',
                                                      id_col='comid', use_spatialite=USE_SPATIALITE,
-                                                     search_dist=config.search_dist)
+                                                     search_dist_km=config.search_dist)
 
     # If the outlet is not in any unit catchment, return None
     if home_unit_catchment is None:
@@ -180,7 +180,7 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
     # catchments (including single-catchment watersheds) and in the gaps between
     # dissolved unit catchments, so filling applies to every watershed.
     if config.fill:
-        watershed_polygon = _close_holes(watershed_polygon, config.fill_threshold * PIXEL_AREA)
+        watershed_polygon = _close_holes(watershed_polygon, config.fill_area_max)
 
     watershed_gdf = gpd.GeoDataFrame(geometry=[watershed_polygon], crs='epsg:4326')
 
@@ -207,18 +207,20 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
         # separately as area_filled (actual polygon area minus area_km2).
         if config.fill:
             filled_polygon_area = _get_polygon_area(watershed_polygon)
-            watershed_gdf["area_filled"] = round(filled_polygon_area - watershed_area, 1)
+            watershed_gdf["area_km2"] = round(filled_polygon_area, 1)
+            watershed_gdf["filled_area"] = round(filled_polygon_area - watershed_area, 1)
 
     # Step 7.5: optionally clean and simplify the watershed
     if config.simplify:
+        tolerance_deg = config.simplify_tolerance_km / 111.195
         watershed_gdf.geometry = watershed_gdf.geometry.simplify(
-            tolerance=config.simplify_tolerance, preserve_topology=True)
+            tolerance=tolerance_deg, preserve_topology=True)
 
     if config.clean:
         # This is a bit hack-ish, but it seems to work to remove "seams"
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message="Geometry is in a geographic CRS")
-            watershed_gdf.geometry = watershed_gdf.geometry.buffer(0.0001).buffer(-0.0001)
+            watershed_gdf.geometry = watershed_gdf.geometry.buffer(0.0001, join_style="mitre").buffer(-0.0001, join_style="mitre")
 
     # Step 8: Get the rivers if requested by the user
     if config.rivers:
@@ -226,7 +228,7 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
         rivers_gdf = get_rivers(upstream_unit_catchments, split_catchment_polygon, config)
         if config.simplify:
             rivers_gdf.geometry = rivers_gdf.geometry.simplify(
-                tolerance=config.simplify_tolerance, preserve_topology=True)
+                tolerance=tolerance_deg, preserve_topology=True)
     else:
         rivers_gdf = None
 
