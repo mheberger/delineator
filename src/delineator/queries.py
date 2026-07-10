@@ -13,18 +13,20 @@ logger = logging.getLogger(__name__)
 
 def get_upstream_comids(conn: sqlite3.Connection, home_unit_catchment: int) -> list:
     """
-    Query #1, gets a complete list of upstream basins comids
+    Query 1, gets a complete list of upstream basins comids
 
     Parameters
     ----------
     conn : sqlite3.Connection
+        SQLite connection to the basin database.
     home_unit_catchment : int
-        the comid of the home unit catchment, e.g. 23016159
+        COMID of the home unit catchment, e.g. 23016159.
 
     Returns
     -------
-    list of upstream basins comids. The first element is the home unit catchment.
-    Example: [23016159, 23016160, 23016603, .. , 23020142]
+    list[int]
+        Upstream basin COMIDs. The first element is the home unit catchment.
+        Example: [23016159, 23016160, 23016603, ..., 23020142]
     """
     sql = """
     WITH RECURSIVE upstream(comid) AS (

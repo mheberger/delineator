@@ -13,7 +13,7 @@ and [MERIT-Basins](https://www.reachhydro.org/home/params/merit-basins). Feature
 
 - Near-global coverage (excludes Greenland, Antarctica, and some small islands).
 - Returns watershed, river network, and outlet points.
-- Can ouput to multiple formats: GeoPackage, GeoJSON, Shapefile, KML, parquet.
+- Ouput to multiple formats: GeoPackage, GeoJSON, Shapefile, KML, parquet.
 - Includes a local web app for interactive exploration.
 - Bundled sample data for Iceland; other regions download automatically on first use.
 
@@ -249,6 +249,7 @@ All options with their defaults:
 | Option | Default | Description                                                                                                                                                                                                                     |
 |--------|---------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `auto_download` | `True` | Automatically download missing data files on first use.                                                                                                                                                                         |
+| `cache` | `False` | Cache the upstream-catchment queries and polygon dissolve in memory, keyed on the outlet's unit catchment. Speeds up repeated delineations with nearby outlets. See [Caching](#caching) below.                                  |
 | `calc_area` | `True` | Calculate the watershed area in km² and add it to the output attribute table.                                                                                                                                                   |
 | `clean` | `True` | Apply a small buffer/unbuffer to repair seam artifacts in the watershed polygon.                                                                                                                                                |
 | `data_dir` | system default | Directory where data files are stored and downloaded. Overrides the platform default location.                                                                                                                                  |
@@ -271,6 +272,26 @@ All options with their defaults:
 
 
 ### Notes on select options
+
+
+#### Caching
+
+For large watersheds, most of the delineation time is spent finding the
+upstream unit catchments and dissolving their polygons into a single boundary.
+That result is identical for every outlet that falls in the same unit
+catchment, so with `cache=True` it is computed once and reused. This makes
+repeated delineations around the same location much faster — for example,
+outlets near the mouth of the Rio Negro take about 8 seconds on the first call
+and about 2.5 seconds afterward (the raster refinement of the area around the
+outlet still runs on every call). Caching helps most for interactive use, like
+the local web app, where users often click several points along the same river
+reach. It will not speed up batch runs where every outlet lands in a different
+unit catchment.
+
+The cache is held in memory, holds up to 64 watersheds, and can be emptied
+with `delineator.clear_cache()`. It assumes the data files do not change while
+your program runs; if you point the script at a different data directory
+mid-session, call `clear_cache()`.
 
 
 #### Filling holes

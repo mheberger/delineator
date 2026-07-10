@@ -5,7 +5,7 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
-## [2.2.3] - 2026-07-09
+## [2.2.3] - 2026-07-10
 
 ### Fixed
 
@@ -39,6 +39,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- New configuration option `cache` (default `False`). When enabled, the most
+  expensive steps of delineation, querying the upstream unit catchments and
+  dissolving their polygons into a single boundary, are cached in memory,
+  keyed on the outlet's unit catchment. Repeated delineations whose outlets
+  fall in the same unit catchment reuse the cached result, which is much
+  faster for large watersheds (for outlets near the mouth of the Rio Negro,
+  about 8 seconds for the first call and about 2.5 seconds for subsequent
+  ones). The cache holds up to 64 watersheds and can be emptied with the new
+  `delineator.clear_cache()` function.
 - New regression tests covering the fixes above, including a check that
   all database connections are closed after delineation.
 

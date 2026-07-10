@@ -69,6 +69,14 @@ class DelineatorConfig:
         watershed delineation. You can also manually download the data files,
         see documentation for download_data().
 
+    cache : bool
+        If True, the script will cache the results of the dissolve operation
+        for merging upstream unit catchment geometries. This will save time
+        when delineating multiple watersheds whose outlets fall in the same
+        unit catchment. The cache is in-memory, holds at most a few dozen
+        watersheds, and can be emptied with `delineator.clear_cache()`.
+        Default is False.
+
     calc_area : bool
         If True, the script will calculate the area of the watershed.
         Setting it to False will save a small amount of time.
@@ -173,6 +181,7 @@ class DelineatorConfig:
     """
 
     auto_download: bool = field(default_factory=_default_auto_download)
+    cache: bool = False
     calc_area: bool = True
     clean: bool = True
     custom_data_dir: bool = field(init=False, default=False)
@@ -201,6 +210,8 @@ class DelineatorConfig:
         self.output_format = self.output_format.lower().lstrip(".")
 
         self._validate_bool("auto_download", self.auto_download)
+        self._validate_bool("cache", self.cache)
+        self._validate_bool("calc_area", self.calc_area)
         self._validate_bool("clean", self.clean)
         self._validate_bool("fill", self.fill)
         self._validate_bool("high_res", self.high_res)

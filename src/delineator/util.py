@@ -327,3 +327,5 @@ def pixel_area(latitude: float, lat_resolution: float, lon_resolution: float | N
     pixel_area = np.abs(dx * dy) / 1e6  # convert from square meters to square kilometers
 
     return pixel_area
+
+

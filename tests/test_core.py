@@ -253,6 +253,46 @@ def test_delineate_closes_all_database_connections(tmp_path, monkeypatch):
             conn.execute("SELECT 1")
 
 
+def test_cache_skips_repeat_upstream_queries(tmp_path, monkeypatch):
+    # With cache=True, a second delineation with an outlet in the same home
+    # unit catchment must not re-run the upstream comid query or re-read the
+    # upstream geometries, and must produce the same watershed.
+    calls = {"comids": 0, "geoms": 0}
+    real_comids = delineator.core.get_upstream_comids
+    real_geoms = delineator.core.get_upstream_geometries
+
+    def counting_comids(*args, **kwargs):
+        calls["comids"] += 1
+        return real_comids(*args, **kwargs)
+
+    def counting_geoms(*args, **kwargs):
+        calls["geoms"] += 1
+        return real_geoms(*args, **kwargs)
+
+    monkeypatch.setattr(delineator.core, "get_upstream_comids", counting_comids)
+    monkeypatch.setattr(delineator.core, "get_upstream_geometries", counting_geoms)
+
+    delineator.core.clear_cache()
+    try:
+        config = DelineatorConfig(
+            cache=True,
+            rivers=False,
+            outlets=False,
+            output_dir=tmp_path,
+        )
+        first_gdf, _, _ = delineate(64.71072, -21.60337, config)
+        counts_after_first = dict(calls)
+        second_gdf, _, _ = delineate(64.71072, -21.60337, config)
+    finally:
+        delineator.core.clear_cache()
+
+    assert first_gdf is not None
+    assert second_gdf is not None
+    assert counts_after_first["comids"] == 1
+    assert calls == counts_after_first
+    assert first_gdf.geometry.iloc[0].equals(second_gdf.geometry.iloc[0])
+
+
 def test_downloader_accepts_bundled_iceland_data(tmp_path, capsys):
     downloader(27, data_dir=str(tmp_path))
 
