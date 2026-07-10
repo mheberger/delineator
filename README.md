@@ -17,6 +17,8 @@ and [MERIT-Basins](https://www.reachhydro.org/home/params/merit-basins). Feature
 - Includes a local web app for interactive exploration.
 - Bundled sample data for Iceland; other regions download automatically on first use.
 
+![Local web app demo screenshot](docs/demo_screenshot.png)
+
 ## Contents
 
 - [Installation](#installation)
@@ -32,12 +34,6 @@ and [MERIT-Basins](https://www.reachhydro.org/home/params/merit-basins). Feature
 
 
 ## Installation
-
-**Version 2.2 has breaking changes.** The vector data files were 
-updated to fix a bug. Users should:
-
-- delete old versions of the `.db` files 
-- install the latest version of delineator with: `pip install --upgrade delineator`
 
 Requires Python ≥ 3.10. Python 3.11+ is recommended for speed. It is highly
 recommended to install in a fresh virtual environment to avoid dependency 
@@ -94,17 +90,17 @@ delineate --point 63.938 -21.004
 ```
 
 This creates the watershed for the Ölfusá River at Route 1 in Iceland.
-Output is written to `./output/watershed.gpkg` in your current directory. 
-To create geodata for the river network and outlet points, run:
+Output is written to `./output/watershed.gpkg` in your current directory, 
+with layers for the watershed boundary, river network, and outlet points
+(requested and snapped to the river centerline).
 
-```bash
-delineate --point 63.938 -21.004 --rivers --outlets
-```
+Here is an example of the output displayed in QGIS:
+
+![Example output](docs/example_output.png)
 
 You can enter coordinates for watershed outlets almost anywhere in the 
 world, and the package will attempt to download the necessary data files. 
 See the section **Data Files** below for details. 
-
 
 ### Python script usage
 
@@ -123,18 +119,14 @@ watershed_gdf, rivers_gdf, outlets_gdf = delineate(63.938, -21.004)
 write_outputs(watershed_gdf, rivers_gdf, outlets_gdf, id="olfusa")
 ```
 
-Here is an example of the output displayed in QGIS:
-
-![Example output](docs/example_output.png)
-
 ### Command line reference
 
 ```bash
 # Single point
 delineate --point 63.938 -21.004
 
-# Include rivers and outlet points
-delineate --point 63.938 -21.004 --rivers --outlets
+# Exclude rivers and outlet points from the output
+delineate --point 63.938 -21.004 --rivers false --outlets false
 
 # Output different file formats
 delineate --point 63.938 -21.004 --output-format geojson
@@ -172,19 +164,13 @@ For other formats like `shp`, each layer is written to a separate file, for exam
 
 ### Environment variables
 
-Instead of passing options to the command line, you can set environment variables
-for the default data directory and the output director. There are three 
-environment variables:
+Instead of passing options to the command line, you can set environment variables. 
+There are three environment variables:
 
 - `DELINEATOR_DATA_DIR`: directory where input data files are saved
 - `DELINEATOR_OUTPUT_DIR`: directory where output files will be saved
 - `DELINEATOR_AUTO_DOWNLOAD`: whether to automatically download data files as 
   they are needed
-
-Environment variables add are useful when you want configuration 
-that is global, repeatable, automatable, or sensitive, 
-without forcing every CLI call or Python function call to spell 
-everything out.
 
 Environment variables work with the command-line interface or with 
 the Python functions (`delineate()`, `downloader()`). Note that 
@@ -221,8 +207,8 @@ delineator --csv outlets.csv
 
 ## Configuration reference
 
-When using the Python function `delineate()`, options are passed via a 
-`DelineatorConfig` object:
+When using the Python function `delineate()`, options are passed to the main
+delineate function via a `DelineatorConfig` object:
 
 ```python
 from delineator import delineate, DelineatorConfig
@@ -283,9 +269,9 @@ catchment, so with `cache=True` it is computed once and reused. This makes
 repeated delineations around the same location much faster — for example,
 outlets near the mouth of the Rio Negro take about 8 seconds on the first call
 and about 2.5 seconds afterward (the raster refinement of the area around the
-outlet still runs on every call). Caching helps most for interactive use, like
-the local web app, where users often click several points along the same river
-reach. It will not speed up batch runs where every outlet lands in a different
+outlet still runs on every call). Caching helps most for interactive use, where users
+often click several points along the same river reach — the local web app
+enables it by default. It will not speed up batch runs where every outlet lands in a different
 unit catchment.
 
 The cache is held in memory, holds up to 64 watersheds, and can be emptied
@@ -342,13 +328,15 @@ and slightly cuts polygon corners, so leave it off if you need the output to
 match the source data exactly.
 
 
-#### Thresholds for snapping
+#### Snapping
 
 The process of "snapping" the outlet point to a river centerline is where 
-watershed delineation becomes both an art and a science. The `stream_threshold_km2` parameter sets the minimum upstream drainage area 
+watershed delineation becomes both an art and a science. The `stream_threshold_km2` 
+parameter sets the minimum upstream drainage area 
 (in km²) a grid cell must have to count as a stream, i.e. a valid target for 
 the outlet to snap to. Setting it too low can snap the outlet onto a minor 
-channel and cause topology problems.
+channel and may not give the desired result. Setting it too high will snap the 
+outlet to a large river, and you may not be able to find small watersheds.
 
 ![Accumulation raster](docs/accum11_screenshot2.jpg)
 
@@ -450,6 +438,9 @@ After installing the `delineator` package, run the following command:
 delineator_serve
 ```
 Open your web browser and visit [http://localhost:5000](http://localhost:5000).
+
+The web app enables the [`cache`](#caching) option by default, so repeated 
+clicks along the same river are much faster than the first.
 
 If you want to save the geodata, click the little buttons at the bottom right 
 to save the geodata to a file as GeoJSON. 

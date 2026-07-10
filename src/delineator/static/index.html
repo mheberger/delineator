@@ -150,8 +150,13 @@
     }
     #legend .legend-row {
       display: flex; align-items: center; gap: 8px; margin-bottom: 5px;
+      cursor: pointer;
+      user-select: none;
+      transition: opacity 0.12s;
     }
     #legend .legend-row:last-child { margin-bottom: 0; }
+    #legend .legend-row:hover { color: var(--accent); }
+    #legend .legend-row.off { opacity: 0.35; }
     .swatch {
       width: 28px; height: 12px; border-radius: 2px; flex-shrink: 0;
     }
@@ -335,7 +340,7 @@
     <h1>🌍 Global Watershed Delineator</h1>
   </div>
   <div class="subtitle">Click anywhere on the map to delineate the upstream watershed</div>
-  <button id="options-btn" title="Delineation options">⚙ Options</button>
+  <button id="options-btn" title="Delineation options">⚙️ Options</button>
 </header>
 
 <!-- Options panel -->
@@ -360,7 +365,7 @@
       <input type="number" id="opt-fill_area_max" min="0" step="0.5" value="1.0">
     </div>
     <label class="opt-check"><input type="checkbox" id="opt-clean" checked> Clean boundary<span class="opt-info" data-tip="Repair tiny seams and slivers in the boundary polygon with a small buffer in-and-out.">i</span></label>
-    <label class="opt-check"><input type="checkbox" id="opt-simplify"> Simplify boundary<span class="opt-info" data-tip="Simplify the watershed boundary and river lines using the Douglas–Peucker algorithm to reduce file size and smooth the jagged 'staircase' look of raw pixel edges.">i</span></label>
+    <label class="opt-check"><input type="checkbox" id="opt-simplify"> Simplify output<span class="opt-info" data-tip="Simplify the watershed boundary and river lines using the Douglas–Peucker algorithm to reduce file size and smooth the jagged 'staircase' look of raw pixel edges.">i</span></label>
     <div class="opt-num">
       <label for="opt-simplify_tolerance">Simplify tol. (km) <span class="opt-info" data-tip="Maximum distance (km) a boundary vertex may move when simplifying. Larger values give a simpler, coarser boundary. Only used when 'Simplify boundary' is on.">i</span></label>
       <input type="number" id="opt-simplify_tolerance" min="0" step="0.05" value="0.10">
@@ -395,10 +400,10 @@
 
 <!-- Legend -->
 <div id="legend">
-  <div class="legend-row"><div class="swatch watershed"></div> Watershed</div>
-  <div class="legend-row"><div class="swatch river"></div> Rivers</div>
-  <div class="legend-row"><div class="swatch outlet-requested"></div> Outlet, requested</div>
-  <div class="legend-row"><div class="swatch outlet-snapped"></div> Outlet, snapped</div>
+  <div class="legend-row" data-layer="watershed" title="Click to show/hide"><div class="swatch watershed"></div> Watershed</div>
+  <div class="legend-row" data-layer="rivers" title="Click to show/hide"><div class="swatch river"></div> Rivers</div>
+  <div class="legend-row" data-layer="outlet-requested" title="Click to show/hide"><div class="swatch outlet-requested"></div> Outlet, requested</div>
+  <div class="legend-row" data-layer="outlet-snapped" title="Click to show/hide"><div class="swatch outlet-snapped"></div> Outlet, snapped</div>
 </div>
 
 <!-- Info panel -->
@@ -464,6 +469,44 @@ function clearLayers() {
   if (riversLayer)    { map.removeLayer(riversLayer);    riversLayer    = null; }
   if (outletLayer)    { map.removeLayer(outletLayer);    outletLayer    = null; }
 }
+
+// ── Legend layer toggling (plotly-style) ─────────────────────────────────
+// Clicking a legend row hides/shows its layer and dims the row. Visibility
+// choices persist across delineations. The two outlet rows toggle the
+// individual markers within the shared outlet layer by their 'type'.
+const layerVisibility = {
+  'watershed':        true,
+  'rivers':           true,
+  'outlet-requested': true,
+  'outlet-snapped':   true,
+};
+
+function layersForKey(key) {
+  if (key === 'watershed') return watershedLayer ? [watershedLayer] : [];
+  if (key === 'rivers')    return riversLayer    ? [riversLayer]    : [];
+  if (!outletLayer) return [];
+  const type = key.replace('outlet-', '');
+  return outletLayer.getLayers().filter(l => l.feature?.properties?.type === type);
+}
+
+function applyLayerVisibility() {
+  for (const [key, visible] of Object.entries(layerVisibility)) {
+    for (const layer of layersForKey(key)) {
+      if (visible && !map.hasLayer(layer)) map.addLayer(layer);
+      if (!visible && map.hasLayer(layer)) map.removeLayer(layer);
+    }
+    document.querySelectorAll(`#legend .legend-row[data-layer="${key}"]`)
+      .forEach(row => row.classList.toggle('off', !visible));
+  }
+}
+
+document.querySelectorAll('#legend .legend-row[data-layer]').forEach(row => {
+  row.addEventListener('click', () => {
+    const key = row.dataset.layer;
+    layerVisibility[key] = !layerVisibility[key];
+    applyLayerVisibility();
+  });
+});
 
 // ── UI helpers ────────────────────────────────────────────────────────────
 const statusBar  = document.getElementById('status-bar');
@@ -664,11 +707,21 @@ map.on('click', async (e) => {
     if (data.rivers) {
       const features = data.rivers.features || [];
       riverCount = features.length - 1;
+      // Line weight grows with stream order, as on the Global Watersheds
+      // web app: the mainstem is drawn thicker than its tributaries.
+      const RIVER_COLOR = '#0e6fad';
+      const RIVER_WEIGHT_MULTIPLIER = 1.2;
+      const sorderMin = features.reduce(
+        (min, f) => Math.min(min, f.properties?.sorder ?? Infinity), Infinity);
       riversLayer = L.geoJSON(data.rivers, {
-        style: {
-          color:   '#0e6fad',
-          weight:  1.5,
-          opacity: 0.85,
+        style: (feature) => {
+          const sorderEffective = (feature.properties?.sorder ?? sorderMin) - sorderMin + 1;
+          return {
+            color:    RIVER_COLOR,
+            weight:   Math.sqrt(sorderEffective) * RIVER_WEIGHT_MULTIPLIER,
+            opacity:  0.85,
+            lineJoin: 'round',
+          };
         },
       }).addTo(map);
     }
@@ -694,6 +747,9 @@ map.on('click', async (e) => {
         },
       }).addTo(map);
     }
+
+    // Re-apply any layers toggled off via the legend to the fresh layers
+    applyLayerVisibility();
 
     updateInfoPanel(lat, lng, watershedArea, riverCount);
     setDownloadLinks(data.watershed, data.rivers);

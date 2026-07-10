@@ -87,7 +87,8 @@ def _request_config() -> DelineatorConfig:
     """Return the DelineatorConfig to use for one delineation request.
 
     Uses the config passed to serve() if there is one, otherwise a sensible
-    default for the interactive app (rivers, outlets, and a cleaned boundary).
+    default for the interactive app (rivers, outlets, a cleaned boundary, and
+    caching, since map users often click several points along the same river).
 
     The object is copied per request because _apply_web_options() writes the
     client's per-request option overrides onto it; without the copy those
@@ -95,7 +96,7 @@ def _request_config() -> DelineatorConfig:
     """
     base = app.config.get(_CONFIG_KEY)
     if base is None:
-        return DelineatorConfig(rivers=True, outlets=True, clean=True)
+        return DelineatorConfig(rivers=True, outlets=True, clean=True, cache=True)
     return copy.deepcopy(base)
 
 
@@ -179,7 +180,9 @@ def serve(
     -----------
     config: DelineatorConfig applied to every delineation the app performs.
         If None, a default suited to interactive review is used
-        (rivers, outlets, and a cleaned boundary). The output_format option
+        (rivers, outlets, a cleaned boundary, and cache=True so repeated
+        clicks along the same river reuse the upstream geometry). Pass a
+        config of your own to change this. The output_format option
         is ignored here since results are streamed to the browser as GeoJSON;
         the map shows whichever layers the config produces.
     host: Interface to bind. Defaults to localhost only.

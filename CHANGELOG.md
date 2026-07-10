@@ -47,7 +47,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   faster for large watersheds (for outlets near the mouth of the Rio Negro,
   about 8 seconds for the first call and about 2.5 seconds for subsequent
   ones). The cache holds up to 64 watersheds and can be emptied with the new
-  `delineator.clear_cache()` function.
+  `delineator.clear_cache()` function. The local web app now enables caching
+  by default, since map users often click several points along the same river.
 - New regression tests covering the fixes above, including a check that
   all database connections are closed after delineation.
 
