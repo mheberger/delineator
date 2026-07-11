@@ -40,12 +40,6 @@ DIRMAP = (64, 128, 1, 2, 4, 8, 16, 32)
 # many decimal places shall we use?
 ROUNDING_DECIMALS = 6
 
-# The scripts will try to use the spatialite extension IF it is installed
-# and fallback to geopandas otherwise. I used this flag during development
-# to test the condition where spatialite is not available.
-# REMEMBER to set to True for deployment!!
-USE_SPATIALITE = True
-
 # There are 61 megabasins, but we are not including Greenland
 VALID_MEGABASINS = [11, 12, 13, 14, 15, 16, 17, 18, 21, 22, 23, 24, 25, 26, 27, 28, 29, 31, 32, 33, 34, 35, 36, 41, 42,
                     43, 44, 45, 46, 47, 48, 49, 51, 52, 53, 54, 55, 56, 57, 61, 62, 63, 64, 65, 66, 67, 71, 72, 73, 74,

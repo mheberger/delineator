@@ -1,13 +1,12 @@
 """
-Geospatial database utilities for working with SQLite3 and SpatiaLite.
+Geospatial database utilities for "point in polygon" queries on the vector
+catchment tables in the SQLite databases.
 
-Main function is to do "point in polygon" queries on the vector catchment tables
-in sqlite databases.  If the mod_spatialite extension is available it is used for
-a database-side, index-accelerated query.  Otherwise the lookup falls back to
-GeoPandas, which uses the same R*Tree spatial index when one is present.
+Candidates are pre-filtered through the R*Tree spatial index (created by
+SpatiaLite during data prep, but readable as a plain SQLite virtual table),
+then the exact containment test runs in GeoPandas on just those features.
 """
 
-import logging
 import math
 import numbers
 import sqlite3
@@ -16,8 +15,6 @@ import geopandas as gpd
 from shapely.geometry import Point
 
 from delineator.constants import KM_PER_DEGREE
-
-logger = logging.getLogger(__name__)
 
 
 def _search_box_degrees(point: Point, search_dist_km: float) -> tuple[float, float]:
@@ -39,8 +36,8 @@ def _search_box_degrees(point: Point, search_dist_km: float) -> tuple[float, flo
     return dx, dy
 
 # A geographic CRS makes shapely/GeoPandas .distance() emit this warning; we use
-# planar distance deliberately (consistent with the SpatiaLite path), so it is
-# suppressed where we do that on purpose.
+# planar distance deliberately (see _nearest_id), so it is suppressed where we
+# do that on purpose.
 _GEOGRAPHIC_CRS_WARNING = "Geometry is in a geographic CRS"
 
 
@@ -72,39 +69,6 @@ def _sql_in_list(values) -> str:
         else:
             parts.append("'" + str(v).replace("'", "''") + "'")
     return ",".join(parts)
-
-
-# ── SpatiaLite extension loading ──
-
-def _load_spatialite(conn: sqlite3.Connection) -> bool:
-    """
-    Attempt to load the SpatiaLite extension.  Returns True on success.
-
-    Tries the two most common extension names; returns False (rather than
-    raising) if neither loads, if extension loading is disabled, or if the
-    sqlite3 module was compiled without extension support.
-    """
-    try:
-        conn.enable_load_extension(True)
-    except (AttributeError, sqlite3.Error):
-        # AttributeError: sqlite3 built without load-extension support.
-        # sqlite3.Error: loading extensions disabled at build/runtime.
-        return False
-
-    try:
-        for name in ("mod_spatialite", "spatialite"):
-            try:
-                conn.load_extension(name)
-                conn.execute("SELECT ST_Point(0, 0)").fetchone()
-                return True
-            except sqlite3.Error:
-                continue
-        return False
-    finally:
-        try:
-            conn.enable_load_extension(False)
-        except (AttributeError, sqlite3.Error):
-            pass
 
 
 # ── R*Tree helpers ────────────────
@@ -198,116 +162,6 @@ def _get_db_path(conn: sqlite3.Connection) -> str | None:
     return path or None  # '' (in-memory) -> None
 
 
-def _find_with_spatialite(
-    conn: sqlite3.Connection,
-    point: Point,
-    table: str,
-    geom_col: str,
-    id_col: str,
-    search_dist_km: float | None = None,
-) -> int | str | None:
-    """
-    Use SpatiaLite for a database-side point-in-polygon query.
-
-    If no polygon contains the point and search_dist_km is provided, return
-    the nearest feature whose geometry is within search_dist_km kilometers of
-    the point, measured with SpatiaLite's ellipsoidal (geodesic) ST_Distance.
-
-    Note
-    ----
-    SpatiaLite does *not* use the R*Tree automatically for ``ST_Within`` or
-    ``ST_Distance``; a bare predicate scans the whole table.  When a spatial
-    index exists we restrict candidates with the ``SpatialIndex`` meta-table
-    first (a point frame for containment, a km-derived degree box for the
-    nearest search).  We only do this when an index is actually present: on an
-    unindexed table the index sub-query returns no rows and would silently hide
-    a genuine match.
-    """
-    rtree = _get_rtree_table(conn, table, geom_col)
-
-    # ── containment ──
-    if rtree:
-        containment_sql = f"""
-            SELECT {id_col}
-            FROM   {table}
-            WHERE  ST_Within(ST_Point(?, ?), {geom_col}) = 1
-              AND  ROWID IN (
-                  SELECT ROWID FROM SpatialIndex
-                  WHERE  f_table_name = ?
-                    AND  f_geometry_column = ?
-                    AND  search_frame = ST_Point(?, ?)
-              )
-            LIMIT  1
-        """
-        containment_params = (point.x, point.y, table, geom_col, point.x, point.y)
-    else:
-        containment_sql = f"""
-            SELECT {id_col}
-            FROM   {table}
-            WHERE  ST_Within(ST_Point(?, ?), {geom_col}) = 1
-            LIMIT  1
-        """
-        containment_params = (point.x, point.y)
-
-    row = conn.execute(containment_sql, containment_params).fetchone()
-    if row:
-        return row[0]
-
-    # ── nearest-feature fallback ──
-    if search_dist_km is None or search_dist_km <= 0:
-        return None
-
-    # R*Tree prefilter box: km converted to degrees, anisotropically
-    dx, dy = _search_box_degrees(point, search_dist_km)
-    minx, miny = point.x - dx, point.y - dy
-    maxx, maxy = point.x + dx, point.y + dy
-
-    # The exact test uses ellipsoidal (geodesic) ST_Distance: the third
-    # argument = 1 requests ellipsoidal computation, which returns METERS
-    # for geographic geometry (supported for point-to-polygon since
-    # SpatiaLite 4.x). ST_Distance is computed once per candidate via the
-    # subquery alias.
-    search_dist_m = search_dist_km * 1000.0
-    if rtree:
-        nearest_sql = f"""
-            SELECT {id_col} FROM (
-                SELECT {id_col},
-                       ST_Distance({geom_col}, MakePoint(?, ?, 4326), 1) AS _dist
-                FROM   {table}
-                WHERE  ROWID IN (
-                    SELECT ROWID FROM SpatialIndex
-                    WHERE  f_table_name = ?
-                      AND  f_geometry_column = ?
-                      AND  search_frame = BuildMbr(?, ?, ?, ?)
-                )
-            )
-            WHERE _dist <= ?
-            ORDER BY _dist
-            LIMIT 1
-        """
-        nearest_params = (
-            point.x, point.y,
-            table, geom_col,
-            minx, miny, maxx, maxy,
-            search_dist_m,
-        )
-    else:
-        nearest_sql = f"""
-            SELECT {id_col} FROM (
-                SELECT {id_col},
-                       ST_Distance({geom_col}, MakePoint(?, ?, 4326), 1) AS _dist
-                FROM   {table}
-            )
-            WHERE _dist <= ?
-            ORDER BY _dist
-            LIMIT 1
-        """
-        nearest_params = (point.x, point.y, search_dist_m)
-
-    row = conn.execute(nearest_sql, nearest_params).fetchone()
-    return row[0] if row else None
-
-
 def _containing_id(gdf, point: Point, index_col: str):
     """Exact containment test on a loaded GeoDataFrame; returns a Python scalar."""
     if gdf.empty:
@@ -359,17 +213,16 @@ def _find_with_geopandas(
     search_dist_km: float | None = None,
 ) -> int | str | None:
     """
-    GeoPandas-based fallback for the containment (and nearest) lookup.
+    GeoPandas-based containment (and nearest) lookup.
 
-    If a SpatiaLite R*Tree spatial index is present, the R*Tree is queried for
-    candidate IDs and only those features are loaded via ``gpd.read_file()`` for
-    the exact ``contains()`` test. If no spatial index is present, the whole
-    table is read once (with a warning for large tables) and reused for both the
+    If an R*Tree spatial index is present, the R*Tree is queried for candidate
+    IDs and only those features are loaded via ``gpd.read_file()`` for the
+    exact ``contains()`` test. If no spatial index is present, the whole table
+    is read once (with a warning for large tables) and reused for both the
     containment and the nearest tests.
 
     If no polygon contains the point and ``search_dist_km`` is provided, the
-    nearest feature within ``search_dist_km`` kilometers is returned, mirroring
-    the SpatiaLite path.
+    nearest feature within ``search_dist_km`` kilometers is returned.
 
     Parameters
     ----------
@@ -469,25 +322,15 @@ def _point_in_polygon_analysis(
     geom_col: str = "geometry",
     id_col: str = "comid",
     scan_threshold: int = 50_000,
-    use_spatialite: bool = True,
     search_dist_km: float = 10.0,
 ) -> int | str | None:
     """
     Return the ID of the unit catchment that contains *point*.
 
-    Tries the fastest available method in this order:
-
-    1. **SpatiaLite** — a database-side ``ST_Within`` query, requiring the
-       mod_spatialite extension.  When the table has a spatial index, candidates
-       are pre-filtered through the R*Tree (the ``SpatialIndex`` meta-table)
-       before the exact test; without an index it scans the table.
-    2. **GeoPandas fallback** — when SpatiaLite is unavailable or disabled.  If a
-       spatial index is present, the R*Tree is queried directly for candidate
-       IDs and only those features are loaded via ``gpd.read_file()`` for the
-       exact ``contains()`` test; otherwise the whole table is loaded (and a
-       ``UserWarning`` is emitted past ``scan_threshold`` rows).
-
-    Both paths honour ``search_dist`` and return Python scalars (``int``/``str``).
+    If a spatial index is present, the R*Tree is queried directly for candidate
+    IDs and only those features are loaded via ``gpd.read_file()`` for the
+    exact ``contains()`` test; otherwise the whole table is loaded (and a
+    ``UserWarning`` is emitted past ``scan_threshold`` rows).
 
     Parameters:
     ----------
@@ -498,23 +341,17 @@ def _point_in_polygon_analysis(
     table:
         Name of the unit-catchment table.
     geom_col:
-        Column holding the geometry.  The SpatiaLite path needs a SpatiaLite
-        geometry BLOB; the GeoPandas fallback reads whatever GDAL recognises.
+        Column holding the geometry, in any format GDAL recognises.
     id_col:
         Column whose value is returned for the matching catchment.
     scan_threshold:
         Row count above which a missing spatial index emits a ``UserWarning``.
-    use_spatialite:
-        ``True`` (default) – use SpatiaLite if the mod_spatialite extension
-        loads, and fall back to the GeoPandas path if it cannot be loaded.
-        ``False`` – always use the GeoPandas path; never attempt SpatiaLite.
     search_dist_km:
         Optional nearest-feature tolerance, in **kilometers**.  If no polygon
         contains the point, the nearest feature within this distance is
-        returned (supported on both paths).  The SpatiaLite path measures
-        geodesic (ellipsoidal) distance; the GeoPandas path uses a local
-        equirectangular approximation, accurate to well under 1% at tolerance
-        scales.  Set to 0 or None to disable the nearest-feature fallback.
+        returned.  Distances use a local equirectangular approximation,
+        accurate to well under 1% at tolerance scales.  Set to 0 or None to
+        disable the nearest-feature fallback.
 
     Returns
     -------
@@ -527,19 +364,6 @@ def _point_in_polygon_analysis(
     If more than one polygon contains the point (overlapping geometries) the
     first match is returned.
     """
-
-    # ── SpatiaLite path ───────────
-    if use_spatialite:
-        try:
-            spatialite_loaded = _load_spatialite(conn)
-        except Exception as e:  # defensive: _load_spatialite shouldn't raise
-            spatialite_loaded = False
-            logger.warning("SpatiaLite not available; falling back to GeoPandas: %s", e)
-
-        if spatialite_loaded:
-            return _find_with_spatialite(conn, point, table, geom_col, id_col, search_dist_km)
-
-    # ── GeoPandas / GDAL path ─────
     return _find_with_geopandas(
         conn, point, table, geom_col, id_col, scan_threshold, search_dist_km
     )

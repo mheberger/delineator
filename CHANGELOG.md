@@ -5,6 +5,20 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
+## [Unreleased]
+
+### Removed
+
+- The runtime no longer loads the SpatiaLite extension for point-in-polygon
+  lookups. Benchmarking showed no performance advantage over the GeoPandas
+  path (which reads the same R*Tree spatial index directly) once the
+  databases have attribute indexes. This removes the optional `mod_spatialite`
+  system dependency, the `USE_SPATIALITE` constant, and the `use_spatialite`
+  parameter of `spatial._point_in_polygon_analysis`. The data files are
+  unchanged (still SpatiaLite-format), and the offline data-prep pipeline in
+  `data_mgmt/` still uses SpatiaLite to build them.
+
+
 ## [2.2.3] - 2026-07-10
 
 ### Fixed

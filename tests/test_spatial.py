@@ -15,22 +15,11 @@ def test_find_with_geopandas():
     assert result == 27001411
 
 
-def test_find_with_spatialite():
+def test_point_in_polygon_analysis():
     dbfile = MYDIR / r"src\delineator\data\basins27.db"
     conn = sqlite3.connect(dbfile)
     mypoint = Point(-21.004, 63.938)
-    result = _point_in_polygon_analysis(conn, mypoint, "l0_basins", "geometry", "comid",
-                                        1000, use_spatialite=True )
-    print(result)
-    assert result == 27001411
-
-
-def test_find_without_spatialite_no_spatialite():
-    dbfile = MYDIR / r"src\delineator\data\basins27.db"
-    conn = sqlite3.connect(dbfile)
-    mypoint = Point(-21.004, 63.938)
-    result = _point_in_polygon_analysis(conn, mypoint, "l0_basins", "geometry", "comid",
-                                        1000, use_spatialite=False )
+    result = _point_in_polygon_analysis(conn, mypoint, "l0_basins", "geometry", "comid", 1000)
     assert result == 27001411
 
 
@@ -39,7 +28,6 @@ def test_find_bad_point():
     conn = sqlite3.connect(dbfile)
     mypoint = Point(-100.004, 73.938)
     result = _point_in_polygon_analysis(
-        conn, mypoint, "l0_basins", "geometry", "comid", 1000, use_spatialite=True
+        conn, mypoint, "l0_basins", "geometry", "comid", 1000
     )
-    print(result)
     assert result is None

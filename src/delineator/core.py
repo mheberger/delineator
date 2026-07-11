@@ -21,7 +21,6 @@ import warnings
 from delineator.constants import (
     MEGABASINS_DB_FILE,
     VALID_MEGABASINS,
-    USE_SPATIALITE,
     ROUNDING_DECIMALS,
     KM_PER_DEGREE,
     DISCONNECT_TOL_DEG,
@@ -171,7 +170,7 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
     requested_outlet = Point(lng, lat)
     with closing(sqlite3.connect(MEGABASINS_DB_FILE)) as megabasins_db_conn:
         megabasin = _point_in_polygon_analysis(megabasins_db_conn, requested_outlet, table='megabasins',
-                                               geom_col='geometry', id_col='basin', use_spatialite=USE_SPATIALITE,
+                                               geom_col='geometry', id_col='basin',
                                                search_dist_km=config.search_dist)
 
     if megabasin is None or megabasin not in VALID_MEGABASINS:
@@ -191,7 +190,7 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
     # file is closed (and unlocked) before the heavier geometry work begins.
     with closing(sqlite3.connect(basins_db_path)) as basins_db_conn:
         home_unit_catchment = _point_in_polygon_analysis(basins_db_conn, requested_outlet, table='l0_basins',
-                                                         id_col='comid', use_spatialite=USE_SPATIALITE,
+                                                         id_col='comid',
                                                          search_dist_km=config.search_dist)
 
         # If the outlet is not in any unit catchment, return None
@@ -212,7 +211,7 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
     upstream_area = get_upstream_area(int(home_unit_catchment), config)
 
     # Step 5: Split the home unit catchment at the outlet
-    # First, we need to get the home unit catchment geometry as a shapely Polygon
+    # First, get the home unit catchment geometry as a shapely Polygon
     home_unit_catchment_polygon, home_catchment_area = get_home_unit_catchment_geom_and_area(basins_db_path,
                                                                                              home_unit_catchment)
     if config.high_res:
@@ -266,16 +265,19 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
             # two together would produce a disconnected polygon and credit the
             # outlet with upstream drainage area that does not reach it. Detect
             # that and keep only the local catchment above the outlet.
-            if split_catchment_polygon.distance(upstream_union) > DISCONNECT_TOL_DEG:
-                logger.warning(
-                    "The outlet's local catchment is disconnected from its upstream "
-                    "catchments: the outlet appears to lie off the river network "
-                    "while snapping is disabled. Returning only the local catchment "
-                    "above the outlet. Adjust snapping tolerance (or move the outlet onto a "
-                    "river) to delineate the full upstream watershed."
-                )
-                local_only = True
-                watershed_polygon = split_catchment_polygon
+            if (not config.snapping):  # Only do this expensive check when snapping is disabled.
+                if split_catchment_polygon.distance(upstream_union) > DISCONNECT_TOL_DEG:
+                    logger.warning(
+                        "The outlet's local catchment is disconnected from its upstream "
+                        "catchments: the outlet appears to lie off the river network "
+                        "while snapping is disabled. Returning only the local catchment "
+                        "above the outlet. Adjust snapping tolerance (or move the outlet onto a "
+                        "river) to delineate the full upstream watershed."
+                    )
+                    local_only = True
+                    watershed_polygon = split_catchment_polygon
+                else:
+                    pass
             else:
                 # Merge the split home catchment into the upstream block.
                 watershed_polygon = unary_union([upstream_union, split_catchment_polygon])

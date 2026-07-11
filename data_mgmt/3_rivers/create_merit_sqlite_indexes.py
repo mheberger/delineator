@@ -15,11 +15,9 @@ import sqlite3
 import time
 
 
-DATA_DIR = Path(
-    r"C:\Users\mheberger\AppData\Local\delineator"
+VECTOR_DIR = Path(
+    r"C:\Users\mheberger\Documents\watershed_app\static\data"
 )
-
-VECTOR_DIR = DATA_DIR / "vector"
 
 
 def table_exists(conn, table):
