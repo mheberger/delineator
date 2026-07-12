@@ -9,11 +9,11 @@ import pooch
 from pathlib import Path
 
 registry = {}
-data_dir = Path(r"C:\Users\mheberger\AppData\Local\delineator")
+data_dir = Path(r"C:\Users\mheberger\Documents\watershed_app\static\data")
 
 with open("hashes.txt", "w") as o:
     
-    for f in sorted(data_dir.rglob("*")):
+    for f in sorted(data_dir.rglob("*.db")):
         if f.is_file():
             file = str(f.relative_to(data_dir))
             checksum = pooch.file_hash(str(f))  # sha256: prefix included
