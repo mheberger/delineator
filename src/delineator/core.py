@@ -434,7 +434,8 @@ def downloader(basin: int, data_dir: str | None = None):
 
     # Check that the megabasin is valid
     if basin not in VALID_MEGABASINS:
-        raise ValueError(f"Invalid megabasin ID. Must be one of: {VALID_MEGABASINS}")
+        logger.warning(f"Invalid megabasin ID. Must be one of: {VALID_MEGABASINS}")
+        return None
 
     files = {
         "Unit catchments": f"basins{basin}.db",

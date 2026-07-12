@@ -22,6 +22,7 @@ and [MERIT-Basins](https://www.reachhydro.org/home/params/merit-basins). Feature
 ## Contents
 
 - [Installation](#installation)
+- [Dependencies and computational requirements](#dependencies-and-computational-requirements)
 - [Quick Start](#quick-start)
 - [Command line reference](#command-line-reference)
 - [Configuration reference](#configuration-reference)
@@ -118,6 +119,82 @@ watershed_gdf, rivers_gdf, outlets_gdf = delineate(63.938, -21.004)
 # This utility function will write them to disk in one line. 
 write_outputs(watershed_gdf, rivers_gdf, outlets_gdf, id="olfusa")
 ```
+
+
+## Dependencies and computational requirements
+
+### Software dependencies
+
+`delineator` requires Python ≥ 3.10. All dependencies are open-source Python
+packages installed automatically from [PyPI](https://pypi.org/) by `pip`.
+
+**Supported operating systems.** The package is developed and tested on
+Windows, macOS, and Linux, and any of these is a safe choice. This is not a
+limitation of `delineator` itself, which is pure Python, but of its
+geospatial dependencies: the underlying C libraries (GDAL, GEOS, PROJ) reach
+Python through packages such as `rasterio`, `shapely`, `pyproj`, and
+GeoPandas's I/O engine, and the maintainers of those packages publish
+pre-built binary wheels on PyPI only for these three operating systems (on
+common CPU architectures: 64-bit x86 for all three, plus Apple Silicon on
+macOS and ARM64 on Linux). On those platforms `pip install delineator`
+pulls in everything with no compiler or separate GIS software needed.
+
+Other Unix-like systems, including FreeBSD, are not covered by PyPI wheels.
+`delineator` has no platform-specific code, so it can in principle run
+anywhere the geospatial stack is available, but you would have to obtain that
+stack another way — for example the FreeBSD Ports collection packages GDAL,
+GEOS, PROJ, and their Python bindings — rather than through `pip`. This path
+is untested and unsupported here.
+
+Dependencies:
+
+| Package                                                  | Minimum version | Role in `delineator`                                              |
+|----------------------------------------------------------|-----------------|-------------------------------------------------------------------|
+| [click](https://click.palletsprojects.com/)              | 8.2             | Command-line interface                                            |
+| [Flask](https://flask.palletsprojects.com/)              | 3.1             | Local web app (`delineator_serve`)                                |
+| [GeoPandas](https://geopandas.org/)                      | 1.0             | Vector geodata handling and output to file formats                |
+| [NumPy](https://numpy.org/)                              | 1.24            | Array operations on raster data                                   |
+| [pandas](https://pandas.pydata.org/)                     | 2.0             | Tabular data (batch CSV input, attribute tables)                  |
+| [platformdirs](https://platformdirs.readthedocs.io/)     | 3.0             | Locating the per-user data directory on each OS                   |
+| [Pooch](https://www.fatiando.org/pooch/)                 | 1.7             | Downloading data files with SHA-256 verification                  |
+| [pyproj](https://pyproj4.github.io/pyproj/)              | 3.6             | Geodesic (ellipsoidal) area calculations                          |
+| [pysheds](https://github.com/mdbartos/pysheds)           | 0.5             | Raster delineation of the outlet's unit catchment                 |
+| [rasterio](https://rasterio.readthedocs.io/)             | 1.3             | Reading flow-direction and flow-accumulation rasters              |
+| [Requests](https://requests.readthedocs.io/)             | 2.28            | Checking remote file sizes before download                        |
+| [Shapely](https://shapely.readthedocs.io/)               | 2.0             | Geometry operations (dissolve, simplify, etc.)                    |
+| [tqdm](https://tqdm.github.io/)                          | > 4.67          | Download progress bars                                            |
+
+Vector data is stored in SQLite databases and read with Python's built-in
+`sqlite3` module; no database server or SpatiaLite extension is required at
+runtime.
+
+### Computational requirements
+
+The package is designed to run on an ordinary desktop or laptop computer.
+It runs in a single Python process on a single CPU core, with no GPU,
+parallel-computing, or internet-server requirements.
+
+- **Memory:** Delineation avoids loading whole datasets into memory: rasters
+  are read only in a window around the outlet's unit catchment, and vector
+  data is fetched with indexed SQL queries. Delineating the bundled example
+  watershed in Iceland (5,754 km²) has a measured peak memory footprint of
+  about 310 MB, including the Python interpreter and all imported libraries.
+  Any machine with 8 GB of RAM is more than sufficient, even for
+  continental-scale watersheds like the Amazon.
+- **Speed:** On a circa-2020 laptop (Intel Core i7-10610U @ 1.80 GHz, 32 GB
+  RAM), watersheds of roughly 40,000–86,000 km² take about 0.5–1.5 seconds
+  each (median 0.8 s; see the `benchmarking` folder in this repository).
+  Delineating the largest watersheds on Earth, such as the Amazon at its 
+  mouth, takes under 20 seconds.
+- **Disk space:** The installed package includes about 135 MB of bundled
+  data for Iceland. Additional regions download on demand,
+  ranging from about 26 MB to 3.5 GB per megabasin. The complete
+  global dataset is about 80 GB, but you only need the megabasins that
+  contain your outlet points.
+- **Network:** An internet connection is needed only to install the package
+  and to download data files on first use of each region. After that,
+  everything runs offline.
+
 
 ### Command line reference
 

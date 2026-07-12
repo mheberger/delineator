@@ -24,4 +24,8 @@ I then delineated the watersheds and timed the delineation using the Python
 scripts in this folder. The results were compiled and analyzed in the 
 Excel workbook `Benchmarking Results.xlsx`. 
 
+The resulting watersheds are shown here:
+
+![Experiment 4 watersheds](expt4_watersheds.jpg)
+
 

@@ -68,6 +68,7 @@ class DelineatorConfig:
         If True, the script will attempt to download needed data files for
         watershed delineation. You can also manually download the data files,
         see documentation for download_data().
+        DEFAULT = True.
 
     cache : bool
         If True, the script will cache the results of the dissolve operation
@@ -75,16 +76,18 @@ class DelineatorConfig:
         when delineating multiple watersheds whose outlets fall in the same
         unit catchment. The cache is in-memory, holds at most a few dozen
         watersheds, and can be emptied with `delineator.clear_cache()`.
-        Default is False.
+        DEFAULT = False.
 
     calc_area : bool
         If True, the script will calculate the area of the watershed.
         Setting it to False will save a small amount of time.
+        DEFAULT = True.
 
     clean : bool
         If True, the watershed boundary polygon will be "cleaned"
         which repairs artifacts such as seams that affect
-        the appearance of the watershed polygon. Default is True.
+        the appearance of the watershed polygon.
+        DEFAULT = True.
 
     data_dir : Path or str, optional
         Directory where the script will look for data files and store downloaded
@@ -95,63 +98,71 @@ class DelineatorConfig:
         macOS:   ~/Library/Application Support/delineator
 
     high_res : bool
-        If True, the script will split the unit catchment around the outlet point
-        for greater accuracy.
+        If True, the script will split the unit catchment around
+        the outlet point for greater accuracy.
         If False, the script skips this step. The result will be a watershed that is
         slightly too large, and will include some area downstream of the outlet point.
         This error may be insignificant for very large watersheds.
+        DEFAULT = True.
 
     fill : bool
         MERIT-Hydro data tends to produce watersheds with small "donut holes" due
         to minor topological errors in the input data. If True, these holes will be
         filled in, resulting in a cleaner appearance and smaller output files.
+        DEFAULT = True.
 
     fill_area_max : float
         Only used when fill=True. Fill holes smaller than this value, in km².
         For example, enter 10 to fill holes  smaller than 10 km².
        **Set to 0 to fill all holes.**
-       Default is 1.0 -- only holes smaller than 1.0 km² will be filled.
+       DEFAULT = 1.0. (Holes smaller than 1.0 km² are filled, larger ones ignored.)
 
     num_stream_orders : int
         Number of stream orders to include in the river network. This will only
         have an effect if rivers=True.
-        Default is 4. Higher values will result in more detailed stream network.
+        Higher values will result in more detailed stream network.
         Set this to a value of 9 or greater to get every river reach available.
+        DEFAULT = 4.
 
     output_format: str
         Specify the output format for geodata files. Options are "gpkg" (default)
         or "geojson", "shp", "kml", and others supported by your installation of geopandas.
         See https://geopandas.org/en/stable/docs/user_guide/io.html#supported-drivers-file-formats
         for more details.
+        DEFAULT = "gpkg".
 
     rivers: bool
         If True, return the river flow lines in the watershed. These will be saved
         as the "rivers" layer in the output GeoPackage, or to a separate file
         such as "rivers.shp" or "rivers.geojson", depending on  `output_format`.
+        DEFAULT = True.
 
     round_coordinates: bool
         If True, the coordinates of the watershed and rivers will be rounded to
         6 decimal places. This will reduce the file size of the output files,
-        with minimal impact on the quality of the output. Default is True.
-        Rounds to 6 decimal places, which is about 10 cm precision near the equator.
+        with minimal impact on the quality of the output.
+        DEFAULT = True.
 
     search_dist : float
         The distance (in km) to search for a catchment that contains the outlet point,
         or to snap the outlet point to a river centerline.
         If the outlet point does not fall inside any catchment. the script will
         search for the nearest catchment within this distance (in kilometers).
-        Default is 5.0 km. Accepts values from 0 to 50 km.
+        Accepts values from 0 to 50 km.
+        DEFAULT = 5.0 (km)
 
     simplify : bool
         Used by the `write_outputs` utility function to simplify the output
         before saving it to disk. If True, the output will be simplified using
         Douglas-Peucker algorithm. This will result in a smaller file size,
         and also less of a jagged "staircase" appearance in the output.
+        DEFAULT = False.
 
     simplify_tolerance: float
         If `simplify=True`, this is the tolerance value for the simplification.
         With the Douglas-Peucker algorithm, the tolerance value is the maximum
         distance (in kilometers) that a vertex can be from the original.
+        DEFAULT = 0.10 (km).
 
     smooth: bool
         If True, smooth the output geometries for a more natural appearance:
@@ -159,24 +170,30 @@ class DelineatorConfig:
         boundary with Chaikin corner cutting. Best used together with
         `simplify=True` -- smoothing is applied after simplification, and
         without it the smoothed line faithfully traces the raster
-        "staircase" instead of removing it. Default is False.
+        "staircase" instead of removing it.
+        DEFAULT = False.
 
     snapping: bool
         If snapping=False, the script will not attempt to snap the outlet point.
         Instead, it will use the coordinates provided by the user. This is
         provided as an alternative to the built-in pour-point snapping function
         for testing or for those who wish to implement a custom snapping routine.
+        Most users should leave this option set to True for good results.
+        DEFAULT = True.
 
     stream_threshold_km2: float
         Minimum upstream drainage area, in km², for a grid cell to be considered
         part of a stream when snapping the outlet. Cells below this are not valid
         snap targets. Applies to watersheds spanning multiple unit catchments;
         setting this too low causes incorrect results and topology problems.
+        DEFAULT = 25.0 (km²)
 
     verbose: bool
         Set verbose=True to see messages about the progress of the script.
         This is equivalent to setting the loggin level to "INFO" using
-        the `logging` module.
+        the `logging` module. With the default setting, warnings and error
+        messages will be printed to the console.
+        DEFAULT = False.
 
     """
 

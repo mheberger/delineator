@@ -61,14 +61,15 @@ def rasterize_to_template(gdf:gpd.GeoDataFrame, template_fname: str | Path,
     with rasterio.open(out_fname, 'w', **meta) as dst:
         dst.write(burned, 1)
 
+
 def main():
     config = DelineatorConfig(
         rivers=False,
-        threshold_multi=3000,
         calc_area=True,
         data_dir=r'C:\Users\mheberger\Documents\watershed_app\static\data',
         fill=False,
-        snapping=False
+        snapping=False,
+        round_coordinates=False
     )
 
     df = pd.read_csv('outlets_snapped.csv', index_col=0)
@@ -80,10 +81,10 @@ def main():
         print(f'Delineating {id}')
         watershed_gdf, _, outlets_gdf = delineate(lat, lng, config)
 
-        fname = f'output/{id}_del.geojson'
-        outlets_fname = f'output/{id}_outlets.geojson'
+        watershed_fname = f'delineator_out/{id}_del.geojson'
+        outlets_fname = f'delineator_out/{id}_outlets.geojson'
 
-        watershed_gdf.to_file(fname, driver='GeoJSON')
+        watershed_gdf.to_file(watershed_fname, driver='GeoJSON')
         outlets_gdf.to_file(outlets_fname, driver='GeoJSON')
 
         # Add the area of the delineated watershed to the results table

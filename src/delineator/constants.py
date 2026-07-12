@@ -5,7 +5,7 @@ from importlib.resources import files
 import math
 
 # Folder name (within the user's data directory) to put the downloaded data files
-DATA_DIR_NAME = "v2.2"  # bump when the data files change
+DATA_DIR_NAME = "v3"  # bump when the data files change
 
 EARTH_RADIUS_KM = 6371.0088  # authalic sphere radius, WGS84
 KM_PER_DEGREE = math.pi * EARTH_RADIUS_KM / 180  # great-circle km per degree of arc, ≈111.195

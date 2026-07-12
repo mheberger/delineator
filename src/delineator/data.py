@@ -29,7 +29,7 @@ def _warn_stale_data(config: DelineatorConfig) -> None:
     Warn once if data from an older package version is present.
 
     The current data lives in a version-named subdirectory of the data
-    directory (see DATA_DIR_NAME, currently 'v2.2'). When the data files change, that name
+    directory (see DATA_DIR_NAME, currently 'v3'). When the data files change, that name
     is bumped, so the corrected files download to a fresh folder and the
     buggy ones become unreachable. The old folders are not deleted
     automatically; this function logs a one-time warning listing them so
@@ -134,14 +134,14 @@ def _get_data_dir() -> Path:
 
     Note this is the base directory, not where the data files actually
     live. Data files are stored under a version-named subfolder of this
-    directory (see DATA_DIR_NAME, e.g. "v2.2"); that subfolder is
+    directory (see DATA_DIR_NAME, e.g. "v3"); that subfolder is
     appended downstream in _local_path(), not here. The layout looks like:
 
         <base_data_dir>/            <- this function returns this
-        ├── v2.2/          <- DATA_DIR_NAME: current data files
+        ├── v3/          <- DATA_DIR_NAME: current data files
         │    ├── acccum73.tif      <- raster data files
         │    ├── basins73.db       <- vector data files
-        ├── v2.1/               <- stale; flagged by _warn_stale_data()
+        ├── v2.3/               <- stale; flagged by _warn_stale_data()
         ├── vector/             <- legacy un-versioned; also flagged
         └── raster/
 

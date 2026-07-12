@@ -49,12 +49,11 @@ def timer(func):
 @timer
 def make_gage_shapefile():
     """"
-    Create a shapefile of my gage data in .CSV format.
-    This is so I can feed it to TauDEM's `MoveOutletstoStreams` routine
+    Create a shapefile of of the watershed outlets from the .csv file
     """
 
-    # My gage data is in a CSV file, but TauDEM wants a shapefile. Let's use GeoPandas to convert
-    # Read the data into a Pandas DataFrame
+    # My gage data is in a CSV file, but TauDEM wants a shapefile. 
+    # Use GeoPandas to convert
     data = pandas.read_csv(INFILE)
 
     # Create a GeoDataFrame
@@ -66,7 +65,7 @@ def make_gage_shapefile():
     geo_data.to_file(outfile, driver='ESRI Shapefile')
 
 
-def delineate() -> bool:
+def delineate() -> pd.DataFrame:
     """
     Delineates a set of watersheds using TauDEM
     expects there to be a shapefile with the outlets that have
