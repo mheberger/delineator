@@ -196,7 +196,7 @@ parallel-computing, or internet-server requirements.
   everything runs offline.
 
 
-### Command line reference
+## Command line reference
 
 ```bash
 # Single point
@@ -422,8 +422,8 @@ outlet to a large river, and you may not be able to find small watersheds.
 
 The `delineator` package comes bundled with data for Iceland. Beyond this, 
 you will need data files for other regions. 
-The globe is divided into 59 **megabasins** (integer IDs 11–86, data for 
-Greenland, megabasin 91, has been omitted):
+The globe is divided into 59 **megabasins** (integer IDs 11–86; data for 
+Greenland, megabasin 91, has been omitted from this package):
 
 ![Megabasins map](docs/megabasins.jpg)
 
@@ -459,10 +459,11 @@ set DELINEATOR_DATADIR=D:\GIS\delineator_data
 
 ## Always review your results!
 
-**No automated watershed delineation software can replace human judgment. Always visually inspect every watershed you create with this package. There is no guarantee the output is correct.**
+**No automated watershed delineation software can replace human judgment. 
+visually inspect every watershed you create with this package. 
+There is no guarantee the output is correct.**
 
-Errors are common and often easy to miss without inspection. The good news is 
-that many mistakes can be fixed by slightly adjusting the outlet coordinates 
+The good news is that many mistakes can be fixed by slightly adjusting the outlet coordinates 
 and re-running. An experienced analyst can usually identify and resolve problems 
 quickly, especially with an interactive map display.
 
@@ -527,7 +528,7 @@ to save the geodata to a file as GeoJSON.
 
 ## Algorithm
 
-The `delineator` combines three techniques to achieve speed and low memory use
+`delineator` combines three techniques to achieve speed and low memory use
 compared to traditional raster watershed delineation methods:
 
 1. **Hybrid raster/vector approach**: vector unit catchments handle the bulk of 
@@ -571,4 +572,4 @@ homepage, this GitHub repository. Here's a BibTeX entry:
 ## Contributing
 
 This project is open source and welcomes contributions. If you have comments 
-or suggestions, please open an issue or drop the author an email.
+or suggestions, please open an issue or send the author an email.
