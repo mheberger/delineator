@@ -22,8 +22,8 @@ and [MERIT-Basins](https://www.reachhydro.org/home/params/merit-basins). Feature
 ## Contents
 
 - [Installation](#installation)
-- [Dependencies and computational requirements](#dependencies-and-computational-requirements)
 - [Quick Start](#quick-start)
+- [Dependencies and computational requirements](#dependencies-and-computational-requirements)
 - [Command line reference](#command-line-reference)
 - [Configuration reference](#configuration-reference)
 - [Data files](#data-files)
