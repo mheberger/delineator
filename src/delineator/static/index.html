@@ -74,6 +74,12 @@
       flex-shrink: 0;
     }
     #status-bar.loading .spinner { display: block; }
+    #pointer-coords {
+      margin-left: auto;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
     @keyframes spin { to { transform: rotate(360deg); } }
 
     /* ── Map ── */
@@ -394,6 +400,7 @@
 <div id="status-bar">
   <div class="spinner"></div>
   <span id="status-text">Ready - click the map to delineate a watershed</span>
+  <span id="pointer-coords" title="Pointer position (lat, lng)"></span>
 </div>
 
 <div id="map"></div>
@@ -457,6 +464,17 @@ const baseMaps = {
 
 // Add the layer control to the top right of the map
 L.control.layers(baseMaps).addTo(map);
+
+// ── Pointer coordinates ───────────────────────────────────────────────────
+// Live (lat, lng) readout of the mouse position, in the same order the CLI's
+// --point option takes. wrap() keeps longitude in [-180, 180] after panning
+// across the antimeridian.
+const pointerCoords = document.getElementById('pointer-coords');
+map.on('mousemove', (e) => {
+  const { lat, lng } = e.latlng.wrap();
+  pointerCoords.textContent = `Lat, Lng: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+});
+map.on('mouseout', () => { pointerCoords.textContent = ''; });
 
 // ── Layer groups ──────────────────────────────────────────────────────────
 let watershedLayer = null;
