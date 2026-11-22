@@ -31,7 +31,9 @@ The virtualenv is at `.venv/`. Use its tools directly (Windows layout):
 .venv\Scripts\pip.exe install -e .
 ```
 
-There is no pytest/ruff config block in `pyproject.toml`; both tools run on defaults.
+There is no pytest config block in `pyproject.toml`, so pytest runs on defaults.
+`[tool.ruff.lint]` pins ruff's classic default rules (`E4, E7, E9, F`), because
+ruff 0.17 widened its defaults.
 
 ### CLI entry points (defined in `pyproject.toml` [project.scripts], all map to `cli.py`)
 

@@ -3,7 +3,6 @@ import logging
 
 import numpy as np
 from pyproj import Transformer, CRS
-from shapely.ops import transform
 import shapely
 from shapely.geometry import MultiPolygon, Polygon
 import geopandas as gpd
@@ -129,6 +128,19 @@ def _close_holes(poly: Polygon | MultiPolygon, area_max_km2: float) -> Polygon |
         raise ValueError("Unsupported geometry type")
 
 
+def _reproject(geom, transformer: Transformer):
+    """
+    Reproject a shapely geometry with a pyproj Transformer (built with always_xy=True).
+
+    Replaces the deprecated shapely.ops.transform(transformer.transform, geom).
+    shapely.transform hands over all coordinates as one (N, 2) array, so pyproj
+    transforms them in a single vectorized call.
+    """
+    return shapely.transform(
+        geom, lambda xy: np.column_stack(transformer.transform(xy[:, 0], xy[:, 1]))
+    )
+
+
 def _get_polygon_area(poly: Polygon | MultiPolygon) -> float:
     """
     Calculates the area of a Shapely Polygon (or MultiPolygon) in km²
@@ -156,7 +168,7 @@ def _get_polygon_area(poly: Polygon | MultiPolygon) -> float:
 
     transformer = Transformer.from_crs(crs_wgs84, crs_laea, always_xy=True)
 
-    projected_poly = transform(transformer.transform, poly)
+    projected_poly = _reproject(poly, transformer)
 
     # Get the area in m -> km²
     return projected_poly.area / 1e6

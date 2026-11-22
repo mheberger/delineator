@@ -39,11 +39,10 @@ def test_show_data_dir_env_var_is_flat(monkeypatch, tmp_path):
     assert f"Data files:     {tmp_path}\n" in result.output
 
 
-def test_download_data_for_bundled_iceland_data_succeeds():
-    runner = CliRunner()
-
-    with runner.isolated_filesystem():
-        result = runner.invoke(delineator_download, ["--basin", "27", "--data-dir", "data"])
+def test_download_data_for_bundled_iceland_data_succeeds(tmp_path):
+    result = CliRunner().invoke(
+        delineator_download, ["--basin", "27", "--data-dir", str(tmp_path / "data")]
+    )
 
     assert result.exit_code == 0
     assert "Unit catchments file is at:" in result.output

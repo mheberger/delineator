@@ -30,10 +30,10 @@ from numpy import floor, ceil
 from pyproj import Transformer
 from pysheds.grid import Grid
 from shapely.geometry import Polygon, MultiPolygon, shape
-from shapely.ops import transform as _shapely_transform
 
 from delineator.constants import ADAPTIVE_THRESHOLD_FRACTION
 from delineator.settings import DelineatorConfig
+from delineator.util import _reproject
 
 logger = logging.getLogger(__name__)
 
@@ -171,7 +171,7 @@ def _split_catchment(lat: float, lng: float, catchment_poly: Polygon | MultiPoly
 
     # Project the outlet and the unit catchment polygon into the raster CRS.
     x, y = _TO_GRIT.transform(lng, lat)
-    poly_proj = _shapely_transform(_TO_GRIT.transform, catchment_poly)
+    poly_proj = _reproject(catchment_poly, _TO_GRIT)
 
     # Get a bounding box for the unit catchment, in EPSG:8857
     bounds = poly_proj.bounds
@@ -304,7 +304,7 @@ def _split_catchment(lat: float, lng: float, catchment_poly: Polygon | MultiPoly
     # polygon vertices fall on true pixel edges of the EPSG:8857 grid; the
     # reprojection preserves that georeferencing exactly (pyproj transforms
     # each vertex independently).
-    multi_wgs84 = _shapely_transform(_TO_WGS84.transform, multi)
+    multi_wgs84 = _reproject(multi, _TO_WGS84)
     if config.snapping:
         lng_snap, lat_snap = _TO_WGS84.transform(x_snap, y_snap)
     else:
