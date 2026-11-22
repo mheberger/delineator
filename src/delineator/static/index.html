@@ -472,7 +472,7 @@ L.control.layers(baseMaps).addTo(map);
 const pointerCoords = document.getElementById('pointer-coords');
 map.on('mousemove', (e) => {
   const { lat, lng } = e.latlng.wrap();
-  pointerCoords.textContent = `Lat, Lng: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  pointerCoords.textContent = `Lat, Lng: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
 });
 map.on('mouseout', () => { pointerCoords.textContent = ''; });
 
