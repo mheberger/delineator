@@ -119,6 +119,46 @@ def test_delineate_reports_area_and_snapped_outlet(tmp_path):
     assert set(outlets_gdf["type"]) == {"requested", "snapped"}
 
 
+# A point on a small tributary inside unit catchment 27000373 (93 km²). Its two
+# upstream neighbours join the mainstem, not this tributary; the tributary's
+# local catchment is about 21.6 km², versus 80.8 km² if the 59.2 km² of
+# upstream catchments were wrongly included.
+TRIBUTARY_OUTLET = (65.75417, -22.29167)
+
+
+@pytest.mark.parametrize("snapping, threshold", [(True, 1.0), (False, 25.0)])
+def test_delineate_tributary_outlet_excludes_upstream_catchments(tmp_path, snapping, threshold):
+    config = DelineatorConfig(snapping=snapping, stream_threshold_km2=threshold,
+                              output_dir=tmp_path)
+    watershed_gdf, rivers_gdf, _ = delineate(*TRIBUTARY_OUTLET, config)
+
+    assert watershed_gdf is not None
+    assert watershed_gdf.iloc[0]["area_km2"] == pytest.approx(21.6, abs=2)
+    assert list(rivers_gdf["comid"]) == [27000373]
+
+
+def test_delineate_keeps_only_upstream_branches_that_reach_the_outlet(tmp_path, monkeypatch):
+    # MERIT unit catchments start at confluences, so an outlet above a
+    # confluence inside its unit catchment can't be found in the Iceland data.
+    # Simulate one: on the mainstem of 27000015, report that the larger
+    # neighbour (27000035, 174.8 km²) does not drain to the outlet.
+    real_split = delineator.core._split_catchment
+
+    def split_without_27000035(*args, **kwargs):
+        poly, lat, lng, connected = real_split(*args, **kwargs)
+        assert connected == {27000035, 27000058}
+        return poly, lat, lng, connected - {27000035}
+
+    monkeypatch.setattr(delineator.core, "_split_catchment", split_without_27000035)
+    config = DelineatorConfig(output_dir=tmp_path, fill=False)
+    watershed_gdf, rivers_gdf, _ = delineate(66.06333, -15.75833, config)
+
+    # Branch 27000058 (31.3 km²) plus the local split, not 211.5 km²
+    assert watershed_gdf.iloc[0]["area_km2"] == pytest.approx(36.7, abs=2)
+    assert watershed_gdf.geometry.iloc[0].geom_type == "Polygon"
+    assert sorted(rivers_gdf["comid"]) == [27000015, 27000058]
+
+
 def test_delineate_low_res_returns_watershed_without_snapping(tmp_path):
     config = DelineatorConfig(
         high_res=False,

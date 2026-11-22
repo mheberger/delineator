@@ -12,25 +12,16 @@ from delineator.settings import DelineatorConfig
 from delineator.util import write_outputs
 
 
-def tryme():
-    config = DelineatorConfig(verbose=True, rivers=True, output_format="geojson", fill_threshold=0)
-    #w, r, o = delineate(44.705, 4.206, config)  # France (megabasin 23, will trigger a data download)
-    #w, r, o = delineate(63.938, -21.004, config)  # Iceland (27, built in)
-    #w, r, o = delineate(-0.854, 41.350, config)  # East Africa (11)
-    w, r, o = delineate(26.538, -99.170, config)  # Rio Grande (has lots of donut holes)
-
-    write_outputs(w, r, o, config)
-
-
 def try_one():
     # Delineate a single watershed
-    lat, lng = 48.863, 2.314  # Seine River at the Pont Alexandre III, Paris
+    lat, lng = 64.291, -19.324
 
     config = DelineatorConfig(high_res=True,
                               output_format="geojson",
                               outlets=False,  # Skip outlets; will create watershed and rivers only
                               simplify=True,
-                              verbose=True
+                              verbose=True,
+                              stream_threshold_km2=50
                               )
 
     watershed_gdf, rivers_gdf, outlets_gdf = delineate(lat, lng, config)
@@ -97,8 +88,7 @@ def try_downloader():
 
 if __name__ == "__main__":
     # Uncomment to try different methods
-    tryme()
-    #try_one()
+    try_one()
     #try_downloader()
     #try_several()
     #try_csv()

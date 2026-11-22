@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "delineator"
 description = "Global watershed delineation with MERIT-Hydro and MERIT-Basins data"
-version = "2.2.4"
+version = "2.2.5"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -60,10 +60,11 @@ packages = ["src/delineator"]
 # every internal import gets flagged DEP003 because the editable install puts
 # delineator in site-packages.
 known_first_party = ["delineator"]
-# data_mgmt and benchmarking hold data-prep and benchmark scripts that live
-# outside src/ and never ship in the wheel, so their imports shouldn't be
-# checked against the package's dependencies.
-extend_exclude = ["data_mgmt", "benchmarking"]
+# data_mgmt, benchmarking, and examples hold data-prep, benchmark, and demo
+# scripts that live outside src/ and never ship in the wheel, so their imports
+# (e.g. the optional pourpoint package) shouldn't be checked against the
+# package's dependencies.
+extend_exclude = ["data_mgmt", "benchmarking", "examples"]
 
 [tool.deptry.per_rule_ignores]
 # tqdm is never imported by the package, but pooch.retrieve(progressbar=True)

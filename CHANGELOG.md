@@ -5,6 +5,33 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
+## [2.2.5] - 2026-11-21
+
+### Fixed
+
+- Watersheds no longer include upstream unit catchments that do not drain to
+  the outlet. This happened when the outlet was on a small tributary within
+  its unit catchment (most often when snapping to a low `stream_threshold_km2`,
+  or with snapping disabled), and the result included all the drainage area
+  entering that unit catchment from upstream. The code now checks, using the
+  flow-direction raster, which upstream unit catchments actually drain to the
+  outlet, and builds the watershed, area, and rivers from those alone. It also
+  handles an outlet above a confluence within its unit catchment, keeping only
+  the branch it sits on. Previously this check ran only with snapping
+  disabled, and it was all-or-nothing.
+- Fixed a crash (`UnboundLocalError`) in high-res mode with snapping disabled,
+  when the outlet was on the river network of a multi-catchment watershed.
+- In low-res mode, `area_km2` now includes the outlet's own unit catchment.
+  It was previously left out, although the polygon included it.
+
+### Changed
+
+- The web map no longer uses the Carto basemap, which now requires an API
+  key. The default basemap is Esri's World Light Gray Canvas, and an
+  OpenStreetMap basemap has been added. Neither requires a key.
+- Removed the `DISCONNECT_TOL_DEG` constant, which the old check used.
+
+
 ## [2.2.4] - 2026-07-11
 
 ### Added

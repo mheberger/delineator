@@ -1,7 +1,10 @@
 import logging
 import sqlite3
+import struct
 from collections import defaultdict
+from contextlib import closing
 import geopandas as gpd
+import shapely
 from shapely.geometry import Polygon, MultiPolygon
 from pyproj import Geod
 
@@ -197,6 +200,75 @@ def get_home_unit_catchment_geom_and_area(db_path: str, unit_catchment: int) -> 
     multi_poly = catchment_gdf.geometry.iloc[0]
     area = catchment_gdf.area_km2.iloc[0]
     return multi_poly, area
+
+
+def _spatialite_to_wkb(blob: bytes) -> bytes:
+    """
+    Convert an uncompressed XY SpatiaLite Polygon or MultiPolygon BLOB to WKB.
+
+    A SpatiaLite BLOB is a 39-byte header (start byte 0x00, byte order, SRID,
+    MBR, marker 0x7C), then the geometry type and body, then an end byte 0xFE.
+    The body is laid out as in WKB, except that each part of a collection
+    starts with a 0x69 marker where WKB has a byte-order byte. Raises
+    ValueError for anything else (compressed, Z/M, or other geometry types).
+    """
+    if len(blob) < 44 or blob[0] != 0x00 or blob[38] != 0x7C or blob[-1] != 0xFE:
+        raise ValueError("not a SpatiaLite geometry BLOB")
+    byte_order = blob[1]
+    fmt = "<i" if byte_order == 1 else ">i"
+    body = blob[39:-1]
+    geom_type = struct.unpack_from(fmt, body, 0)[0]
+    if geom_type == 3:
+        return bytes([byte_order]) + body
+    if geom_type != 6:
+        raise ValueError(f"unsupported SpatiaLite geometry type {geom_type}")
+
+    n_parts = struct.unpack_from(fmt, body, 4)[0]
+    out = bytearray([byte_order])
+    out += body[:8]  # type, number of polygons
+    pos = 8
+    for _ in range(n_parts):
+        if body[pos] != 0x69 or struct.unpack_from(fmt, body, pos + 1)[0] != 3:
+            raise ValueError("malformed SpatiaLite MultiPolygon")
+        start = pos + 5  # past the marker and the part's type
+        n_rings = struct.unpack_from(fmt, body, start)[0]
+        end = start + 4
+        for _ in range(n_rings):
+            n_points = struct.unpack_from(fmt, body, end)[0]
+            end += 4 + 16 * n_points  # XY doubles
+        out.append(byte_order)
+        out += body[pos + 1:end]
+        pos = end
+    if pos != len(body):
+        raise ValueError("malformed SpatiaLite MultiPolygon")
+    return bytes(out)
+
+
+def get_upstream_neighbors(db_path: str, unit_catchment: int) -> dict:
+    """
+    Get the unit catchments that drain directly into `unit_catchment`, i.e.
+    those whose `nextdown` is that comid.
+
+    This runs on every multi-catchment high-res delineation, so it reads the
+    geometry BLOBs with plain sqlite3 (using the index on `nextdown`) rather
+    than through GDAL, which costs ~10 ms per call just to open the database.
+    It falls back to geopandas if a BLOB is in a format it does not handle.
+
+    Returns
+    -------
+    dict[int, Polygon | MultiPolygon]
+        Geometry of each immediate upstream neighbour, keyed by comid.
+    """
+    with closing(sqlite3.connect(db_path)) as conn:
+        rows = conn.execute(
+            "SELECT comid, geometry FROM l0_basins WHERE nextdown = ?",
+            (int(unit_catchment),),
+        ).fetchall()
+    try:
+        return {int(c): shapely.from_wkb(_spatialite_to_wkb(g)) for c, g in rows}
+    except ValueError:
+        gdf = gpd.read_file(db_path, layer="l0_basins", where=f"nextdown = {int(unit_catchment)}")
+        return {int(c): g for c, g in zip(gdf["comid"], gdf.geometry)}
 
 
 def get_upstream_area(home_unit_catchment: int, config: DelineatorConfig) -> float | None:

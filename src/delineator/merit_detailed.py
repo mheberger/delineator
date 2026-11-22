@@ -90,9 +90,70 @@ def _snap_to_stream(streams: np.ndarray, affine, lat: float, lng: float,
 # "DeprecationWarning: 'Memory' driver is deprecated since GDAL 3.11. Use 'MEM' onwards. Further messages of this type will be suppressed."
 logging.getLogger("rasterio._env").setLevel(logging.ERROR)
 
+
+def _find_connected_neighbors(grid: Grid, fdir, home_mask, upstream_neighbors: dict,
+                              x: float, y: float) -> set[int]:
+    """
+    Decide which upstream neighbours of the home unit catchment actually drain
+    to the outlet.
+
+    An outlet on the home catchment's mainstem (below the confluence where the
+    upstream rivers enter) receives flow from every upstream neighbour. An outlet
+    on one branch above that confluence, or on a small tributary inside the home
+    catchment, receives flow from only some of them, or none. Including the
+    others would add drainage area that never reaches the outlet.
+
+    The test is hydrological rather than geometric: delineate the outlet's
+    catchment on the *unmasked* flow-direction window (bounding box of the home
+    catchment plus a one-pixel pad), and see which neighbours' pixels it reaches.
+    Every neighbour's outlet pixel borders the home catchment, so it lies in the
+    window, and if that neighbour drains to the outlet its outlet pixel is in
+    the catchment. A neighbour that only shares a ridge with the split is not.
+
+    Parameters
+    ----------
+    grid : pysheds Grid
+        Windowed grid over the home unit catchment, not yet clipped.
+    fdir : pysheds Raster
+        Flow direction over the window, NOT masked to the home catchment.
+    home_mask : array-like
+        Rasterized home unit catchment (nonzero inside).
+    upstream_neighbors : dict[int, Polygon | MultiPolygon]
+        The unit catchments whose `nextdown` is the home catchment, keyed by comid.
+    x, y : float
+        Outlet coordinates (cell center), as passed to grid.catchment.
+
+    Returns
+    -------
+    set[int]
+        Comids of the neighbours that drain to the outlet. A neighbour with no
+        pixels in the window cannot be judged here; it is treated as connected,
+        which preserves the previous behaviour for that neighbour.
+    """
+    comids = list(upstream_neighbors)
+    labels = np.asarray(grid.rasterize(
+        [(geom, i + 1) for i, geom in enumerate(upstream_neighbors.values())],
+        fill=0, dtype=np.int32))
+
+    catch_full = grid.catchment(fdir=fdir, x=x, y=y, dirmap=DIRMAP,
+                                xytype='coordinate', recursionlimit=15000, snap='center')
+    inflow = np.asarray(catch_full).astype(bool) & (np.asarray(home_mask) == 0)
+
+    reached = set(np.unique(labels[inflow]).tolist())
+    present = set(np.unique(labels).tolist())
+
+    connected = set()
+    for i, comid in enumerate(comids):
+        label = i + 1
+        if label in reached or label not in present:
+            connected.add(comid)
+    return connected
+
+
 def _split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon | MultiPolygon,
-                    home_catchment_area_km2: float, config: DelineatorConfig,) -> \
-        tuple[Polygon | MultiPolygon | None, float | None, float | None]:
+                     home_catchment_area_km2: float, config: DelineatorConfig,
+                     upstream_neighbors: dict | None = None) -> \
+        tuple[Polygon | MultiPolygon | None, float | None, float | None, set[int] | None]:
     """
     Performs the detailed pixel-scale raster-based delineation for a watershed.
 
@@ -119,6 +180,10 @@ def _split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon
         everywhere) always have valid snap targets.
     config : DelineatorConfig
         a DelineatorConfig dataclass object
+    upstream_neighbors : dict[int, Polygon | MultiPolygon], optional
+        The unit catchments that drain directly into the home catchment, keyed
+        by comid. When given, the function also reports which of them actually
+        drain to the (snapped) outlet; see _find_connected_neighbors.
 
     Returns
     -------
@@ -128,6 +193,9 @@ def _split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon
         latitude of the outlet, snapped to the river centerline in the accumulation raster
     lng_snap : float
         longitude of the outlet, snapped to the river centerline in the accumulation raster
+    connected_neighbors : set[int] or None
+        comids of the upstream neighbours that drain to the outlet, or None if
+        upstream_neighbors was not given.
 
     """
 
@@ -140,12 +208,12 @@ def _split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon
     fdir_path = _find_data_file(fdir_file, config)
     if fdir_path is None:
         logger.warning(f"Could not load flow direction raster: {fdir_file}")
-        return None, None, None
+        return None, None, None, None
     logger.info("Loading flow direction raster from: {}".format(fdir_path))
 
     if not os.path.isfile(fdir_path):
         logger.warning("Could not find flow flow direction raster: {}".format(fdir_path))
-        return None, None, None
+        return None, None, None, None
 
     # Align the bounding box to the source raster's own pixel grid.
     #
@@ -210,11 +278,9 @@ def _split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon
     # Convert the polygon into a pixelized raster "mask".
     mymask = grid.rasterize(polygon_list)
 
-    # LOAD Flow Direction Grid
+    # LOAD Flow Direction Grid. It is masked to the home catchment further down,
+    # after the (optional) upstream-neighbour test, which needs it unmasked.
     fdir = grid.read_raster(fdir_path, window=bounding_box, nodata=0)
-
-    # Not clear if this this step was unnecessary, but it makes the plots look nicer
-    fdir[mymask == 0] = 0
 
     # Pour point snapping
     def snap_outlet() -> tuple[float | None, float | None]:
@@ -293,9 +359,25 @@ def _split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon
     if config.snapping:
         lat_snap, lng_snap = snap_outlet()
         if lat_snap is None:
-            return None, None, None
+            return None, None, None, None
     else:
         lat_snap, lng_snap = lat, lng
+
+    # Which upstream neighbours drain to this outlet? Must run on the unmasked
+    # flow direction grid, before the mask below is applied.
+    connected_neighbors = None
+    if upstream_neighbors:
+        try:
+            connected_neighbors = _find_connected_neighbors(
+                grid, fdir, mymask, upstream_neighbors, lng_snap, lat_snap)
+        except Exception as e:
+            # Fall back to assuming every neighbour is connected (the behaviour
+            # before this test existed) rather than failing the delineation.
+            logger.warning(f"Could not test which upstream catchments drain to the outlet: {e}")
+            connected_neighbors = set(upstream_neighbors)
+
+    # Confine the split to the home catchment
+    fdir[mymask == 0] = 0
 
     # Finally, here is the raster based watershed delineation with pysheds!
     logger.info("Splitting home unit catchment")
@@ -307,7 +389,7 @@ def _split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon
         clipped_catch = grid.view(catch, dtype=np.uint8)
     except Exception as e:
         logger.error(f"ERROR: something went wrong during pysheds grid.catchment(). Error: {e}")
-        return None, lng_snap, lat_snap
+        return None, lat_snap, lng_snap, connected_neighbors
 
     # Convert high-precision raster subcatchment to a polygon using pysheds method .polygonize()
     logger.info("Convert split catchment raster to polygon")
@@ -319,4 +401,4 @@ def _split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon
     # No coordinate adjustment needed: the window grid is aligned to the
     # source raster, snapped coordinates are true cell centers, and the
     # polygonized boundary vertices fall on true pixel edges.
-    return multi, lat_snap, lng_snap
+    return multi, lat_snap, lng_snap, connected_neighbors
