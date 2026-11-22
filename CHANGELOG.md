@@ -27,8 +27,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 
 - The web map no longer uses the Carto basemap, which now requires an API
-  key. The default basemap is Esri's World Light Gray Canvas, and an
-  OpenStreetMap basemap has been added. Neither requires a key.
+  key. The default basemap is now OpenStreetMap, which does not require a key.
 - Removed the `DISCONNECT_TOL_DEG` constant, which the old check used.
 
 

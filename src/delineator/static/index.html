@@ -430,14 +430,6 @@
 const map = L.map('map').setView([65, -18], 6);
 
 // Define the basemap layers. All of these work without an API key.
-// Esri's light gray canvas is muted, so the watershed and rivers stand out.
-// Its tiles stop at zoom 16; Leaflet scales them up beyond that.
-const esriLightGray = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
-  maxNativeZoom: 16,
-  maxZoom: 19,
-  attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ'
-});
-
 const openStreetMap = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -454,11 +446,10 @@ const esriSatellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/s
 });
 
 // Add the default basemap to the map
-esriLightGray.addTo(map);
+openStreetMap.addTo(map);
 
 // Define the basemaps object for the control
 const baseMaps = {
-  "Light gray": esriLightGray,
   "OpenStreetMap": openStreetMap,
   "Topographic": openTopoMap,
   "Satellite": esriSatellite
