@@ -90,6 +90,11 @@ def _snap_to_stream(streams: np.ndarray, affine, lat: float, lng: float,
 # "DeprecationWarning: 'Memory' driver is deprecated since GDAL 3.11. Use 'MEM' onwards. Further messages of this type will be suppressed."
 logging.getLogger("rasterio._env").setLevel(logging.ERROR)
 
+# (row, col) step to the receiving cell for each D8 code. pysheds orders
+# DIRMAP as N, NE, E, SE, S, SW, W, NW.
+_D8_OFFSETS = dict(zip(DIRMAP, [(-1, 0), (-1, 1), (0, 1), (1, 1),
+                                (1, 0), (1, -1), (0, -1), (-1, -1)]))
+
 
 def _find_connected_neighbors(grid: Grid, fdir, home_mask, upstream_neighbors: dict,
                               x: float, y: float) -> set[int]:
@@ -109,6 +114,14 @@ def _find_connected_neighbors(grid: Grid, fdir, home_mask, upstream_neighbors: d
     Every neighbour's outlet pixel borders the home catchment, so it lies in the
     window, and if that neighbour drains to the outlet its outlet pixel is in
     the catchment. A neighbour that only shares a ridge with the split is not.
+
+    pysheds zeroes the outermost ring of the window before tracing (its
+    `_pop_rim`), so a neighbour pixel on that ring never appears in the traced
+    catchment, even when it drains into it. With a one-pixel pad, that ring is
+    exactly where neighbours' outlet pixels sit (GitHub issue #13), and it also
+    holds real cells when the window is clamped to the raster's extent. So a
+    neighbour pixel on the ring also counts if its D8 receiver is in the
+    catchment.
 
     Parameters
     ----------
@@ -135,12 +148,31 @@ def _find_connected_neighbors(grid: Grid, fdir, home_mask, upstream_neighbors: d
         [(geom, i + 1) for i, geom in enumerate(upstream_neighbors.values())],
         fill=0, dtype=np.int32))
 
+    # Copy before tracing: the rim test below needs the ring's original values.
+    fd = np.array(fdir, copy=True)
+
     catch_full = grid.catchment(fdir=fdir, x=x, y=y, dirmap=DIRMAP,
                                 xytype='coordinate', recursionlimit=15000, snap='center')
-    inflow = np.asarray(catch_full).astype(bool) & (np.asarray(home_mask) == 0)
+    catch_arr = np.asarray(catch_full).astype(bool)
+    inflow = catch_arr & (np.asarray(home_mask) == 0)
 
     reached = set(np.unique(labels[inflow]).tolist())
     present = set(np.unique(labels).tolist())
+
+    # Neighbour pixels on the window's rim, which pysheds could not trace:
+    # credit those whose D8 receiver lies in the catchment.
+    nrows, ncols = fd.shape
+    rim = np.zeros(fd.shape, dtype=bool)
+    rim[0, :] = rim[-1, :] = rim[:, 0] = rim[:, -1] = True
+    rr, cc = np.nonzero(rim & (labels > 0))
+    codes = fd[rr, cc]
+    for code, (dr, dc) in _D8_OFFSETS.items():
+        sel = codes == code
+        r2, c2 = rr[sel] + dr, cc[sel] + dc
+        ok = (r2 >= 0) & (r2 < nrows) & (c2 >= 0) & (c2 < ncols)
+        hit = np.zeros(ok.shape, dtype=bool)
+        hit[ok] = catch_arr[r2[ok], c2[ok]]
+        reached.update(labels[rr[sel][hit], cc[sel][hit]].tolist())
 
     connected = set()
     for i, comid in enumerate(comids):

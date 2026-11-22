@@ -159,6 +159,18 @@ def test_delineate_keeps_only_upstream_branches_that_reach_the_outlet(tmp_path, 
     assert sorted(rivers_gdf["comid"]) == [27000015, 27000058]
 
 
+@pytest.mark.parametrize("snapping", [True, False])
+def test_delineate_keeps_neighbour_whose_inlet_is_on_the_window_edge(tmp_path, snapping):
+    # GitHub issue #13: the only pixel through which 27001625 drains into
+    # 27001458 sits in the window's one-pixel pad, which pysheds zeroes before
+    # tracing. 2.2.5 dropped the branch (746.0 km²); the true area is 809.7 km².
+    config = DelineatorConfig(snapping=snapping, output_dir=tmp_path)
+    watershed_gdf, rivers_gdf, _ = delineate(64.1425, -21.06833333333333, config)
+
+    assert watershed_gdf.iloc[0]["area_km2"] == pytest.approx(809.7, abs=1)
+    assert 27001625 in set(rivers_gdf["comid"])
+
+
 def test_delineate_low_res_returns_watershed_without_snapping(tmp_path):
     config = DelineatorConfig(
         high_res=False,
@@ -346,3 +358,33 @@ def test_downloader_accepts_bundled_iceland_data(tmp_path, capsys):
     assert "rivers27.db" in captured.out
     assert "flowdir27.tif" in captured.out
     assert "accum27.tif" in captured.out
+
+
+def _capture_downloader_paths(monkeypatch, **kwargs):
+    """Run downloader() for basin 11 without network access, and return the
+    local paths it would download to."""
+    from delineator.download import _local_path
+    paths = []
+    monkeypatch.setattr(delineator.core, "_find_data_file",
+                        lambda rel, config: paths.append(_local_path(rel, config)))
+    downloader(11, **kwargs)
+    return paths
+
+
+def test_downloader_custom_data_dir_is_flat(monkeypatch, tmp_path):
+    # Must match where delineate() looks with the same data_dir.
+    paths = _capture_downloader_paths(monkeypatch, data_dir=str(tmp_path))
+
+    assert paths
+    assert all(p.parent == tmp_path for p in paths)
+
+
+def test_downloader_default_data_dir_is_versioned(monkeypatch, tmp_path):
+    from delineator.constants import DATA_DIR_NAME
+    monkeypatch.delenv("DELINEATOR_DATA_DIR", raising=False)
+    monkeypatch.setattr("delineator.settings.user_data_dir", lambda *a, **k: str(tmp_path))
+
+    paths = _capture_downloader_paths(monkeypatch)
+
+    assert paths
+    assert all(p.parent == tmp_path / DATA_DIR_NAME for p in paths)

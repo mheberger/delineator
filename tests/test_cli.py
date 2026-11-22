@@ -17,6 +17,28 @@ def test_show_data_dir_exits_successfully():
     assert result.output.strip()
 
 
+def test_show_data_dir_default_shows_versioned_files_folder(monkeypatch, tmp_path):
+    from delineator.constants import DATA_DIR_NAME
+    monkeypatch.delenv("DELINEATOR_DATA_DIR", raising=False)
+    monkeypatch.setattr("delineator.settings.user_data_dir", lambda *a, **k: str(tmp_path))
+
+    result = CliRunner().invoke(delineator_dir)
+
+    assert result.exit_code == 0
+    assert f"Data directory: {tmp_path}\n" in result.output
+    assert f"Data files:     {tmp_path / DATA_DIR_NAME}\n" in result.output
+
+
+def test_show_data_dir_env_var_is_flat(monkeypatch, tmp_path):
+    monkeypatch.setenv("DELINEATOR_DATA_DIR", str(tmp_path))
+
+    result = CliRunner().invoke(delineator_dir)
+
+    assert result.exit_code == 0
+    assert f"Data directory: {tmp_path} (set by DELINEATOR_DATA_DIR)\n" in result.output
+    assert f"Data files:     {tmp_path}\n" in result.output
+
+
 def test_download_data_for_bundled_iceland_data_succeeds():
     runner = CliRunner()
 

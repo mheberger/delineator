@@ -10,7 +10,6 @@ Formerly a collection of Python scripts, rewritten as a Python package
 import logging
 from collections import OrderedDict
 from contextlib import closing
-from pathlib import Path
 import geopandas as gpd
 import shapely
 from shapely.ops import unary_union
@@ -474,10 +473,10 @@ def downloader(basin: int, data_dir: str | None = None):
     -------
     Nothing. Raises an error if something goes wrong.
     """
-    config = DelineatorConfig()
-
-    if data_dir is not None:
-        config.data_dir = Path(data_dir)
+    # Pass data_dir to the constructor, not set it afterwards, so the config
+    # marks it as a custom (flat) directory, the same as delineate() does.
+    # Otherwise the files would download into a v3/ subfolder of data_dir.
+    config = DelineatorConfig(data_dir=data_dir)
 
     # Check that the megabasin is valid
     if basin not in VALID_MEGABASINS:

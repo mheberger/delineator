@@ -5,6 +5,32 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
+## [Unreleased]
+
+### Fixed
+
+- Watersheds could leave out an upstream branch that does drain to the outlet
+  ([#13](https://github.com/mheberger/delineator/issues/13)), a regression in
+  2.2.5. The new check for which upstream unit catchments reach the outlet
+  missed a branch whose inlet pixel lay on the edge of the raster window,
+  because pysheds clears the window's outer ring of cells before tracing. The
+  check now also counts edge cells that flow into the outlet's catchment.
+- `delineator_download --data-dir DIR` (and `downloader(basin, data_dir=DIR)`)
+  now saves the files directly in `DIR`, which is where `delineate --data-dir DIR`
+  looks for them. Before, the files went into a version subfolder (`DIR/v3/`),
+  so `delineate` couldn't find them and downloaded them again, or failed with
+  `--no-downloads`.
+
+### Changed
+
+- `delineator_dir` now prints two lines: the data directory, and the folder
+  the data files are actually in. For the default location, the files are in
+  a version-named subfolder (e.g. `v3/`), so the old one-line output led users
+  to the wrong folder. Scripts that read its output need updating.
+- The `--data-dir` help for `delineate` and `delineator_download` now says to
+  run `delineator_dir` to see the default.
+
+
 ## [2.2.5] - 2026-11-21
 
 ### Fixed

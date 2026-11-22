@@ -7,9 +7,9 @@ import pandas as pd
 import logging
 
 from delineator.core import delineate, downloader
-from delineator.settings import DelineatorConfig
+from delineator.settings import DelineatorConfig, _resolve_default_data_dir
 from delineator.util import write_outputs
-from delineator.data import _get_data_dir
+from delineator.constants import DATA_DIR_NAME
 from delineator.validation import _validate_and_normalize_df
 from delineator.serve import serve
 
@@ -29,7 +29,8 @@ def serve_cli():
 @click.option("--point", nargs=2, type=float, metavar="LAT LON", help="Creates watershed for a single outlet point")
 @click.option("--id", default=None, help="ID for the watershed (used with --point)")
 @click.option("--csv", "outlets_csv", type=click.Path(exists=True), help="CSV file of outlet points")
-@click.option("--data-dir", default=None, help="Directory for delineator's input data files. ")
+@click.option("--data-dir", default=None, help="Directory for delineator's input data files. "
+                                               "Run `delineator_dir` to see the default.")
 @click.option("--auto-download/--no-downloads", default=None, help="Automatically download data files if needed")
 @click.option("--high-res/--low-res", default=True, help="In higher-resolution mode, uses raster methods"
                                                          " to find the watershed boundary around the outlet point."
@@ -134,44 +135,48 @@ def main(point, id, outlets_csv, data_dir, auto_download, high_res, output_dir,
 
 @click.command()
 def delineator_dir():
-    """Show the location of the data directory used by the delineator Python package.
+    """Show where the delineator Python package keeps its data files.
 
-    Will display the path to the data directory, which is either the default
-    and depends on the operating system, or the custom location specified by the user,
-    which can be set by setting the DELINEATOR_DATA environment variable.
+    Prints two paths. "Data directory" is the default location, which depends
+    on the operating system, or the location in the DELINEATOR_DATA_DIR
+    environment variable, if it is set. "Data files" is the folder the data
+    files are actually in. For the default location, this is a version-named
+    subfolder of the data directory (e.g. v3/). For DELINEATOR_DATA_DIR, it is
+    the same folder. The data for Iceland (megabasin 27) is bundled with the
+    package and is not in either folder.
 
     Usage:
         > delineator_dir
     """
-    click.echo(_get_data_dir())
+    data_dir, is_custom = _resolve_default_data_dir()
+    data_dir.mkdir(parents=True, exist_ok=True)
+    # Same rule as download._local_path: custom dirs are flat, the default is versioned.
+    files_dir = data_dir if is_custom else data_dir / DATA_DIR_NAME
+    source = " (set by DELINEATOR_DATA_DIR)" if is_custom else ""
+    click.echo(f"Data directory: {data_dir}{source}")
+    click.echo(f"Data files:     {files_dir}")
 
 
 @click.command()
 @click.option("--basin", type=int, required=True, help="The megabasin ID, an integer from 11 to 86")
 @click.option("--data-dir", default=None, help="Directory for delineator's data files. "
-                                               "Defaults to the system default data directory.")
+                                               "Defaults to the system default data directory; "
+                                               "run `delineator_dir` to see it.")
 def delineator_download(basin, data_dir):
     """
     Download the data files needed for delineation in a megabasin.
     Use the command `delineator_dir` to get the location of the data directory.
 
-    Usaage:
+    Usage:
         # Download the data files for megabasin 11 (E. Africa) to the default data directory
         delineator_download --basin 11
 
         # Download data files to your preferred location
-        delineator_download --basin 11  --data_dir D:/Projects/watersheds
+        delineator_download --basin 11  --data-dir D:/Projects/watersheds
     """
-    # Resolve output directory
-    if data_dir is None:
-        data_dir = _get_data_dir()
-
-    output_path = Path(data_dir) if data_dir else Path.cwd() / "output"
-    if not output_path.exists():
-        click.echo(f"Creating output directory: {output_path}")
-        output_path.mkdir(parents=True, exist_ok=True)
-
-    downloader(int(basin), str(output_path))
+    # Leave data_dir as None for the default, so the files go in its version
+    # subfolder. DelineatorConfig creates the directory if it doesn't exist.
+    downloader(int(basin), data_dir)
 
 
 def _delineate_dataframe(outlets_df, config: DelineatorConfig) -> bool:
