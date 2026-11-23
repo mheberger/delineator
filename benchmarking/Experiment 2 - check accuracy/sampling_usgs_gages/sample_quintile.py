@@ -8,7 +8,6 @@ and draw an equal number of samples from each.
 
 
 import random
-import math
 
 # Parameters
 population_size = 882

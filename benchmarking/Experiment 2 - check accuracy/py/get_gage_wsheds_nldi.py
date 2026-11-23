@@ -1,10 +1,8 @@
 # Get the watershed boundaries for gages from the NLDI API and save them
 # as shapefiles.
 
-import pandas
 import geopandas
 import requests
-import matplotlib.pyplot as plt
 
 # First, load the list of gages from a CSV file.
 # We'll put this into a Pandas dataframe for convenience
@@ -44,7 +42,7 @@ for gage in gages:
     #plt.title("Watershed boundary")
     #plt.show()
 
-    fname = "C:/Users/mheberger/Documents/delineator/PAPER/miss_vick.gpkg".format(gage)
+    fname = "C:/Users/mheberger/Documents/delineator/PAPER/miss_vick.gpkg"
     watershed_gdf.to_file(fname)
 
     i += 1

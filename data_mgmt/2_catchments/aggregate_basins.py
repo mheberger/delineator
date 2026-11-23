@@ -33,9 +33,7 @@ from shapely.geometry import MultiPolygon, Polygon
 from shapely import wkb as shapely_wkb
 
 from consolidate import consolidate_network, show_area_stats
-from delineator.util import _close_holes
 from graph_tools import make_river_network
-
 
 # ---------------------------------------------------------------------------
 # SpatiaLite helpers

@@ -64,7 +64,7 @@ def pysheds_to_geodataframe(shapes, wid: str) -> gpd.GeoDataFrame:
 def main():
     # This is the set of sample outlet locations
     megabasin = 27
-    csv_fname = f'outlets.csv'
+    csv_fname = 'outlets.csv'
 
     # Get the data for the set of gages.
     gages_df = pandas.read_csv(csv_fname, header=0,
@@ -136,7 +136,7 @@ def main():
     gages_df['dist_m'] = round(p1.distance(p2, align=False))
 
     # Write the timer data to a csv file
-    gages_df.to_csv(f'pysheds_results.csv')
+    gages_df.to_csv('pysheds_results.csv')
 
 
 if __name__ == "__main__":

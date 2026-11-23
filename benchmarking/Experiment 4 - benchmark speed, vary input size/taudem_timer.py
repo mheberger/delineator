@@ -5,7 +5,7 @@ Here we are delienating at one point in each megabasin, with the same upstream a
 
 """
 import subprocess
-import pandas
+import pandas as pd
 import geopandas
 import pyproj
 from shapely.geometry import Point, shape
@@ -60,7 +60,7 @@ def make_gage_shapefile():
     geometry = [Point(xy) for xy in zip(data['lng'], data['lat'])]
     geo_data = geopandas.GeoDataFrame(data, crs=wgs84, geometry=geometry)
 
-    outfile = f"shp/outlets.shp"
+    outfile = "shp/outlets.shp"
     # Save the GeoDataFrame as a shapefile
     geo_data.to_file(outfile, driver='ESRI Shapefile')
 
@@ -75,7 +75,7 @@ def delineate() -> pd.DataFrame:
     - includes a timer for benchmarking
     """
 
-    infile = f'shp/outlets.shp'
+    infile = 'shp/outlets.shp'
 
     # Get the data for the set of gages.
     gages_gdf = geopandas.read_file(infile)

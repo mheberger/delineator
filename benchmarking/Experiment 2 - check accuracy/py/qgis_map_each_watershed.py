@@ -4,7 +4,6 @@ Routine for making maps.
 
 # Import necessary modules
 from qgis.core import QgsVectorLayer
-import time
 
 mypath = r'C:\Users\mheberger\Dropbox\RESEARCH\Watershed Article\benchmarking\Experiment 2 - check accuracy\watersheds'
 

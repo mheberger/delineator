@@ -6,10 +6,9 @@ Matthew Heberger, June 2026
 For experiment 4, where we vary the size of the raster, while holding
 the watershed size roughly equal at 10 million pixels. 
 """
-from pathlib import Path
 import pandas
 import time
-from delineator import delineate, write_outputs, DelineatorConfig
+from delineator import delineate, DelineatorConfig
 import rasterio
 import numpy as np
 import geopandas as gpd
