@@ -31,7 +31,9 @@ The virtualenv is at `.venv/`. Use its tools directly (Windows layout):
 .venv\Scripts\pip.exe install -e .
 ```
 
-There is no pytest config block in `pyproject.toml`, so pytest runs on defaults.
+`[tool.pytest.ini_options]` in `pyproject.toml` skips tests marked `network` by default.
+Those download several GB into the default data directory; run them with
+`.venv\Scripts\pytest.exe -m network`.
 `[tool.ruff.lint]` pins ruff's classic default rules (`E4, E7, E9, F`), because
 ruff 0.17 widened its defaults.
 
@@ -50,7 +52,7 @@ The command names don't all match their function targets: `delineate → cli.mai
 
 ## Data model — critical to understand before changing anything
 
-The globe is split into **59 megabasins** (integer IDs 11–86; Greenland/91 excluded),
+The globe is split into **60 megabasins** (integer IDs 11–86; Greenland/91 excluded),
 listed in `constants.VALID_MEGABASINS`. Each megabasin needs four data files:
 `basins{NN}.db`, `rivers{NN}.db` (SQLite/SpatiaLite vector), and `flowdir{NN}.tif`,
 `accum{NN}.tif` (rasters).

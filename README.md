@@ -422,7 +422,7 @@ outlet to a large river, and you may not be able to find small watersheds.
 
 The `delineator` package comes bundled with data for Iceland. Beyond this, 
 you will need data files for other regions. 
-The globe is divided into 59 **megabasins** (integer IDs 11–86; data for 
+The globe is divided into 60 **megabasins** (integer IDs 11–86; data for 
 Greenland, megabasin 91, has been omitted from this package):
 
 ![Megabasins map](docs/megabasins.jpg)

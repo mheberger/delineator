@@ -76,3 +76,11 @@ DEP002 = ["tqdm"]
 # Ruff 0.17 widened its defaults (isort, blind-except, pyupgrade, ...); keep
 # the old behavior until those rules are adopted deliberately.
 select = ["E4", "E7", "E9", "F"]
+
+[tool.pytest.ini_options]
+# Tests marked `network` download several GB of data into the default data
+# directory, so they are skipped unless asked for: `pytest -m network`.
+markers = [
+    "network: downloads data for megabasins other than Iceland (several GB)",
+]
+addopts = "-m 'not network'"

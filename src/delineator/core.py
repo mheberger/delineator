@@ -447,7 +447,7 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
     return watershed_gdf, rivers_gdf, outlets_gdf
 
 
-def downloader(basin: int, data_dir: str | None = None):
+def downloader(basin: int, data_dir: str | None = None) -> dict | None:
     """
     Utility function to download the data files for a given basin.
     This will download the data files for megabasin 11 to the specified directory,
@@ -471,7 +471,11 @@ def downloader(basin: int, data_dir: str | None = None):
 
     Returns
     -------
-    Nothing. Raises an error if something goes wrong.
+    dict[str, Path | None] or None
+        The local path of each data file, keyed by file type ("Unit catchments",
+        "Rivers", "Flow Direction", "Flow Accumulation"). A path is None if that
+        file could not be found or downloaded. Returns None if the megabasin ID
+        is invalid.
     """
     # Pass data_dir to the constructor, not set it afterwards, so the config
     # marks it as a custom (flat) directory, the same as delineate() does.
@@ -490,6 +494,9 @@ def downloader(basin: int, data_dir: str | None = None):
         "Flow Accumulation": f"accum{basin}.tif",
     }
 
+    paths = {}
     for filetype, file in files.items():
         path = _find_data_file(file, config)
         print(f"{filetype} file is at: {path}")
+        paths[filetype] = path
+    return paths
