@@ -29,6 +29,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   to the wrong folder. Scripts that read its output need updating.
 - The `--data-dir` help for `delineate` and `delineator_download` now says to
   run `delineator_dir` to see the default.
+- Simpler test for whether upstream unit catchments drain to the outlet. A
+  MERIT-Basins unit catchment begins at the confluence where its upstream
+  catchments flow in, and every river reach drains more than 25 km². So the
+  outlet receives the upstream flow exactly when its snapped cell drains at
+  least 25 km²; otherwise the watershed is only the local catchment above it.
+  This replaces a second pysheds trace over the neighbouring catchments
+  (including the edge-cell workaround for #13) with one lookup in the
+  accumulation raster. The partial case (an outlet above a confluence within
+  its unit catchment) cannot occur in MERIT-Basins and is no longer handled.
+  Results on a sample of Iceland outlets are unchanged. With snapping off,
+  the accumulation raster is now also required.
 
 
 ## [2.2.5] - 2026-11-21

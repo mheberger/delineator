@@ -2,9 +2,7 @@ import logging
 import sqlite3
 import struct
 from collections import defaultdict
-from contextlib import closing
 import geopandas as gpd
-import shapely
 from shapely.geometry import Polygon, MultiPolygon
 from pyproj import Geod
 
@@ -242,33 +240,6 @@ def _spatialite_to_wkb(blob: bytes) -> bytes:
     if pos != len(body):
         raise ValueError("malformed SpatiaLite MultiPolygon")
     return bytes(out)
-
-
-def get_upstream_neighbors(db_path: str, unit_catchment: int) -> dict:
-    """
-    Get the unit catchments that drain directly into `unit_catchment`, i.e.
-    those whose `nextdown` is that comid.
-
-    This runs on every multi-catchment high-res delineation, so it reads the
-    geometry BLOBs with plain sqlite3 (using the index on `nextdown`) rather
-    than through GDAL, which costs ~10 ms per call just to open the database.
-    It falls back to geopandas if a BLOB is in a format it does not handle.
-
-    Returns
-    -------
-    dict[int, Polygon | MultiPolygon]
-        Geometry of each immediate upstream neighbour, keyed by comid.
-    """
-    with closing(sqlite3.connect(db_path)) as conn:
-        rows = conn.execute(
-            "SELECT comid, geometry FROM l0_basins WHERE nextdown = ?",
-            (int(unit_catchment),),
-        ).fetchall()
-    try:
-        return {int(c): shapely.from_wkb(_spatialite_to_wkb(g)) for c, g in rows}
-    except ValueError:
-        gdf = gpd.read_file(db_path, layer="l0_basins", where=f"nextdown = {int(unit_catchment)}")
-        return {int(c): g for c, g in zip(gdf["comid"], gdf.geometry)}
 
 
 def get_upstream_area(home_unit_catchment: int, config: DelineatorConfig) -> float | None:

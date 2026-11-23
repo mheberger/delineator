@@ -183,33 +183,19 @@ def test_delineate_tributary_outlet_excludes_upstream_catchments(tmp_path, snapp
     assert list(rivers_gdf["comid"]) == [27000373]
 
 
-def test_delineate_keeps_only_upstream_branches_that_reach_the_outlet(tmp_path, monkeypatch):
+def test_delineate_mainstem_outlet_keeps_all_upstream_branches(tmp_path):
     """
-    Only the upstream neighbours that _split_catchment reports as connected are added to the watershed.
+    An outlet on the mainstem below a confluence includes every upstream branch.
 
-    MERIT unit catchments start at confluences, so the Iceland data has no outlet
-    just above a confluence inside its own unit catchment. The test fakes one by
-    wrapping _split_catchment so that it reports the larger neighbour (27000035,
-    174.8 km²) as not draining to an outlet on the mainstem of 27000015. The
-    watershed must then be the remaining branch (27000058, 31.3 km²) plus the
-    local split, about 36.7 km² rather than 211.5 km², and a single Polygon.
-    Fill is off so hole-filling can't hide a missing piece.
+    The outlet is on the reach of 27000015, which both upstream neighbours
+    (27000035, 174.8 km², and 27000058, 31.3 km²) drain into, so the watershed
+    is about 211.5 km² and the rivers include all three reaches.
     """
-    real_split = delineator.core._split_catchment
-
-    def split_without_27000035(*args, **kwargs):
-        poly, lat, lng, connected = real_split(*args, **kwargs)
-        assert connected == {27000035, 27000058}
-        return poly, lat, lng, connected - {27000035}
-
-    monkeypatch.setattr(delineator.core, "_split_catchment", split_without_27000035)
-    config = DelineatorConfig(output_dir=tmp_path, fill=False)
+    config = DelineatorConfig(output_dir=tmp_path)
     watershed_gdf, rivers_gdf, _ = delineate(66.06333, -15.75833, config)
 
-    # Branch 27000058 (31.3 km²) plus the local split, not 211.5 km²
-    assert watershed_gdf.iloc[0]["area_km2"] == pytest.approx(36.7, abs=2)
-    assert watershed_gdf.geometry.iloc[0].geom_type == "Polygon"
-    assert sorted(rivers_gdf["comid"]) == [27000015, 27000058]
+    assert watershed_gdf.iloc[0]["area_km2"] == pytest.approx(211.5, abs=2)
+    assert {27000015, 27000035, 27000058} <= set(rivers_gdf["comid"])
 
 
 @pytest.mark.parametrize("snapping", [True, False])
@@ -218,10 +204,10 @@ def test_delineate_keeps_neighbour_whose_inlet_is_on_the_window_edge(tmp_path, s
     An upstream neighbour whose only inlet pixel is on the raster window's edge is still included.
 
     Regression test for GitHub issue #13. The only pixel through which 27001625
-    drains into 27001458 is in the one-pixel pad around the raster window, which
-    pysheds sets to zero before tracing. Version 2.2.5 therefore dropped that
-    branch and reported 746.0 km²; the correct area is 809.7 km². Runs with
-    snapping both on and off.
+    drains into 27001458 is in the one-pixel pad around the raster window, where
+    the upstream-neighbour test of version 2.2.5 could not see it, so that
+    version dropped the branch and reported 746.0 km²; the correct area is
+    809.7 km². Runs with snapping both on and off.
     """
     config = DelineatorConfig(snapping=snapping, output_dir=tmp_path)
     watershed_gdf, rivers_gdf, _ = delineate(64.1425, -21.06833333333333, config)

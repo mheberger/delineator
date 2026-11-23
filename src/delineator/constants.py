@@ -16,6 +16,13 @@ KM_PER_DEGREE = math.pi * EARTH_RADIUS_KM / 180  # great-circle km per degree of
 # targets. See the threshold logic in merit_detailed.py > _split_catchment.snap_outlet().
 ADAPTIVE_THRESHOLD_FRACTION = 0.25
 
+# Drainage area above which MERIT-Basins defines a river reach (and gives it
+# a unit catchment). A property of the dataset, independent of the user's
+# snapping threshold (config.stream_threshold_km2). An outlet whose cell drains
+# less than this is off its unit catchment's reach, so no upstream unit
+# catchment drains to it. See merit_detailed.py > _is_on_mainstem().
+MERIT_REACH_THRESHOLD_KM2 = 25.0
+
 # Output smoothing (config.smooth). Rivers are smoothed with centripetal
 # Catmull-Rom splines; the watershed boundary with Chaikin corner cutting.
 # See smoothing.py. Values carried over from the Global Watersheds web app,
