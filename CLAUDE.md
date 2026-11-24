@@ -96,10 +96,12 @@ Pipeline steps in `core.delineate`:
 4. **High-res only** (`config.high_res`, on by default): split the home catchment at
    the outlet using raster methods (`merit_detailed._split_catchment`, backed by
    `pysheds` + the flowdir/accum rasters). This is also where pour-point **snapping**
-   happens, gated by `config.stream_threshold_km2` (adapted for small catchments via
-   `constants.ADAPTIVE_THRESHOLD_FRACTION`). `merit_detailed._is_on_mainstem` then
-   checks the outlet cell's accumulation against `constants.MERIT_REACH_THRESHOLD_KM2`
-   (25 km², the dataset's reach threshold, not the user's snap threshold). Below it,
+   happens, gated by `config.stream_threshold_km2` (used as given; if no cell in the
+   home catchment exceeds it, snapping fails with a warning). When the snap threshold is
+   below `constants.MERIT_REACH_THRESHOLD_KM2` (25 km², the dataset's reach threshold),
+   or snapping is off, `merit_detailed._is_on_mainstem` checks the outlet cell's
+   accumulation against that reach threshold; a point snapped at ≥ 25 km² is on the
+   reach by construction, so the check is skipped. Below the reach threshold,
    the outlet is off the reach, so no upstream catchment drains to it and the watershed
    is just the split.
 5. Fetch upstream geometries by aggregation level and `unary_union` them

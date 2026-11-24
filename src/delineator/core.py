@@ -217,7 +217,7 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
         # Also reports whether the outlet is on the home catchment's river reach. If it is not (it is on a
         # small tributary within the home catchment), none of the upstream unit catchments drain to it.
         split_catchment_polygon, lat_snapped, lon_snapped, on_mainstem = _split_catchment(
-            megabasin, lat, lng, home_unit_catchment_polygon, home_catchment_area, config)
+            megabasin, lat, lng, home_unit_catchment_polygon, config)
         if split_catchment_polygon is None:
             return None, None, None
 

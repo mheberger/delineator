@@ -1,3 +1,4 @@
+import logging
 import sqlite3
 from pathlib import Path
 import pandas as pd
@@ -181,6 +182,22 @@ def test_delineate_tributary_outlet_excludes_upstream_catchments(tmp_path, snapp
     assert watershed_gdf is not None
     assert watershed_gdf.iloc[0]["area_km2"] == pytest.approx(21.6, abs=2)
     assert list(rivers_gdf["comid"]) == [27000373]
+
+
+def test_delineate_threshold_above_catchment_drainage_fails_to_snap(tmp_path, caplog):
+    """
+    A stream threshold larger than anything in the home catchment is not lowered.
+
+    The home unit catchment 27000373 drains about 152 km² at its outlet, so a
+    1000 km² threshold leaves no snap targets. Snapping must fail with a warning
+    rather than quietly using a smaller threshold.
+    """
+    config = DelineatorConfig(stream_threshold_km2=1000, output_dir=tmp_path)
+    with caplog.at_level(logging.WARNING):
+        watershed_gdf, rivers_gdf, outlets_gdf = delineate(*TRIBUTARY_OUTLET, config)
+
+    assert (watershed_gdf, rivers_gdf, outlets_gdf) == (None, None, None)
+    assert "No stream cells in the unit catchment" in caplog.text
 
 
 def test_delineate_mainstem_outlet_keeps_all_upstream_branches(tmp_path):

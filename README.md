@@ -330,7 +330,7 @@ All options with their defaults:
 | `simplify_tolerance`   | `0.10`         | Douglas-Peucker tolerance in km: the maximum distance a vertex may move from its original position. Only used when `simplify=True`.                                                                                             |
 | `smooth`               | `False`        | Smooth the output geometries for a more natural appearance: rivers with Catmull-Rom splines, the watershed boundary with Chaikin corner cutting. Best used together with `simplify=True`.                                       |
 | `snapping`             | `True`         | Snap the provided outlet to a stream on the raster grid. Most users should keep this enabled; provided as an alternative for testing or a custom snapping routine.                                                              |
-| `stream_threshold_km2` | `25.0`         | Minimum upstream drainage area (km²) for a grid cell to count as a stream when snapping the outlet. Applies to watersheds spanning multiple unit catchments; setting it too low causes incorrect results and topology problems. |
+| `stream_threshold_km2` | `25.0`         | Minimum upstream drainage area (km²) for a grid cell to count as a stream when snapping the outlet. Setting it too low can snap onto minor channels; setting it above 25 km² can make small headwater outlets fail to snap.     |
 | `verbose`              | `False`        | Print progress messages to the console.                                                                                                                                                                                         |
 
 

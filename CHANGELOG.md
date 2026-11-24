@@ -5,6 +5,21 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
+## [Unreleased]
+
+### Changed
+
+- `stream_threshold_km2` is now used exactly as given. Before, it was silently
+  capped at 25% of the outlet's unit catchment area
+  (`ADAPTIVE_THRESHOLD_FRACTION`), so in small catchments the outlet could
+  snap to a channel much smaller than the threshold asked for. Removed the
+  `ADAPTIVE_THRESHOLD_FRACTION` constant. If no cell in the unit catchment
+  drains more than the threshold, snapping now fails with a warning that
+  gives the catchment's largest drainage area. At the default of 25 km² (the
+  MERIT-Basins reach threshold) this should not happen; above it, small
+  headwater outlets may need a lower threshold.
+
+
 ## [2.2.6] - 2026-11-22
 
 ### Fixed

@@ -11,8 +11,7 @@ from pysheds.grid import Grid
 from shapely.geometry import Polygon, MultiPolygon, shape
 from shapely import wkb
 
-from delineator.constants import (DIRMAP, EARTH_RADIUS_KM, ADAPTIVE_THRESHOLD_FRACTION,
-                                  MERIT_REACH_THRESHOLD_KM2)
+from delineator.constants import DIRMAP, EARTH_RADIUS_KM, MERIT_REACH_THRESHOLD_KM2
 from delineator.data import _find_data_file
 from delineator.settings import DelineatorConfig
 from delineator.util import pixel_area
@@ -130,7 +129,7 @@ def _is_on_mainstem(grid: Grid, acc, lat: float, lng: float) -> bool:
 
 
 def _split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon | MultiPolygon,
-                     home_catchment_area_km2: float, config: DelineatorConfig) -> \
+                     config: DelineatorConfig) -> \
         tuple[Polygon | MultiPolygon | None, float | None, float | None, bool | None]:
     """
     Performs the detailed pixel-scale raster-based delineation for a watershed.
@@ -150,12 +149,6 @@ def _split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon
         longitude
     catchment_poly : Shapely Polygon or MultiPolygon
         a Shapely polygon; we'll use it to clip the flow accumulation raster to get an accurate snap
-    home_catchment_area_km2 : float
-        area of the home unit catchment in km². Used to adapt the stream
-        threshold for small watersheds: the effective threshold is
-        min(config.stream_threshold_km2, 0.25 * home_catchment_area_km2),
-        so that small catchments (whose accumulation values are small
-        everywhere) always have valid snap targets.
     config : DelineatorConfig
         a DelineatorConfig dataclass object
 
@@ -274,18 +267,13 @@ def _split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon
         """Snap the user-provided lat/lng coordinates to a valid point on the grid."""
         logger.info("Snapping pour point")
 
-        # Snap the outlet to the nearest stream.
-        #
-        # The stream threshold defines which cells are valid snap targets:
-        # cells whose upstream drainage area exceeds the threshold. A fixed
-        # threshold fails for small watersheds, where accumulation values are
-        # small everywhere and nothing would qualify; capping the threshold
-        # at a fraction of the home unit catchment's area guarantees that
-        # some cells always qualify, without a separate config parameter.
-        threshold_km2 = min(
-            config.stream_threshold_km2,
-            ADAPTIVE_THRESHOLD_FRACTION * home_catchment_area_km2,
-        )
+        # Snap the outlet to the nearest stream: a cell whose upstream
+        # drainage area exceeds the user's stream threshold. The threshold is
+        # used as given. MERIT-Basins reaches drain at least
+        # MERIT_REACH_THRESHOLD_KM2, so at or below that value the home
+        # catchment's reach provides snap targets. Above it, a small headwater
+        # catchment may have none, and snapping fails with a warning.
+        threshold_km2 = config.stream_threshold_km2
 
         # The accumulation raster counts upstream PIXELS, and the physical
         # area of a pixel depends on latitude (a 3-arcsecond pixel is about
@@ -303,6 +291,14 @@ def _split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon
         # Snap the pour point to a point on the accumulation grid where accum (# of upstream pixels)
         # is greater than our threshold. This is conventionally called the streams layer.
         streams = acc > numpixels
+        if not streams.any():
+            max_area_km2 = float(acc.max()) * cell_area_km2
+            logger.warning(
+                f"No stream cells in the unit catchment: its largest drainage area is "
+                f"{max_area_km2:.4g} km2, below stream_threshold_km2 = {threshold_km2:.4g}. "
+                f"Lower stream_threshold_km2 to delineate this outlet."
+            )
+            return None, None
 
         # Snap to the nearest stream cell by true (geodesic) distance, limited
         # to a maximum snap distance in km. See _snap_to_stream for details.
@@ -332,7 +328,13 @@ def _split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon
         lat_snap, lng_snap = lat, lng
 
     # Does the flow from the upstream unit catchments reach this outlet?
-    on_mainstem = _is_on_mainstem(grid, acc, lat_snap, lng_snap)
+    # A point snapped with a threshold of at least the reach threshold already
+    # drains more than that, so it is on the reach by construction. Otherwise
+    # (a lower threshold, or snapping off) check the outlet cell.
+    if config.snapping and config.stream_threshold_km2 >= MERIT_REACH_THRESHOLD_KM2:
+        on_mainstem = True
+    else:
+        on_mainstem = _is_on_mainstem(grid, acc, lat_snap, lng_snap)
 
     # Finally, here is the raster based watershed delineation with pysheds!
     logger.info("Splitting home unit catchment")
