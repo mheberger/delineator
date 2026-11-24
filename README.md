@@ -330,7 +330,7 @@ All options with their defaults:
 | `simplify_tolerance`   | `0.10`         | Douglas-Peucker tolerance in km: the maximum distance a vertex may move from its original position. Only used when `simplify=True`.                                                                                             |
 | `smooth`               | `False`        | Smooth the output geometries for a more natural appearance: rivers with Catmull-Rom splines, the watershed boundary with Chaikin corner cutting. Best used together with `simplify=True`.                                       |
 | `snapping`             | `True`         | Snap the provided outlet to a stream on the raster grid. Most users should keep this enabled; provided as an alternative for testing or a custom snapping routine.                                                              |
-| `stream_threshold_km2` | `25.0`         | Minimum upstream drainage area (km²) for a grid cell to count as a stream when snapping the outlet. Setting it too low can snap onto minor channels; setting it above 25 km² can make small headwater outlets fail to snap.     |
+| `stream_threshold_km2` | `25.0`         | Minimum upstream drainage area (km²) for a grid cell to count as a stream when snapping the outlet. Because the outlet snaps to such a cell, this is also the smallest watershed you can delineate. See [Snapping](#snapping). |
 | `verbose`              | `False`        | Print progress messages to the console.                                                                                                                                                                                         |
 
 
@@ -414,6 +414,16 @@ parameter sets the minimum upstream drainage area
 the outlet to snap to. Setting it too low can snap the outlet onto a minor 
 channel and may not give the desired result. Setting it too high will snap the 
 outlet to a large river, and you may not be able to find small watersheds.
+
+Because the outlet always snaps to a cell that drains more than the threshold, 
+`stream_threshold_km2` is also the **minimum size of watershed** you can 
+delineate. With the default of 25 km², every watershed is larger than 25 km². To 
+delineate a smaller one, lower the threshold below its area. If no cell near the 
+outlet drains more than the threshold, the outlet can't be snapped, and 
+`delineate()` returns `None` with a warning. This happens in small headwater 
+catchments when the threshold is set above 25 km², the size at which 
+MERIT-Basins starts a river reach. With `snapping=False`, the threshold has no 
+effect and the outlet is used as given.
 
 ![Accumulation raster](docs/accum11_screenshot2.jpg)
 
