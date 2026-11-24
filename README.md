@@ -38,7 +38,8 @@ and [MERIT-Basins](https://www.reachhydro.org/home/params/merit-basins). Feature
 
 Requires Python ≥ 3.10. Python 3.11+ is recommended for speed. It is highly
 recommended to install in a fresh virtual environment to avoid dependency 
-conflicts.
+conflicts. On Python 3.15, installation currently needs a C compiler; see the
+[note on Python 3.15](#python-315) below.
 
 **macOS/Linux:**
 
@@ -167,6 +168,18 @@ Dependencies:
 Vector data is stored in SQLite databases and read with Python's built-in
 `sqlite3` module; no database server or SpatiaLite extension is required at
 runtime.
+
+<a id="python-315"></a>
+**Python 3.15.** `pysheds` declares
+[scikit-image](https://scikit-image.org/) as a required dependency, so `pip`
+always installs it, even though `delineator` never calls the one `pysheds`
+function that uses it. As of November 2026, scikit-image publishes no
+pre-built wheels for Python 3.15, so `pip` tries to compile it from source.
+That fails unless a working C/C++ toolchain is installed (on Windows, a recent
+Visual Studio Build Tools with a current Windows SDK; older toolchains fail
+with `Cannot open include file: 'stdalign.h'`). Until those wheels are
+published, the simplest option is to install `delineator` with Python 3.14 or
+earlier.
 
 ### Computational requirements
 
