@@ -52,8 +52,8 @@ def make_gage_shapefile():
     """
 
     # My gage data is in a CSV file, but TauDEM wants a shapefile. Let's use GeoPandas to convert
-    infile = f"outlets.csv"
-    outfile = f"shp/outlets.shp"
+    infile = "outlets.csv"
+    outfile = "shp/outlets.shp"
 
     # Read the data into a Pandas DataFrame
     df = pandas.read_csv(infile)
@@ -75,8 +75,8 @@ def snap_gages():
 
     :return:
     """
-    outlets = f"shp/outlets.shp"
-    outlets_snapped = f"shp/outlets_snapped.shp"
+    outlets = "shp/outlets.shp"
+    outlets_snapped = "shp/outlets_snapped.shp"
     fdir = fr"C:\Data\GIS\MERITHydro\fdir_taudem\flowdir{megabasin}.tif"
     streams = fr"C:\Data\GIS\MERITHydro\streams\streams{megabasin}.tif"
 
@@ -96,7 +96,7 @@ def delineate_taudem() -> pandas.DataFrame:
     - includes a timer for benchmarking
     """
 
-    infile = f'shp/outlets_snapped.shp'
+    infile = 'shp/outlets_snapped.shp'
 
     # Get the data for the set of gages.
     gages_gdf = geopandas.read_file(infile)
@@ -266,4 +266,4 @@ if __name__ == "__main__":
     make_gage_shapefile()
     snap_gages()
     results_df = delineate_taudem()
-    results_df.to_csv(f"taudem_results.csv", index=False)
+    results_df.to_csv("taudem_results.csv", index=False)

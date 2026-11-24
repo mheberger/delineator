@@ -11,7 +11,7 @@ from pysheds.grid import Grid
 from shapely.geometry import Polygon, MultiPolygon, shape
 from shapely import wkb
 
-from delineator.constants import DIRMAP, EARTH_RADIUS_KM, ADAPTIVE_THRESHOLD_FRACTION
+from delineator.constants import DIRMAP, EARTH_RADIUS_KM, MERIT_REACH_THRESHOLD_KM2
 from delineator.data import _find_data_file
 from delineator.settings import DelineatorConfig
 from delineator.util import pixel_area
@@ -90,102 +90,47 @@ def _snap_to_stream(streams: np.ndarray, affine, lat: float, lng: float,
 # "DeprecationWarning: 'Memory' driver is deprecated since GDAL 3.11. Use 'MEM' onwards. Further messages of this type will be suppressed."
 logging.getLogger("rasterio._env").setLevel(logging.ERROR)
 
-# (row, col) step to the receiving cell for each D8 code. pysheds orders
-# DIRMAP as N, NE, E, SE, S, SW, W, NW.
-_D8_OFFSETS = dict(zip(DIRMAP, [(-1, 0), (-1, 1), (0, 1), (1, 1),
-                                (1, 0), (1, -1), (0, -1), (-1, -1)]))
 
-
-def _find_connected_neighbors(grid: Grid, fdir, home_mask, upstream_neighbors: dict,
-                              x: float, y: float) -> set[int]:
+def _is_on_mainstem(grid: Grid, acc, lat: float, lng: float) -> bool:
     """
-    Decide which upstream neighbours of the home unit catchment actually drain
-    to the outlet.
+    Decide whether the outlet is on its unit catchment's river reach, and so
+    receives the flow from every upstream unit catchment.
 
-    An outlet on the home catchment's mainstem (below the confluence where the
-    upstream rivers enter) receives flow from every upstream neighbour. An outlet
-    on one branch above that confluence, or on a small tributary inside the home
-    catchment, receives flow from only some of them, or none. Including the
-    others would add drainage area that never reaches the outlet.
+    MERIT-Basins defines a river reach wherever the drainage area exceeds
+    MERIT_REACH_THRESHOLD_KM2 (25 km²), and gives each reach its own unit
+    catchment, which begins at the confluence at the reach's upstream end.
+    Upstream unit catchments therefore drain into the home catchment at a
+    single point on its reach. Inside the home catchment, a cell that drains
+    at least the threshold is on that reach, below the inflow point. A cell
+    that drains less is on a side channel that no upstream catchment feeds.
 
-    The test is hydrological rather than geometric: delineate the outlet's
-    catchment on the *unmasked* flow-direction window (bounding box of the home
-    catchment plus a one-pixel pad), and see which neighbours' pixels it reaches.
-    Every neighbour's outlet pixel borders the home catchment, so it lies in the
-    window, and if that neighbour drains to the outlet its outlet pixel is in
-    the catchment. A neighbour that only shares a ridge with the split is not.
-
-    pysheds zeroes the outermost ring of the window before tracing (its
-    `_pop_rim`), so a neighbour pixel on that ring never appears in the traced
-    catchment, even when it drains into it. With a one-pixel pad, that ring is
-    exactly where neighbours' outlet pixels sit (GitHub issue #13), and it also
-    holds real cells when the window is clamped to the raster's extent. So a
-    neighbour pixel on the ring also counts if its D8 receiver is in the
-    catchment.
+    Note: I chose to use a single set of accumulation rasters for delineator,
+    the version with the number of upstream pixels. The upstream *area* rasters
+    are much larger files. So we use the function `pixelarea()` to find the
+    local area of each cell, which should not change too much over the relatively
+    small area of a unit catchment.
 
     Parameters
     ----------
     grid : pysheds Grid
-        Windowed grid over the home unit catchment, not yet clipped.
-    fdir : pysheds Raster
-        Flow direction over the window, NOT masked to the home catchment.
-    home_mask : array-like
-        Rasterized home unit catchment (nonzero inside).
-    upstream_neighbors : dict[int, Polygon | MultiPolygon]
-        The unit catchments whose `nextdown` is the home catchment, keyed by comid.
-    x, y : float
-        Outlet coordinates (cell center), as passed to grid.catchment.
-
-    Returns
-    -------
-    set[int]
-        Comids of the neighbours that drain to the outlet. A neighbour with no
-        pixels in the window cannot be judged here; it is treated as connected,
-        which preserves the previous behaviour for that neighbour.
+        Windowed grid over the home unit catchment.
+    acc : pysheds Raster
+        Flow accumulation (upstream pixel count) over the window, masked to
+        the home catchment (zero outside).
+    lat, lng : float
+        Outlet coordinates, as passed to grid.catchment with snap='center'.
     """
-    comids = list(upstream_neighbors)
-    labels = np.asarray(grid.rasterize(
-        [(geom, i + 1) for i, geom in enumerate(upstream_neighbors.values())],
-        fill=0, dtype=np.int32))
-
-    # Copy before tracing: the rim test below needs the ring's original values.
-    fd = np.array(fdir, copy=True)
-
-    catch_full = grid.catchment(fdir=fdir, x=x, y=y, dirmap=DIRMAP,
-                                xytype='coordinate', recursionlimit=15000, snap='center')
-    catch_arr = np.asarray(catch_full).astype(bool)
-    inflow = catch_arr & (np.asarray(home_mask) == 0)
-
-    reached = set(np.unique(labels[inflow]).tolist())
-    present = set(np.unique(labels).tolist())
-
-    # Neighbour pixels on the window's rim, which pysheds could not trace:
-    # credit those whose D8 receiver lies in the catchment.
-    nrows, ncols = fd.shape
-    rim = np.zeros(fd.shape, dtype=bool)
-    rim[0, :] = rim[-1, :] = rim[:, 0] = rim[:, -1] = True
-    rr, cc = np.nonzero(rim & (labels > 0))
-    codes = fd[rr, cc]
-    for code, (dr, dc) in _D8_OFFSETS.items():
-        sel = codes == code
-        r2, c2 = rr[sel] + dr, cc[sel] + dc
-        ok = (r2 >= 0) & (r2 < nrows) & (c2 >= 0) & (c2 < ncols)
-        hit = np.zeros(ok.shape, dtype=bool)
-        hit[ok] = catch_arr[r2[ok], c2[ok]]
-        reached.update(labels[rr[sel][hit], cc[sel][hit]].tolist())
-
-    connected = set()
-    for i, comid in enumerate(comids):
-        label = i + 1
-        if label in reached or label not in present:
-            connected.add(comid)
-    return connected
+    col, row = grid.nearest_cell(lng, lat, snap='center')
+    nrows, ncols = acc.shape
+    if not (0 <= row < nrows and 0 <= col < ncols):
+        return False
+    cell_area_km2 = float(pixel_area(lat, abs(acc.affine.e), abs(acc.affine.a)))
+    return float(acc[row, col]) * cell_area_km2 >= MERIT_REACH_THRESHOLD_KM2
 
 
 def _split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon | MultiPolygon,
-                     home_catchment_area_km2: float, config: DelineatorConfig,
-                     upstream_neighbors: dict | None = None) -> \
-        tuple[Polygon | MultiPolygon | None, float | None, float | None, set[int] | None]:
+                     config: DelineatorConfig) -> \
+        tuple[Polygon | MultiPolygon | None, float | None, float | None, bool | None]:
     """
     Performs the detailed pixel-scale raster-based delineation for a watershed.
 
@@ -204,18 +149,8 @@ def _split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon
         longitude
     catchment_poly : Shapely Polygon or MultiPolygon
         a Shapely polygon; we'll use it to clip the flow accumulation raster to get an accurate snap
-    home_catchment_area_km2 : float
-        area of the home unit catchment in km². Used to adapt the stream
-        threshold for small watersheds: the effective threshold is
-        min(config.stream_threshold_km2, 0.25 * home_catchment_area_km2),
-        so that small catchments (whose accumulation values are small
-        everywhere) always have valid snap targets.
     config : DelineatorConfig
         a DelineatorConfig dataclass object
-    upstream_neighbors : dict[int, Polygon | MultiPolygon], optional
-        The unit catchments that drain directly into the home catchment, keyed
-        by comid. When given, the function also reports which of them actually
-        drain to the (snapped) outlet; see _find_connected_neighbors.
 
     Returns
     -------
@@ -225,9 +160,9 @@ def _split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon
         latitude of the outlet, snapped to the river centerline in the accumulation raster
     lng_snap : float
         longitude of the outlet, snapped to the river centerline in the accumulation raster
-    connected_neighbors : set[int] or None
-        comids of the upstream neighbours that drain to the outlet, or None if
-        upstream_neighbors was not given.
+    on_mainstem : bool
+        True if the outlet is on the home catchment's river reach, so every
+        upstream unit catchment drains to it; see _is_on_mainstem.
 
     """
 
@@ -297,10 +232,6 @@ def _split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon
     hexpoly = catchment_poly.wkb_hex
     poly = wkb.loads(hexpoly, hex=True)
 
-    # Fix any holes in the polygon by taking the exterior coordinates.
-    # Updated 2026-07-02 to remove. Now we are handling MultiPolygons properly. No longer need this hack!
-    #filled_poly = _close_holes(poly, area_max=0)
-
     # It needs to be of type MultiPolygon to work with rasterio apparently
     if isinstance(poly, Polygon):
         poly = MultiPolygon([poly])
@@ -310,46 +241,39 @@ def _split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon
     # Convert the polygon into a pixelized raster "mask".
     mymask = grid.rasterize(polygon_list)
 
-    # LOAD Flow Direction Grid. It is masked to the home catchment further down,
-    # after the (optional) upstream-neighbour test, which needs it unmasked.
+    # LOAD Flow Direction Grid, and confine it to the home catchment.
     fdir = grid.read_raster(fdir_path, window=bounding_box, nodata=0)
+    fdir[mymask == 0] = 0
+
+    # Open the accumulation raster, again using windowed reading mode. It is
+    # needed for snapping and for the mainstem test below.
+    accum_file = f"accum{basin}.tif"
+    accum_path = _find_data_file(accum_file, config)
+    if accum_path is None or not os.path.isfile(accum_path):
+        logger.warning(f"Could not load accumulation raster: {accum_file}")
+        return None, None, None, None
+
+    # pysheds grids expects a string, not a Path object
+    acc = grid.read_raster(
+        str(accum_path), window=bounding_box, window_crs=grid.crs, nodata=0
+    )
+
+    # MASK the accumulation raster to the unit catchment POLYGON.
+    # I found that this step is essential for good pour point snapping
+    acc[mymask == 0] = 0
 
     # Pour point snapping
     def snap_outlet() -> tuple[float | None, float | None]:
         """Snap the user-provided lat/lng coordinates to a valid point on the grid."""
         logger.info("Snapping pour point")
 
-        # Open the accumulation raster, again using windowed reading mode.
-        accum_file = f"accum{basin}.tif"
-        accum_path = _find_data_file(accum_file, config)
-        if accum_path is None:
-            logging.warning(f"Could not load accumulation raster: {accum_file}")
-            return None, None
-
-        if not os.path.isfile(accum_path):
-            raise Exception("Could not find accumulation raster: {}".format(accum_path))
-
-        # pysheds grids expects a string, not a Path object
-        acc = grid.read_raster(
-            str(accum_path), window=bounding_box, window_crs=grid.crs, nodata=0
-        )
-
-        # MASK the accumulation raster to the unit catchment POLYGON.
-        # I found that this step is essential for good pour point snapping
-        acc[mymask == 0] = 0
-
-        # Snap the outlet to the nearest stream.
-        #
-        # The stream threshold defines which cells are valid snap targets:
-        # cells whose upstream drainage area exceeds the threshold. A fixed
-        # threshold fails for small watersheds, where accumulation values are
-        # small everywhere and nothing would qualify; capping the threshold
-        # at a fraction of the home unit catchment's area guarantees that
-        # some cells always qualify, without a separate config parameter.
-        threshold_km2 = min(
-            config.stream_threshold_km2,
-            ADAPTIVE_THRESHOLD_FRACTION * home_catchment_area_km2,
-        )
+        # Snap the outlet to the nearest stream: a cell whose upstream
+        # drainage area exceeds the user's stream threshold. The threshold is
+        # used as given. MERIT-Basins reaches drain at least
+        # MERIT_REACH_THRESHOLD_KM2, so at or below that value the home
+        # catchment's reach provides snap targets. Above it, a small headwater
+        # catchment may have none, and snapping fails with a warning.
+        threshold_km2 = config.stream_threshold_km2
 
         # The accumulation raster counts upstream PIXELS, and the physical
         # area of a pixel depends on latitude (a 3-arcsecond pixel is about
@@ -367,6 +291,14 @@ def _split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon
         # Snap the pour point to a point on the accumulation grid where accum (# of upstream pixels)
         # is greater than our threshold. This is conventionally called the streams layer.
         streams = acc > numpixels
+        if not streams.any():
+            max_area_km2 = float(acc.max()) * cell_area_km2
+            logger.warning(
+                f"No stream cells in the unit catchment: its largest drainage area is "
+                f"{max_area_km2:.4g} km2, below stream_threshold_km2 = {threshold_km2:.4g}. "
+                f"Lower stream_threshold_km2 to delineate this outlet."
+            )
+            return None, None
 
         # Snap to the nearest stream cell by true (geodesic) distance, limited
         # to a maximum snap distance in km. See _snap_to_stream for details.
@@ -395,21 +327,14 @@ def _split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon
     else:
         lat_snap, lng_snap = lat, lng
 
-    # Which upstream neighbours drain to this outlet? Must run on the unmasked
-    # flow direction grid, before the mask below is applied.
-    connected_neighbors = None
-    if upstream_neighbors:
-        try:
-            connected_neighbors = _find_connected_neighbors(
-                grid, fdir, mymask, upstream_neighbors, lng_snap, lat_snap)
-        except Exception as e:
-            # Fall back to assuming every neighbour is connected (the behaviour
-            # before this test existed) rather than failing the delineation.
-            logger.warning(f"Could not test which upstream catchments drain to the outlet: {e}")
-            connected_neighbors = set(upstream_neighbors)
-
-    # Confine the split to the home catchment
-    fdir[mymask == 0] = 0
+    # Does the flow from the upstream unit catchments reach this outlet?
+    # A point snapped with a threshold of at least the reach threshold already
+    # drains more than that, so it is on the reach by construction. Otherwise
+    # (a lower threshold, or snapping off) check the outlet cell.
+    if config.snapping and config.stream_threshold_km2 >= MERIT_REACH_THRESHOLD_KM2:
+        on_mainstem = True
+    else:
+        on_mainstem = _is_on_mainstem(grid, acc, lat_snap, lng_snap)
 
     # Finally, here is the raster based watershed delineation with pysheds!
     logger.info("Splitting home unit catchment")
@@ -421,7 +346,7 @@ def _split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon
         clipped_catch = grid.view(catch, dtype=np.uint8)
     except Exception as e:
         logger.error(f"ERROR: something went wrong during pysheds grid.catchment(). Error: {e}")
-        return None, lat_snap, lng_snap, connected_neighbors
+        return None, lat_snap, lng_snap, on_mainstem
 
     # Convert high-precision raster subcatchment to a polygon using pysheds method .polygonize()
     logger.info("Convert split catchment raster to polygon")
@@ -433,4 +358,4 @@ def _split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon
     # No coordinate adjustment needed: the window grid is aligned to the
     # source raster, snapped coordinates are true cell centers, and the
     # polygonized boundary vertices fall on true pixel edges.
-    return multi, lat_snap, lng_snap, connected_neighbors
+    return multi, lat_snap, lng_snap, on_mainstem

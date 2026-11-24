@@ -31,7 +31,11 @@ The virtualenv is at `.venv/`. Use its tools directly (Windows layout):
 .venv\Scripts\pip.exe install -e .
 ```
 
-There is no pytest/ruff config block in `pyproject.toml`; both tools run on defaults.
+`[tool.pytest.ini_options]` in `pyproject.toml` skips tests marked `network` by default.
+Those download several GB into the default data directory; run them with
+`.venv\Scripts\pytest.exe -m network`.
+`[tool.ruff.lint]` pins ruff's classic default rules (`E4, E7, E9, F`), because
+ruff 0.17 widened its defaults.
 
 ### CLI entry points (defined in `pyproject.toml` [project.scripts], all map to `cli.py`)
 
@@ -48,7 +52,7 @@ The command names don't all match their function targets: `delineate → cli.mai
 
 ## Data model — critical to understand before changing anything
 
-The globe is split into **59 megabasins** (integer IDs 11–86; Greenland/91 excluded),
+The globe is split into **60 megabasins** (integer IDs 11–86; Greenland/91 excluded),
 listed in `constants.VALID_MEGABASINS`. Each megabasin needs four data files:
 `basins{NN}.db`, `rivers{NN}.db` (SQLite/SpatiaLite vector), and `flowdir{NN}.tif`,
 `accum{NN}.tif` (rasters).
@@ -92,8 +96,14 @@ Pipeline steps in `core.delineate`:
 4. **High-res only** (`config.high_res`, on by default): split the home catchment at
    the outlet using raster methods (`merit_detailed._split_catchment`, backed by
    `pysheds` + the flowdir/accum rasters). This is also where pour-point **snapping**
-   happens, gated by `config.stream_threshold_km2` (adapted for small catchments via
-   `constants.ADAPTIVE_THRESHOLD_FRACTION`).
+   happens, gated by `config.stream_threshold_km2` (used as given; if no cell in the
+   home catchment exceeds it, snapping fails with a warning). When the snap threshold is
+   below `constants.MERIT_REACH_THRESHOLD_KM2` (25 km², the dataset's reach threshold),
+   or snapping is off, `merit_detailed._is_on_mainstem` checks the outlet cell's
+   accumulation against that reach threshold; a point snapped at ≥ 25 km² is on the
+   reach by construction, so the check is skipped. Below the reach threshold,
+   the outlet is off the reach, so no upstream catchment drains to it and the watershed
+   is just the split.
 5. Fetch upstream geometries by aggregation level and `unary_union` them
    (`queries.get_upstream_geometries`), splicing in the split home catchment.
 6. Optional hole-filling (`util._close_holes`), simplify, `clean` (buffer/unbuffer),

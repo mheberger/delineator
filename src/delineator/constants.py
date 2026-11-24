@@ -11,10 +11,12 @@ EARTH_RADIUS_KM = 6371.0088  # authalic sphere radius, WGS84
 KM_PER_DEGREE = math.pi * EARTH_RADIUS_KM / 180  # great-circle km per degree of arc, ≈111.195
 
 
-# For small watersheds, the stream threshold is capped at this fraction of
-# the home unit catchment's area, so that some cells always qualify as snap
-# targets. See the threshold logic in merit_detailed.py > _split_catchment.snap_outlet().
-ADAPTIVE_THRESHOLD_FRACTION = 0.25
+# Drainage area above which MERIT-Basins defines a river reach (and gives it
+# a unit catchment). A property of the dataset, independent of the user's
+# snapping threshold (config.stream_threshold_km2). An outlet whose cell drains
+# less than this is off its unit catchment's reach, so no upstream unit
+# catchment drains to it. See merit_detailed.py > _is_on_mainstem().
+MERIT_REACH_THRESHOLD_KM2 = 25.0
 
 # Output smoothing (config.smooth). Rivers are smoothed with centripetal
 # Catmull-Rom splines; the watershed boundary with Chaikin corner cutting.
@@ -31,10 +33,12 @@ DIRMAP = (64, 128, 1, 2, 4, 8, 16, 32)
 # many decimal places shall we use?
 ROUNDING_DECIMALS = 6
 
-# There are 61 megabasins, but we are not including Greenland
+# There are 61 megabasins, but we are not including Greenland, so there should be 60 here
 VALID_MEGABASINS = [11, 12, 13, 14, 15, 16, 17, 18, 21, 22, 23, 24, 25, 26, 27, 28, 29, 31, 32, 33, 34, 35, 36, 41, 42,
                     43, 44, 45, 46, 47, 48, 49, 51, 52, 53, 54, 55, 56, 57, 61, 62, 63, 64, 65, 66, 67, 71, 72, 73, 74,
                     75, 76, 77, 78, 81, 82, 83, 84, 85, 86]
+
+assert len(VALID_MEGABASINS) == 60
 
 # Location of the megabasins spatialite file (sqlite equivalent of a geopackage or shapefile)
 MEGABASINS_DB_FILE = files('delineator').joinpath('data', 'megabasins.db')
@@ -51,7 +55,7 @@ HASHES = {
     "accum14.tif": "4524ce1c046f9f2bebd202289823a9d74afc70746ac8e48a3b00998862dc9241",
     "accum15.tif": "256740e3a6015446960e90941f55ca162d5c9e94b3f90173c3dc65e8d330f555",
     "accum16.tif": "a5dff7a1fa6ace66e9644ce65e882fb7f90c02208fad62a5e2bf7c30c4b8065b",
-    "accum17.tif": "420025f8ab064521d9ee8e6697eec50e06dd2b7fe22441cf22450dd2a751335d",
+    "accum17.tif": "ea6aa0139c720f52e7ebb1e5d865dd586bf6494d2505a3d05876164029c43e57",
     "accum18.tif": "b711db369419babd6306490c6a80eed321f212d42b65af76e494a4fcf6fce5d7",
     "accum21.tif": "cf6c34d85fedb0f59f893c15ec9fc98efe0c650ece81cbb2ee05eee166600b0f",
     "accum22.tif": "8a4be8d095b7991b656527b1a59806dc305ccb9f30a78303a8f2c89b16cdfef8",
@@ -165,7 +169,7 @@ HASHES = {
     "flowdir84.tif": "fa4170f33459b033eb6d628e49817b4a22bf0890f5b7150276c3eae744c7da13",
     "flowdir85.tif": "f1b76d4148bbc70dc95129b26c578f16fe970b1473375a15872eb08a09ff0390",
     "flowdir86.tif": "9afd1d0cdbbc0041b376d27d15c5c7e9eb8a949c11825662ed6ffbd0683cfafd",
-       "basins11.db": "0043a2ba3f36c866014c3a1a3fc8810978194cf16f98d2983469454ef88c0c77",
+    "basins11.db": "0043a2ba3f36c866014c3a1a3fc8810978194cf16f98d2983469454ef88c0c77",
     "basins12.db": "1631738fc7bd828908fc2e09ec25fda14eafe2ba61f4ad24e1e0dedf75da1040",
     "basins13.db": "b1be34cf533a62218828182a91b2dbd06e337afbfd5cd26137c8733e2856b070",
     "basins14.db": "5d1729a1cc1ce863c96ea1dd78f54358d1b40cc3d77b7542eafe93dbe2946b5b",

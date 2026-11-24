@@ -11,8 +11,6 @@ ESRI ArcGIS Online "Create Watersheds" tool.
 import os
 import geopandas as gpd
 import pandas as pd
-from shapely.ops import transform
-import pyproj
 
 
 def calculate_iou(feature, gpkgfile):

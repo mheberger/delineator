@@ -1,7 +1,8 @@
 """
-delineator 2.0: Global Watershed Delineation with Python
+delineator 2.0: Global Watershed Delineation with Python and data from
+MERIT-Hydro and MERIT-Basins
 
-Matthew Heberger, May 2026
+Matthew Heberger, major refactor in May 2026
 
 Formerly a collection of Python scripts, rewritten as a Python package
 
@@ -10,10 +11,13 @@ Formerly a collection of Python scripts, rewritten as a Python package
 import logging
 from collections import OrderedDict
 from contextlib import closing
+from pathlib import Path
+from typing import Any
 import geopandas as gpd
 import shapely
 from shapely.ops import unary_union
 from shapely.geometry import Point
+from shapely.geometry.base import BaseGeometry
 import sqlite3
 import warnings
 
@@ -27,7 +31,7 @@ from delineator.data import _find_data_file
 from delineator.util import _validate_outlet_coordinates, _close_holes, _get_polygon_area
 from delineator.spatial import _point_in_polygon_analysis
 from delineator.queries import get_upstream_comids, get_home_unit_catchment_geom_and_area, get_hiearchical_basins, \
-    get_upstream_geometries, get_rivers, get_upstream_area, get_upstream_neighbors
+    get_upstream_geometries, get_rivers, get_upstream_area
 from delineator.merit_detailed import _split_catchment
 from delineator.settings import DelineatorConfig
 from delineator.smoothing import _smooth_river_geometry, _smooth_watershed_geometry
@@ -40,7 +44,7 @@ logger = logging.getLogger(__name__)
 # is a sufficient cache key. The cache is bounded because dissolved
 # geometries can be large; it assumes one set of data files per process
 # (call clear_cache() if you switch data directories mid-session).
-_CACHE: OrderedDict = OrderedDict()
+_CACHE: OrderedDict[tuple[str, int], Any] = OrderedDict()
 _CACHE_MAXSIZE = 64
 
 
@@ -49,20 +53,23 @@ def clear_cache() -> None:
     _CACHE.clear()
 
 
-def _cache_get(key):
+def _cache_get(key: tuple[str, int]) -> Any | None:
+    """Return the cached value for *key* and mark it most recently used, or None on a miss."""
     value = _CACHE.get(key)
     if value is not None:
         _CACHE.move_to_end(key)
     return value
 
 
-def _cache_put(key, value) -> None:
+def _cache_put(key: tuple[str, int], value: Any) -> None:
+    """Store *value* under *key*, evicting the least recently used entries past ``_CACHE_MAXSIZE``."""
     _CACHE[key] = value
     while len(_CACHE) > _CACHE_MAXSIZE:
         _CACHE.popitem(last=False)
 
 
-def _get_upstream_catchments(basins_db_conn, home_unit_catchment, use_cache: bool):
+def _get_upstream_catchments(basins_db_conn: sqlite3.Connection, home_unit_catchment: int,
+                             use_cache: bool) -> tuple[list[int], dict | None]:
     """
     Return ``(upstream_unit_catchments, basins_dict)`` for the home unit
     catchment: the recursive-CTE traversal of the drainage network and the
@@ -87,8 +94,8 @@ def _get_upstream_catchments(basins_db_conn, home_unit_catchment, use_cache: boo
     return upstream_unit_catchments, basins_dict
 
 
-def _get_upstream_union(basins_db_path, home_unit_catchment, basins_dict,
-                        use_cache: bool):
+def _get_upstream_union(basins_db_path: Path, home_unit_catchment: int, basins_dict: dict,
+                        use_cache: bool) -> BaseGeometry:
     """
     Fetch the upstream catchment geometries and dissolve them into a single
     (Multi)Polygon, optionally caching the result. This is the most expensive
@@ -114,58 +121,56 @@ def _get_upstream_union(basins_db_path, home_unit_catchment, basins_dict,
     return union
 
 
-def _get_branch(basins_db_conn, basins_db_path, comid, use_cache: bool):
-    """
-    Return ``(comids, union)`` for the branch of the network that drains to
-    unit catchment ``comid``: every comid in it (``comid`` first) and their
-    dissolved geometry, *including* ``comid`` itself. Used when only some of the
-    home catchment's upstream neighbours drain to the outlet.
-    """
-    key = ('branch', int(comid))
-    if use_cache:
-        cached = _cache_get(key)
-        if cached is not None:
-            return cached
-
-    comids = get_upstream_comids(basins_db_conn, int(comid))
-    basins_dict = get_hiearchical_basins(basins_db_conn, comids)
-    union = unary_union(get_upstream_geometries(basins_db_path, basins_dict))
-
-    if use_cache:
-        _cache_put(key, (comids, union))
-
-    return comids, union
-
-
 def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) -> tuple[
     gpd.GeoDataFrame | None,  # watershed
     gpd.GeoDataFrame | None,  # rivers
     gpd.GeoDataFrame | None,  # outlets
 ]:
     """
-    Main watershed delineation routine.
+    Delineate the watershed upstream of an outlet point.
 
     Parameters
     ----------
     lat, lng : float
-        Coordinates of the outlet point in decimal degrees.
+        Coordinates of the outlet point in decimal degrees (EPSG:4326).
+        Note the order: latitude first.
     config : DelineatorConfig, optional
-        Configuration object. If not provided, one is created with default settings.
+        Configuration object. If not provided, one is created with default
+        settings. The object is not modified, so it can be reused across calls.
 
     Returns
     -------
-    watershed : GeoDataFrame
-        The watershed boundary polygon.
-    rivers : GeoDataFrame
-        The river reaches within the watershed.
-    outlets : GeoDataFrame
-        The requested and snapped watershed outlets.
+    watershed : GeoDataFrame or None
+        A single-row GeoDataFrame with the watershed boundary polygon, in
+        EPSG:4326. In high-res mode it has ``outlet_lat`` and ``outlet_lng``
+        columns with the snapped outlet. When ``config.calc_area`` is True it
+        has an ``area_km2`` column with the watershed's area, and when
+        ``config.fill`` is also True, a ``filled_area`` column with the part of
+        that area (km²) added by filling holes.
+        None if the watershed could not be delineated.
+    rivers : GeoDataFrame or None
+        The river reaches within the watershed. None if ``config.rivers`` is
+        False, or if there are no rivers (e.g. in coastal catchments).
+    outlets : GeoDataFrame or None
+        Point features for the requested outlet and, in high-res mode, the
+        snapped outlet, distinguished by the ``type`` column (``"requested"``
+        or ``"snapped"``). None if ``config.outlets`` is False.
 
     Notes
     -----
-    Any of the returned objects will be None if it cannot be produced.
-    This function logs a warning if the watershed cannot be created but
-    does not raise an error.
+    This function does not raise on failure. If the watershed cannot be
+    delineated (invalid coordinates, an outlet over the ocean, missing data
+    files, a failed snap), it logs a warning and returns ``(None, None, None)``.
+
+    Missing data files for the outlet's megabasin are downloaded on first use
+    unless ``config.auto_download`` is False.
+
+    Examples
+    --------
+    >>> from delineator import delineate, DelineatorConfig
+    >>> watershed, rivers, outlets = delineate(64.71072, -21.60337)
+    >>> watershed, _, _ = delineate(64.71072, -21.60337,
+    ...                             DelineatorConfig(rivers=False, outlets=False))
     """
     if config is None:
         config = DelineatorConfig()
@@ -236,20 +241,11 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
     home_unit_catchment_polygon, home_catchment_area = get_home_unit_catchment_geom_and_area(basins_db_path,
                                                                                              home_unit_catchment)
     if config.high_res:
-        # Find the set of unit catchments upstream of the home catchment.
-        # Normally all of them are upstream of the outlet, but not always:
-        #   - If the outlet is on one branch above a confluence inside the home
-        #     catchment, only that branch's neighbour drains to it.
-        #   - If the outlet is on a small tributary that starts inside the home
-        #     catchment, none of them do.
-        upstream_neighbors = (None if is_singleton
-                              else get_upstream_neighbors(basins_db_path, home_unit_catchment))
-
-        # Perform the split - returns the portion of the home catchment upstream of the outlet using raster methods
-        # Also reports which neighbours it reaches; only those are added to the watershed below.
-        split_catchment_polygon, lat_snapped, lon_snapped, connected_neighbors = _split_catchment(
-            megabasin, lat, lng, home_unit_catchment_polygon, home_catchment_area, config,
-            upstream_neighbors=upstream_neighbors)
+        # Perform the split - returns the portion of the home catchment upstream of the outlet using raster methods.
+        # Also reports whether the outlet is on the home catchment's river reach. If it is not (it is on a
+        # small tributary within the home catchment), none of the upstream unit catchments drain to it.
+        split_catchment_polygon, lat_snapped, lon_snapped, on_mainstem = _split_catchment(
+            megabasin, lat, lng, home_unit_catchment_polygon, config)
         if split_catchment_polygon is None:
             return None, None, None
 
@@ -281,60 +277,31 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
             return None, None, None
 
         watershed_polygon = split_catchment_polygon
+    elif config.high_res and not on_mainstem:
+        # Nothing upstream drains to the outlet: it lies on a small tributary
+        # inside the home catchment (or off the river network, with snapping
+        # disabled). The watershed is just the local split.
+        logger.warning(
+            "None of the upstream unit catchments drain to this outlet: it lies on a "
+            "small tributary or off the river network within its unit catchment. "
+            "Returning only the local catchment above the outlet. Raise "
+            "stream_threshold_km2 (or move the outlet onto a larger river) to "
+            "delineate the full upstream watershed."
+        )
+        upstream_unit_catchments = [home_unit_catchment]
+        inflow_area = 0.0
+        watershed_polygon = split_catchment_polygon
+
     else:
-        # In high-res mode, keep only the upstream branches that drain to the
-        # outlet (see _find_connected_neighbors). Low-res mode keeps them all.
-        if config.high_res:
-            disconnected = [c for c in upstream_neighbors if c not in connected_neighbors]
-        else:
-            disconnected = []
-
-        if not disconnected:
-            # Step 7: Merge and dissolve the polygons. basins_dict, the
-            # hierarchical nested set of catchments, was fetched in Step 4 while
-            # the basins database connection was open. The union covers only the
-            # upstream catchments; the home catchment geometry (split in
-            # high-res mode, whole in low-res mode) is merged in here.
-            upstream_union = _get_upstream_union(basins_db_path, home_unit_catchment,
-                                                 basins_dict, config.cache)
-            home_geom = split_catchment_polygon if config.high_res else home_unit_catchment_polygon
-            watershed_polygon = unary_union([upstream_union, home_geom])
-
-        elif len(disconnected) == len(upstream_neighbors):
-            # Nothing upstream drains to the outlet: it lies on a small tributary
-            # inside the home catchment (or off the river network, with snapping
-            # disabled). The watershed is just the local split.
-            logger.warning(
-                "None of the upstream unit catchments drain to this outlet: it lies on a "
-                "small tributary or off the river network within its unit catchment. "
-                "Returning only the local catchment above the outlet. Raise "
-                "stream_threshold_km2 (or move the outlet onto a larger river) to "
-                "delineate the full upstream watershed."
-            )
-            upstream_unit_catchments = [home_unit_catchment]
-            inflow_area = 0.0
-            watershed_polygon = split_catchment_polygon
-
-        else:
-            # Only some upstream branches drain to the outlet: it sits on one
-            # branch above a confluence inside the home catchment. Assemble the
-            # watershed from the connected branches alone.
-            logger.warning(
-                f"The outlet is above a confluence within its unit catchment; "
-                f"excluding {len(disconnected)} of {len(upstream_neighbors)} upstream "
-                f"branches that join the river downstream of the outlet."
-            )
-            connected = [c for c in upstream_neighbors if c in connected_neighbors]
-            with closing(sqlite3.connect(basins_db_path)) as basins_db_conn:
-                branches = [_get_branch(basins_db_conn, basins_db_path, c, config.cache)
-                            for c in connected]
-            upstream_unit_catchments = [home_unit_catchment] + [
-                c for comids, _ in branches for c in comids]
-            watershed_polygon = unary_union(
-                [union for _, union in branches] + [split_catchment_polygon])
-            if config.calc_area:
-                branch_areas = [get_upstream_area(c, config) for c in connected]
-                inflow_area = None if None in branch_areas else sum(branch_areas)
+        # Step 7: Merge and dissolve the polygons. basins_dict, the
+        # hierarchical nested set of catchments, was fetched in Step 4 while
+        # the basins database connection was open. The union covers only the
+        # upstream catchments; the home catchment geometry (split in
+        # high-res mode, whole in low-res mode) is merged in here.
+        upstream_union = _get_upstream_union(basins_db_path, home_unit_catchment,
+                                             basins_dict, config.cache)
+        home_geom = split_catchment_polygon if config.high_res else home_unit_catchment_polygon
+        watershed_polygon = unary_union([upstream_union, home_geom])
 
     # Fill interior "donut holes". These appear both in raster-split home
     # catchments (including single-catchment watersheds) and in the gaps between
@@ -369,11 +336,11 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
         if watershed_area is not None:
             watershed_gdf["area_km2"] = round(watershed_area, 1)
 
-            # area_km2 is the drainage area summed from the source-dataset unit
-            # catchments. When fill=True, _close_holes adds the area of the filled
-            # interior holes to the polygon, so its geometric area no longer matches
-            # that figure. Rather than distort area_km2, report the added area
-            # separately as area_filled (actual polygon area minus area_km2).
+            # watershed_area is the drainage area summed from the source-dataset
+            # unit catchments. When fill=True, _close_holes adds the area of the
+            # filled interior holes to the polygon, so that sum no longer matches
+            # the delivered polygon. area_km2 then reports the polygon's actual
+            # area, and filled_area reports how much of it the filling added.
             if config.fill:
                 filled_polygon_area = _get_polygon_area(watershed_polygon)
                 watershed_gdf["area_km2"] = round(filled_polygon_area, 1)
@@ -406,8 +373,8 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
     # Step 8: Get the rivers if requested by the user
     if config.rivers:
         logger.info("Getting rivers")
-        # upstream_unit_catchments was narrowed above to the branches that
-        # drain to the outlet, so disconnected reaches are left out.
+        # upstream_unit_catchments was narrowed above to the home catchment
+        # alone when the outlet is off its reach, so other reaches are left out.
         rivers_gdf = get_rivers(upstream_unit_catchments, split_catchment_polygon, config)
         if rivers_gdf is not None:
             if config.simplify:
@@ -447,31 +414,40 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
     return watershed_gdf, rivers_gdf, outlets_gdf
 
 
-def downloader(basin: int, data_dir: str | None = None):
+def downloader(basin: int, data_dir: str | None = None) -> dict | None:
     """
-    Utility function to download the data files for a given basin.
-    This will download the data files for megabasin 11 to the specified directory,
-    including the vector data (unit catchments, rivers) and raster data (flow
-    direction, accumulation)
+    Download the data files for one megabasin, if not already present.
 
-    Usage
-    -----
-    `downloader(basin=11, data_dir="path/to/data/directory")`
+    Fetches the four files that delineation needs for the megabasin: the
+    vector data (unit catchments, rivers) and the raster data (flow
+    direction, flow accumulation). Files already on disk are not downloaded
+    again. Use this to prepare data ahead of time, for example before
+    working offline; otherwise ``delineate`` downloads files on first use.
 
     Parameters
     ----------
-    basin: int
-        The megabasin ID, and integer from 11 to 86
-        For example, megabasin 56 covers Australia
-
-    data_dir: str, optional
-        Location where the data files will be downloaded. If not provided,
-        defaults to your system's default data directory, for example, on Windows:
+    basin : int
+        The megabasin ID, an integer from 11 to 86 (see
+        ``constants.VALID_MEGABASINS``). For example, megabasin 56 covers
+        Australia.
+    data_dir : str, optional
+        Directory to download the data files into. If not provided, uses the
+        ``DELINEATOR_DATA_DIR`` environment variable if set, and otherwise your
+        system's default data directory, for example on Windows:
         C:\\Users\\<username>\\AppData\\Local\\delineator
 
     Returns
     -------
-    Nothing. Raises an error if something goes wrong.
+    dict[str, Path | None] or None
+        The local path of each data file, keyed by file type ("Unit catchments",
+        "Rivers", "Flow Direction", "Flow Accumulation"). A path is None if that
+        file could not be found or downloaded. Returns None if the megabasin ID
+        is invalid.
+
+    Examples
+    --------
+    >>> from delineator import downloader
+    >>> paths = downloader(basin=56, data_dir="path/to/data/directory")
     """
     # Pass data_dir to the constructor, not set it afterwards, so the config
     # marks it as a custom (flat) directory, the same as delineate() does.
@@ -490,6 +466,9 @@ def downloader(basin: int, data_dir: str | None = None):
         "Flow Accumulation": f"accum{basin}.tif",
     }
 
+    paths = {}
     for filetype, file in files.items():
         path = _find_data_file(file, config)
         print(f"{filetype} file is at: {path}")
+        paths[filetype] = path
+    return paths

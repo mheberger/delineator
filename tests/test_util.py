@@ -20,6 +20,14 @@ from delineator.util import (
 
 
 def test_delineator_config_coerces_string_paths_and_normalizes_output_format(tmp_path):
+    """
+    DelineatorConfig converts its inputs to standard types.
+
+    Checks three conversions:
+    - string paths become pathlib.Path
+    - ".GeoJSON" becomes "geojson" (leading dot dropped, lowercased)
+    - integer values for float options become floats
+    """
     data_dir = tmp_path / "data"
     output_dir = tmp_path / "outputs"
 
@@ -59,6 +67,12 @@ def test_delineator_config_coerces_string_paths_and_normalizes_output_format(tmp
     ],
 )
 def test_delineator_config_rejects_non_bool_boolean_fields(field_name):
+    """
+    Boolean options reject non-bool values such as "yes" with a TypeError.
+
+    A truthy string would otherwise quietly switch an option on. Runs once for
+    each boolean option listed.
+    """
     kwargs = {field_name: "yes"}
 
     with pytest.raises(TypeError, match=f"{field_name} must be a bool"):
@@ -86,11 +100,24 @@ def test_delineator_config_rejects_non_bool_boolean_fields(field_name):
     ],
 )
 def test_delineator_config_validation_errors(kwargs, error_type, message):
+    """
+    Invalid option values raise the right error type with a helpful message.
+
+    Each case sets one bad value. Wrong types raise TypeError, and values out
+    of range raise ValueError. bool is rejected for numeric options even though
+    it is a subclass of int in Python.
+    """
     with pytest.raises(error_type, match=message):
         DelineatorConfig(**kwargs)
 
 
 def test_delineator_config_treats_data_dir_env_var_as_custom(monkeypatch, tmp_path):
+    """
+    A data_dir taken from DELINEATOR_DATA_DIR counts as custom, so it uses the flat layout.
+
+    The spaces around the path are stripped, as in
+    test_get_data_dir_strips_whitespace_around_env_var in test_queries.py.
+    """
     monkeypatch.setenv("DELINEATOR_DATA_DIR", f"  {tmp_path}  ")
 
     config = DelineatorConfig()
@@ -100,6 +127,9 @@ def test_delineator_config_treats_data_dir_env_var_as_custom(monkeypatch, tmp_pa
 
 
 def test_delineator_config_ignores_whitespace_only_data_dir_env_var(monkeypatch):
+    """
+    A DELINEATOR_DATA_DIR containing only spaces doesn't count as a custom data directory.
+    """
     monkeypatch.setenv("DELINEATOR_DATA_DIR", "   ")
 
     config = DelineatorConfig()
@@ -108,7 +138,22 @@ def test_delineator_config_ignores_whitespace_only_data_dir_env_var(monkeypatch)
     assert config.custom_data_dir is False
 
 
+def test_delineator_config_uses_output_dir_environment_variable(monkeypatch, tmp_path):
+    """
+    DelineatorConfig takes its default output_dir from DELINEATOR_OUTPUT_DIR.
+    """
+    output_dir = tmp_path / "env-output"
+    monkeypatch.setenv("DELINEATOR_OUTPUT_DIR", str(output_dir))
+
+    config = DelineatorConfig()
+
+    assert config.output_dir == output_dir
+
+
 def test_validate_outlet_coordinates_accepts_valid_float_coordinates():
+    """
+    Valid coordinates are returned unchanged, in (lat, lng) order.
+    """
     assert _validate_outlet_coordinates(45.0, -120.0) == (45.0, -120.0)
 
 
@@ -124,11 +169,23 @@ def test_validate_outlet_coordinates_accepts_valid_float_coordinates():
     ],
 )
 def test_validate_outlet_coordinates_rejects_invalid_coordinates(lat, lng, error_type, message):
+    """
+    Infinite, NaN and out-of-range coordinates raise ValueError with a message naming the problem.
+
+    delineate() accepts latitudes between -60 and 85 and longitudes between
+    -180 and 180, all exclusive, so each boundary value must be rejected.
+    """
     with pytest.raises(error_type, match=message):
         _validate_outlet_coordinates(lat, lng)
 
 
 def test_close_holes_fills_all_polygon_holes_when_area_max_is_zero():
+    """
+    With area_max_km2=0, _close_holes fills every hole in a Polygon.
+
+    0 is the special value meaning "fill all holes, whatever their size". The
+    result must be the outer ring alone, with the full area of the square.
+    """
     polygon_with_hole = Polygon(
         shell=[(0, 0), (5, 0), (5, 5), (0, 5)],
         holes=[[(1, 1), (2, 1), (2, 2), (1, 2)]],
@@ -143,6 +200,9 @@ def test_close_holes_fills_all_polygon_holes_when_area_max_is_zero():
 
 
 def test_close_holes_applies_to_each_polygon_in_multipolygon():
+    """
+    _close_holes fills holes in every part of a MultiPolygon and keeps all the parts.
+    """
     polygon_with_hole = Polygon(
         shell=[(0, 0), (5, 0), (5, 5), (0, 5)],
         holes=[[(1, 1), (2, 1), (2, 2), (1, 2)]],
@@ -158,6 +218,14 @@ def test_close_holes_applies_to_each_polygon_in_multipolygon():
 
 
 def test_ring_area_km2_approximates_equatorial_square():
+    """
+    _ring_area_km2 gives roughly the right area for a 1° square at the equator.
+
+    At the equator, a degree is about the same distance in either direction,
+    so the area should be close to KM_PER_DEGREE squared. This checks the
+    degrees-to-km² conversion that _close_holes uses to compare holes with
+    area_max_km2.
+    """
     ring = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)]).exterior
 
     # A 1° x 1° square near the equator is about KM_PER_DEGREE² in km²
@@ -165,6 +233,13 @@ def test_ring_area_km2_approximates_equatorial_square():
 
 
 def test_close_holes_keeps_holes_larger_than_area_max_km2():
+    """
+    With a positive area_max_km2, only holes at or below that size are filled.
+
+    The polygon has one hole of about 0.3 km² and one of about 12,000 km². With
+    a 1 km² limit, the small one must be filled and the large one kept exactly
+    as it was.
+    """
     # Near the equator, a 0.005° square hole is ~0.3 km²; a 1° square is ~12,000 km²
     small_hole = [(0.2, 0.2), (0.205, 0.2), (0.205, 0.205), (0.2, 0.205)]
     large_hole = [(1, 1), (2, 1), (2, 2), (1, 2)]
@@ -180,6 +255,9 @@ def test_close_holes_keeps_holes_larger_than_area_max_km2():
 
 
 def test_close_holes_rejects_unsupported_geometry_type():
+    """
+    _close_holes raises ValueError for geometry that isn't a Polygon or MultiPolygon.
+    """
     line = LineString([(0, 0), (1, 1)])
 
     with pytest.raises(ValueError, match="Unsupported geometry type"):
@@ -187,8 +265,14 @@ def test_close_holes_rejects_unsupported_geometry_type():
 
 
 def test_write_outputs_parquet_passes_path_per_layer(tmp_path, monkeypatch):
-    # to_parquet needs pyarrow, which may not be installed; intercept it and
-    # check the path argument instead (a regression here once passed a tuple)
+    """
+    For parquet output, write_outputs passes a single file path for each layer.
+
+    A regression once passed a tuple instead of a path. to_parquet needs
+    pyarrow, which may not be installed, so the test replaces it with a stub
+    that records the path it was given. The only layer here is the watershed,
+    which must go to watershed_<id>.parquet in output_dir.
+    """
     paths = []
 
     def fake_to_parquet(self, path, **kwargs):
@@ -206,3 +290,61 @@ def test_write_outputs_parquet_passes_path_per_layer(tmp_path, monkeypatch):
 
     assert paths == [tmp_path / "watershed_test.parquet"]
     assert all(isinstance(p, Path) for p in paths)
+
+
+def _precise_square_gdf():
+    """A one-row GeoDataFrame whose corner coordinates have 7 decimal places."""
+    square = Polygon([(0.1234567, 0.1234567), (1.1234567, 0.1234567),
+                      (1.1234567, 1.1234567), (0.1234567, 1.1234567)])
+    return gpd.GeoDataFrame(geometry=[square], crs="EPSG:4326")
+
+
+def test_write_outputs_rounds_copies_not_inputs(tmp_path):
+    """
+    With round_coordinates=True, the file is rounded but the caller's GeoDataFrame is not.
+
+    Writes a square with 7-decimal coordinates to a GeoPackage, then checks
+    that the written layer is rounded to 6 decimals while the GeoDataFrame
+    passed in still has its original coordinates.
+    """
+    watershed_gdf = _precise_square_gdf()
+    config = DelineatorConfig(output_dir=tmp_path, output_format="gpkg", round_coordinates=True)
+
+    write_outputs(watershed_gdf, None, None, config)
+
+    # set_precision may start the ring at a different vertex, so compare the corners as a set
+    written = gpd.read_file(tmp_path / "watershed.gpkg", layer="watershed")
+    written_corners = {(round(x, 9), round(y, 9)) for x, y in written.geometry.iloc[0].exterior.coords}
+    assert written_corners == {(0.123457, 0.123457), (1.123457, 0.123457),
+                               (1.123457, 1.123457), (0.123457, 1.123457)}
+    assert watershed_gdf.geometry.iloc[0].exterior.coords[0] == (0.1234567, 0.1234567)
+
+
+def test_write_outputs_keeps_precision_when_round_coordinates_false(tmp_path):
+    """
+    With round_coordinates=False, write_outputs writes the coordinates unrounded.
+
+    A regression once rounded to 6 decimals regardless of the setting.
+    """
+    config = DelineatorConfig(output_dir=tmp_path, output_format="gpkg", round_coordinates=False)
+
+    write_outputs(_precise_square_gdf(), None, None, config)
+
+    written = gpd.read_file(tmp_path / "watershed.gpkg", layer="watershed")
+    assert written.geometry.iloc[0].exterior.coords[0] == (0.1234567, 0.1234567)
+
+
+def test_write_outputs_with_all_layers_none_writes_nothing(tmp_path, caplog):
+    """
+    When the watershed, rivers and outlets are all None, write_outputs logs a warning and writes no files.
+
+    This is what delineate() returns when it fails, so passing its result
+    straight to write_outputs must not raise.
+    """
+    config = DelineatorConfig(output_dir=tmp_path, output_format="gpkg")
+
+    with caplog.at_level("WARNING", logger="delineator.util"):
+        write_outputs(None, None, None, config)
+
+    assert list(tmp_path.iterdir()) == []
+    assert "Nothing to write" in caplog.text

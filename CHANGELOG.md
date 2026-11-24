@@ -7,6 +7,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- `stream_threshold_km2` is now used exactly as given. Before, it was silently
+  capped at 25% of the outlet's unit catchment area
+  (`ADAPTIVE_THRESHOLD_FRACTION`), so in small catchments the outlet could
+  snap to a channel much smaller than the threshold asked for. Removed the
+  `ADAPTIVE_THRESHOLD_FRACTION` constant. If no cell in the unit catchment
+  drains more than the threshold, snapping now fails with a warning that
+  gives the catchment's largest drainage area. At the default of 25 km² (the
+  MERIT-Basins reach threshold) this should not happen; above it, small
+  headwater outlets may need a lower threshold.
+
+### Fixed
+
+- `write_outputs` now respects `round_coordinates=False`. Before, it always
+  rounded the watershed and river coordinates to 6 decimal places, and it did
+  so in place, changing the GeoDataFrames passed to it.
+- `write_outputs` no longer raises when the watershed is `None`, as it is when
+  `delineate` fails. It writes whichever layers are present, and if there are
+  none, logs a warning and writes nothing.
+- `delineator.__version__` reported 2.2.5 in the 2.2.6 release.
+
+
+## [2.2.6] - 2026-11-22
+
 ### Fixed
 
 - Watersheds could leave out an upstream branch that does drain to the outlet
@@ -29,6 +54,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   to the wrong folder. Scripts that read its output need updating.
 - The `--data-dir` help for `delineate` and `delineator_download` now says to
   run `delineator_dir` to see the default.
+- Simpler test for whether upstream unit catchments drain to the outlet. A
+  MERIT-Basins unit catchment begins at the confluence where its upstream
+  catchments flow in, and every river reach drains more than 25 km². So the
+  outlet receives the upstream flow exactly when its snapped cell drains at
+  least 25 km²; otherwise the watershed is only the local catchment above it.
+  This replaces a second pysheds trace over the neighbouring catchments
+  (including the edge-cell workaround for #13) with one lookup in the
+  accumulation raster. The partial case (an outlet above a confluence within
+  its unit catchment) cannot occur in MERIT-Basins and is no longer handled.
+  Results on a sample of Iceland outlets are unchanged. With snapping off,
+  the accumulation raster is now also required.
 
 
 ## [2.2.5] - 2026-11-21

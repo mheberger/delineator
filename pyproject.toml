@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "delineator"
 description = "Global watershed delineation with MERIT-Hydro and MERIT-Basins data"
-version = "2.2.5"
+version = "2.2.6"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -70,3 +70,17 @@ extend_exclude = ["data_mgmt", "benchmarking", "examples"]
 # tqdm is never imported by the package, but pooch.retrieve(progressbar=True)
 # needs it at runtime (see download.py), so it must stay a declared dependency.
 DEP002 = ["tqdm"]
+
+[tool.ruff.lint]
+# Pin ruff's classic default rule set (pyflakes + core pycodestyle errors).
+# Ruff 0.17 widened its defaults (isort, blind-except, pyupgrade, ...); keep
+# the old behavior until those rules are adopted deliberately.
+select = ["E4", "E7", "E9", "F"]
+
+[tool.pytest.ini_options]
+# Tests marked `network` download several GB of data into the default data
+# directory, so they are skipped unless asked for: `pytest -m network`.
+markers = [
+    "network: downloads data for megabasins other than Iceland (several GB)",
+]
+addopts = "-m 'not network'"

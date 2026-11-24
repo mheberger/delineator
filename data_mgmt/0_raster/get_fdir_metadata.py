@@ -1,5 +1,4 @@
 import rasterio
-import numpy as np
 
 data_dir = r'C:\Users\mheberger\Documents\watershed_app\static\data'
 

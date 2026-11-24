@@ -9,11 +9,21 @@ import logging
 from delineator.core import delineate, downloader
 from delineator.settings import DelineatorConfig, _resolve_default_data_dir
 from delineator.util import write_outputs
-from delineator.constants import DATA_DIR_NAME
+from delineator.constants import DATA_DIR_NAME, VALID_MEGABASINS
 from delineator.validation import _validate_and_normalize_df
 from delineator.serve import serve
 
 logger = logging.getLogger(__name__)
+
+
+def _check_megabasin(ctx, param, value):
+    """Click callback: reject a --basin value that isn't a valid megabasin ID."""
+    if value not in VALID_MEGABASINS:
+        raise click.BadParameter(
+            f"{value} is not a valid megabasin ID. Must be one of: "
+            + ", ".join(str(b) for b in VALID_MEGABASINS)
+        )
+    return value
 
 
 @click.command()
@@ -55,22 +65,14 @@ def main(point, id, outlets_csv, data_dir, auto_download, high_res, output_dir,
         delineate --point 48.834 2.263  # Create watershed for a single outlet
 
         # Single outlet with a variety of options
-        delineate --point 48.863, 2.314 --id alexandreIII --rivers --outlets --fill --simplify --output-dir D:/Projects/watersheds --output-format geojson
+        delineate --point 48.863 2.314 --id alexandreIII --rivers --outlets --fill --simplify --output-dir D:/Projects/watersheds --output-format geojson
 
-        # Batch delienation of a list of outlet points in a CSV file; see docs for correct format
+        # Batch delineation of a list of outlet points in a CSV file; see docs for correct format
         delineate --csv outlets.csv
+
+    Exits with status 1 if the input is invalid or no watershed could be
+    delineated, so scripts can detect failure.
     """
-
-    # Pipe the logs to stdout
-    handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
-    logger.addHandler(handler)
-    logger.propagate = False
-    if verbose:
-        logger.setLevel(logging.INFO)
-    else:
-        logger.setLevel(logging.WARNING)
-
     # Check that user specified either --csv or --point, not both
     if outlets_csv and point:
         raise click.UsageError("Specify either --csv or --point, not both.")
@@ -82,17 +84,13 @@ def main(point, id, outlets_csv, data_dir, auto_download, high_res, output_dir,
         lat, lon = point
         outlets_df = pd.DataFrame([{"id": id, "lat": lat, "lon": lon}])
     else:
-        # Verify that the CSV file exists
-        if not Path(outlets_csv).exists():
-            click.echo(f"Error: CSV file not found: {outlets_csv}")
-            return
+        # click.Path(exists=True) has already checked that the file exists
         outlets_df = pd.read_csv(outlets_csv)
 
     # Validate input
     outlets_df = _validate_and_normalize_df(outlets_df)
     if outlets_df is None:
-        click.echo("Invalid input. See above for details.")
-        return
+        raise click.ClickException("Invalid input. See above for details.")
 
     # Get the options for the DelineatorConfig object
     config_kwargs = {
@@ -102,6 +100,7 @@ def main(point, id, outlets_csv, data_dir, auto_download, high_res, output_dir,
         "rivers": rivers,
         "outlets": outlets,
         "simplify": simplify,
+        "verbose": verbose,
     }
 
     if data_dir is not None:
@@ -120,17 +119,16 @@ def main(point, id, outlets_csv, data_dir, auto_download, high_res, output_dir,
         click.echo(f"Creating output directory: {output_path}")
         try:
             output_path.mkdir(parents=True, exist_ok=True)
-        except FileNotFoundError:
-            click.echo(f"ERROR: Could not find or create the directory: {output_path}")
-            click.echo("***No outputs written.***")
-            return
+        except OSError as e:
+            raise click.ClickException(
+                f"Could not find or create the directory: {output_path} ({e}). No outputs written."
+            )
 
     # Run watershed delineation
     success = _delineate_dataframe(outlets_df, config)
-    if success:
-        click.echo(f"Done. Output written to {output_path}/")
-    else:
-        click.echo("***No outputs written.***")
+    if not success:
+        raise click.ClickException("No outputs written.")
+    click.echo(f"Done. Output written to {output_path}/")
 
 
 @click.command()
@@ -158,7 +156,8 @@ def delineator_dir():
 
 
 @click.command()
-@click.option("--basin", type=int, required=True, help="The megabasin ID, an integer from 11 to 86")
+@click.option("--basin", type=int, required=True, callback=_check_megabasin,
+              help="The megabasin ID, an integer from 11 to 86. Run with an invalid ID to list them all.")
 @click.option("--data-dir", default=None, help="Directory for delineator's data files. "
                                                "Defaults to the system default data directory; "
                                                "run `delineator_dir` to see it.")
@@ -173,10 +172,17 @@ def delineator_download(basin, data_dir):
 
         # Download data files to your preferred location
         delineator_download --basin 11  --data-dir D:/Projects/watersheds
+
+    Exits with status 1 if any of the files could not be found or downloaded.
     """
     # Leave data_dir as None for the default, so the files go in its version
     # subfolder. DelineatorConfig creates the directory if it doesn't exist.
-    downloader(int(basin), data_dir)
+    paths = downloader(int(basin), data_dir)
+    missing = [name for name, path in (paths or {}).items() if path is None]
+    if paths is None or missing:
+        raise click.ClickException(
+            "Could not find or download: " + (", ".join(missing) or f"data for megabasin {basin}")
+        )
 
 
 def _delineate_dataframe(outlets_df, config: DelineatorConfig) -> bool:
@@ -203,7 +209,7 @@ def _delineate_dataframe(outlets_df, config: DelineatorConfig) -> bool:
         id = row["id"]
         watershed_gdf, rivers_gdf, outlets_gdf = delineate(lat, lon, config)
         if watershed_gdf is None:
-            logging.warning(f"No watershed found for point {id} ({lat}, {lon}).")
+            logger.warning(f"No watershed found for point {id} ({lat}, {lon}).")
             continue
         write_outputs(watershed_gdf, rivers_gdf, outlets_gdf, config, id=id)
         num_outputs_written += 1

@@ -8,7 +8,6 @@ updated June 2026
 
 import pandas
 import time
-import logging
 
 from delineator import delineate, write_outputs, DelineatorConfig
 
