@@ -1,7 +1,8 @@
 """
-delineator 2.0: Global Watershed Delineation with Python
+delineator 2.0: Global Watershed Delineation with Python and data from
+MERIT-Hydro and MERIT-Basins
 
-Matthew Heberger, May 2026
+Matthew Heberger, major refactor in May 2026
 
 Formerly a collection of Python scripts, rewritten as a Python package
 
@@ -53,6 +54,7 @@ def clear_cache() -> None:
 
 
 def _cache_get(key: tuple[str, int]) -> Any | None:
+    """Return the cached value for *key* and mark it most recently used, or None on a miss."""
     value = _CACHE.get(key)
     if value is not None:
         _CACHE.move_to_end(key)
@@ -60,6 +62,7 @@ def _cache_get(key: tuple[str, int]) -> Any | None:
 
 
 def _cache_put(key: tuple[str, int], value: Any) -> None:
+    """Store *value* under *key*, evicting the least recently used entries past ``_CACHE_MAXSIZE``."""
     _CACHE[key] = value
     while len(_CACHE) > _CACHE_MAXSIZE:
         _CACHE.popitem(last=False)
@@ -124,29 +127,50 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
     gpd.GeoDataFrame | None,  # outlets
 ]:
     """
-    Main watershed delineation routine.
+    Delineate the watershed upstream of an outlet point.
 
     Parameters
     ----------
     lat, lng : float
-        Coordinates of the outlet point in decimal degrees.
+        Coordinates of the outlet point in decimal degrees (EPSG:4326).
+        Note the order: latitude first.
     config : DelineatorConfig, optional
-        Configuration object. If not provided, one is created with default settings.
+        Configuration object. If not provided, one is created with default
+        settings. The object is not modified, so it can be reused across calls.
 
     Returns
     -------
-    watershed : GeoDataFrame
-        The watershed boundary polygon.
-    rivers : GeoDataFrame
-        The river reaches within the watershed.
-    outlets : GeoDataFrame
-        The requested and snapped watershed outlets.
+    watershed : GeoDataFrame or None
+        A single-row GeoDataFrame with the watershed boundary polygon, in
+        EPSG:4326. In high-res mode it has ``outlet_lat`` and ``outlet_lng``
+        columns with the snapped outlet. When ``config.calc_area`` is True it
+        has an ``area_km2`` column with the watershed's area, and when
+        ``config.fill`` is also True, a ``filled_area`` column with the part of
+        that area (km²) added by filling holes.
+        None if the watershed could not be delineated.
+    rivers : GeoDataFrame or None
+        The river reaches within the watershed. None if ``config.rivers`` is
+        False, or if there are no rivers (e.g. in coastal catchments).
+    outlets : GeoDataFrame or None
+        Point features for the requested outlet and, in high-res mode, the
+        snapped outlet, distinguished by the ``type`` column (``"requested"``
+        or ``"snapped"``). None if ``config.outlets`` is False.
 
     Notes
     -----
-    Any of the returned objects will be None if it cannot be produced.
-    This function logs a warning if the watershed cannot be created but
-    does not raise an error.
+    This function does not raise on failure. If the watershed cannot be
+    delineated (invalid coordinates, an outlet over the ocean, missing data
+    files, a failed snap), it logs a warning and returns ``(None, None, None)``.
+
+    Missing data files for the outlet's megabasin are downloaded on first use
+    unless ``config.auto_download`` is False.
+
+    Examples
+    --------
+    >>> from delineator import delineate, DelineatorConfig
+    >>> watershed, rivers, outlets = delineate(64.71072, -21.60337)
+    >>> watershed, _, _ = delineate(64.71072, -21.60337,
+    ...                             DelineatorConfig(rivers=False, outlets=False))
     """
     if config is None:
         config = DelineatorConfig()
@@ -312,11 +336,11 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
         if watershed_area is not None:
             watershed_gdf["area_km2"] = round(watershed_area, 1)
 
-            # area_km2 is the drainage area summed from the source-dataset unit
-            # catchments. When fill=True, _close_holes adds the area of the filled
-            # interior holes to the polygon, so its geometric area no longer matches
-            # that figure. Rather than distort area_km2, report the added area
-            # separately as area_filled (actual polygon area minus area_km2).
+            # watershed_area is the drainage area summed from the source-dataset
+            # unit catchments. When fill=True, _close_holes adds the area of the
+            # filled interior holes to the polygon, so that sum no longer matches
+            # the delivered polygon. area_km2 then reports the polygon's actual
+            # area, and filled_area reports how much of it the filling added.
             if config.fill:
                 filled_polygon_area = _get_polygon_area(watershed_polygon)
                 watershed_gdf["area_km2"] = round(filled_polygon_area, 1)
@@ -392,24 +416,24 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
 
 def downloader(basin: int, data_dir: str | None = None) -> dict | None:
     """
-    Utility function to download the data files for a given basin.
-    This will download the data files for megabasin 11 to the specified directory,
-    including the vector data (unit catchments, rivers) and raster data (flow
-    direction, accumulation)
+    Download the data files for one megabasin, if not already present.
 
-    Usage
-    -----
-    `downloader(basin=11, data_dir="path/to/data/directory")`
+    Fetches the four files that delineation needs for the megabasin: the
+    vector data (unit catchments, rivers) and the raster data (flow
+    direction, flow accumulation). Files already on disk are not downloaded
+    again. Use this to prepare data ahead of time, for example before
+    working offline; otherwise ``delineate`` downloads files on first use.
 
     Parameters
     ----------
-    basin: int
-        The megabasin ID, and integer from 11 to 86
-        For example, megabasin 56 covers Australia
-
-    data_dir: str, optional
-        Location where the data files will be downloaded. If not provided,
-        defaults to your system's default data directory, for example, on Windows:
+    basin : int
+        The megabasin ID, an integer from 11 to 86 (see
+        ``constants.VALID_MEGABASINS``). For example, megabasin 56 covers
+        Australia.
+    data_dir : str, optional
+        Directory to download the data files into. If not provided, uses the
+        ``DELINEATOR_DATA_DIR`` environment variable if set, and otherwise your
+        system's default data directory, for example on Windows:
         C:\\Users\\<username>\\AppData\\Local\\delineator
 
     Returns
@@ -419,6 +443,11 @@ def downloader(basin: int, data_dir: str | None = None) -> dict | None:
         "Rivers", "Flow Direction", "Flow Accumulation"). A path is None if that
         file could not be found or downloaded. Returns None if the megabasin ID
         is invalid.
+
+    Examples
+    --------
+    >>> from delineator import downloader
+    >>> paths = downloader(basin=56, data_dir="path/to/data/directory")
     """
     # Pass data_dir to the constructor, not set it afterwards, so the config
     # marks it as a custom (flat) directory, the same as delineate() does.

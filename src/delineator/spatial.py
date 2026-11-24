@@ -332,21 +332,21 @@ def _point_in_polygon_analysis(
     exact ``contains()`` test; otherwise the whole table is loaded (and a
     ``UserWarning`` is emitted past ``scan_threshold`` rows).
 
-    Parameters:
+    Parameters
     ----------
-    conn:
-        Open ``sqlite3.Connection``.  The connection is not closed here.
-    point:
-        Outlet location as a Shapely ``Point(x, y)`` (lon, lat).
-    table:
+    conn : sqlite3.Connection
+        Open connection. The connection is not closed here.
+    point : shapely Point
+        Outlet location as ``Point(x, y)`` (lon, lat).
+    table : str
         Name of the unit-catchment table.
-    geom_col:
+    geom_col : str
         Column holding the geometry, in any format GDAL recognises.
-    id_col:
+    id_col : str
         Column whose value is returned for the matching catchment.
-    scan_threshold:
+    scan_threshold : int
         Row count above which a missing spatial index emits a ``UserWarning``.
-    search_dist_km:
+    search_dist_km : float
         Optional nearest-feature tolerance, in **kilometers**.  If no polygon
         contains the point, the nearest feature within this distance is
         returned.  Distances use a local equirectangular approximation,
@@ -355,9 +355,9 @@ def _point_in_polygon_analysis(
 
     Returns
     -------
-    index : int or str
+    int or str or None
         The value of *id_col* for the matching catchment, or ``None`` if no
-        catchment contains the point (and none is within ``search_dist``).
+        catchment contains the point (and none is within ``search_dist_km``).
 
     Notes
     -----

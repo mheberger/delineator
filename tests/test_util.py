@@ -290,3 +290,61 @@ def test_write_outputs_parquet_passes_path_per_layer(tmp_path, monkeypatch):
 
     assert paths == [tmp_path / "watershed_test.parquet"]
     assert all(isinstance(p, Path) for p in paths)
+
+
+def _precise_square_gdf():
+    """A one-row GeoDataFrame whose corner coordinates have 7 decimal places."""
+    square = Polygon([(0.1234567, 0.1234567), (1.1234567, 0.1234567),
+                      (1.1234567, 1.1234567), (0.1234567, 1.1234567)])
+    return gpd.GeoDataFrame(geometry=[square], crs="EPSG:4326")
+
+
+def test_write_outputs_rounds_copies_not_inputs(tmp_path):
+    """
+    With round_coordinates=True, the file is rounded but the caller's GeoDataFrame is not.
+
+    Writes a square with 7-decimal coordinates to a GeoPackage, then checks
+    that the written layer is rounded to 6 decimals while the GeoDataFrame
+    passed in still has its original coordinates.
+    """
+    watershed_gdf = _precise_square_gdf()
+    config = DelineatorConfig(output_dir=tmp_path, output_format="gpkg", round_coordinates=True)
+
+    write_outputs(watershed_gdf, None, None, config)
+
+    # set_precision may start the ring at a different vertex, so compare the corners as a set
+    written = gpd.read_file(tmp_path / "watershed.gpkg", layer="watershed")
+    written_corners = {(round(x, 9), round(y, 9)) for x, y in written.geometry.iloc[0].exterior.coords}
+    assert written_corners == {(0.123457, 0.123457), (1.123457, 0.123457),
+                               (1.123457, 1.123457), (0.123457, 1.123457)}
+    assert watershed_gdf.geometry.iloc[0].exterior.coords[0] == (0.1234567, 0.1234567)
+
+
+def test_write_outputs_keeps_precision_when_round_coordinates_false(tmp_path):
+    """
+    With round_coordinates=False, write_outputs writes the coordinates unrounded.
+
+    A regression once rounded to 6 decimals regardless of the setting.
+    """
+    config = DelineatorConfig(output_dir=tmp_path, output_format="gpkg", round_coordinates=False)
+
+    write_outputs(_precise_square_gdf(), None, None, config)
+
+    written = gpd.read_file(tmp_path / "watershed.gpkg", layer="watershed")
+    assert written.geometry.iloc[0].exterior.coords[0] == (0.1234567, 0.1234567)
+
+
+def test_write_outputs_with_all_layers_none_writes_nothing(tmp_path, caplog):
+    """
+    When the watershed, rivers and outlets are all None, write_outputs logs a warning and writes no files.
+
+    This is what delineate() returns when it fails, so passing its result
+    straight to write_outputs must not raise.
+    """
+    config = DelineatorConfig(output_dir=tmp_path, output_format="gpkg")
+
+    with caplog.at_level("WARNING", logger="delineator.util"):
+        write_outputs(None, None, None, config)
+
+    assert list(tmp_path.iterdir()) == []
+    assert "Nothing to write" in caplog.text

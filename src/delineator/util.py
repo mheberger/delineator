@@ -7,7 +7,7 @@ import shapely
 from shapely.geometry import MultiPolygon, Polygon
 import geopandas as gpd
 
-from delineator.constants import KM_PER_DEGREE
+from delineator.constants import KM_PER_DEGREE, ROUNDING_DECIMALS
 from delineator.settings import DelineatorConfig
 
 logger = logging.getLogger(__name__)
@@ -83,21 +83,27 @@ def _ring_area_km2(ring) -> float:
 
 def _close_holes(poly: Polygon | MultiPolygon, area_max_km2: float) -> Polygon | MultiPolygon:
     """
-    Close polygon holes by limitation to the exterior ring.
-    Updated to accept a MultiPolygon as input.
-    Example:
-        df.geometry.apply(lambda p: close_holes(p))
+    Fill the small interior holes ("donut holes") in a polygon.
 
     Parameters
     ----------
-    poly: shapely Polygon or MultiPolygon
-    area_max_km2: float
+    poly : shapely Polygon or MultiPolygon
+        The geometry, in unprojected lat/lng coordinates (EPSG:4326).
+    area_max_km2 : float
         Keep holes that are larger than this, in square kilometers.
         Fill any holes less than or equal to this.
         Enter 0 to fill all holes.
-        The geometry is in unprojected lat/lng coordinates (EPSG:4326); each
-        hole's area is converted to km² locally at the hole's own latitude.
+        Each hole's area is converted to km² locally at the hole's own latitude.
 
+    Returns
+    -------
+    shapely Polygon or MultiPolygon
+        The geometry with small holes filled, of the same type as ``poly``.
+
+    Raises
+    ------
+    ValueError
+        If ``poly`` is not a Polygon or MultiPolygon.
     """
 
     if isinstance(poly, Polygon):
@@ -146,16 +152,18 @@ def _get_polygon_area(poly: Polygon | MultiPolygon) -> float:
     Calculates the area of a Shapely Polygon (or MultiPolygon) in km²
 
     Assumes the input is in unprojected raw lat, lng coordinates (CRS 4326)
-    and projects it first to  a locally-centered azimuthal equal-area projection.
+    and projects it first to a locally-centered azimuthal equal-area projection.
     Works accurately anywhere on Earth.
 
     Parameters
     ----------
-    poly: Shapely Polygon or MultiPolygon
+    poly : shapely Polygon or MultiPolygon
+        The geometry, in EPSG:4326.
 
     Returns
     -------
-         area in km²
+    float
+        The area, in km².
     """
 
     # Use the polygon centroid to define a custom LAEA projection
@@ -180,17 +188,40 @@ def write_outputs(watershed_gdf: gpd.GeoDataFrame | None,
                   config: DelineatorConfig | None = None,
                   id: str | int | None = None) -> None:
     """
-    Writes the watershed, rivers, and outlets to disk in the specified format.
+    Write the watershed, rivers, and outlets to disk.
 
-    With geopackage, will write a single file with up to 3 layers.
-    Other formats will result in up to 3 files.
+    Files go in ``config.output_dir`` in the format ``config.output_format``.
+    GeoPackage (``gpkg``) writes a single file, ``watershed.gpkg``, with up to
+    three layers. Other formats write one file per layer: ``watershed``,
+    ``rivers`` and ``outlets``. Supported formats include:
 
-    Supports common GeoPandas output formats, including:
-    - shapefile: shp
-    - geopackage: gpkg
-    - geojson: geojson, json
-    - parquet: parquet
-    - kml: kml
+    - shapefile: ``shp``
+    - GeoPackage: ``gpkg``
+    - GeoJSON: ``geojson``, ``json``
+    - GeoParquet: ``parquet``, ``geoparquet``
+    - KML: ``kml``
+
+    Parameters
+    ----------
+    watershed_gdf : GeoDataFrame or None
+        The watershed, as returned by ``delineate``. Skipped if None.
+    rivers_gdf : GeoDataFrame, optional
+        The rivers. Skipped if None.
+    outlets_gdf : GeoDataFrame, optional
+        The outlet points. Skipped if None.
+    config : DelineatorConfig, optional
+        Supplies ``output_dir``, ``output_format`` and ``round_coordinates``.
+        If not provided, one is created with default settings.
+    id : str or int, optional
+        Appended to each file name, as in ``watershed_{id}.gpkg``, so that
+        outputs for several outlets do not overwrite each other.
+
+    Notes
+    -----
+    When ``config.round_coordinates`` is True, watershed and river coordinates
+    are rounded to 6 decimal places before writing. The rounding is applied to
+    copies, so the GeoDataFrames passed in are not modified. If all three
+    inputs are None, nothing is written and a warning is logged.
     """
     if config is None:
         config = DelineatorConfig()
@@ -210,17 +241,25 @@ def write_outputs(watershed_gdf: gpd.GeoDataFrame | None,
 
     suffix = "" if id is None else f"_{id}"
 
-    # Round coordinates to 6 decimal places
-    grid_size = 10 ** -6
-    watershed_gdf["geometry"] = shapely.set_precision(watershed_gdf.geometry, grid_size=grid_size)
-    if rivers_gdf is not None:
-        rivers_gdf["geometry"] = shapely.set_precision(rivers_gdf.geometry, grid_size=grid_size)
-
     layers = {
         "outlets": outlets_gdf,
         "watershed": watershed_gdf,
         "rivers": rivers_gdf,
     }
+
+    if all(gdf is None for gdf in layers.values()):
+        logger.warning("Nothing to write: the watershed, rivers and outlets are all None.")
+        return
+
+    # Round coordinates, if requested, on copies so the caller's data is untouched
+    if config.round_coordinates:
+        grid_size = 10 ** -ROUNDING_DECIMALS
+        for layer_name in ("watershed", "rivers"):
+            gdf = layers[layer_name]
+            if gdf is not None:
+                gdf = gdf.copy()
+                gdf["geometry"] = shapely.set_precision(gdf.geometry, grid_size=grid_size)
+                layers[layer_name] = gdf
 
     if output_format in {"parquet", "geoparquet"}:
         for layer_name, gdf in layers.items():
@@ -276,17 +315,22 @@ def write_outputs(watershed_gdf: gpd.GeoDataFrame | None,
 
 def earth_radius(lat=None, unit='m'):
     """
-    Earth_radius gives the radius of the Earth.
+    Return the radius of the Earth, optionally as a function of latitude.
 
     Python port from the Climate Data Toolbox for Matlab.
 
-    Args:
-    lat (float or array-like, optional): Latitude(s) at which to calculate the Earth's radius.
-    unit (str, optional): Unit of the output, 'm' for meters or 'km' for kilometers. Default is 'm'.
+    Parameters
+    ----------
+    lat : float or array-like, optional
+        Latitude(s) in decimal degrees at which to calculate the radius on the
+        WGS84 ellipsoid. If None, returns the nominal radius of 6,371 km.
+    unit : {'m', 'km'}, optional
+        Unit of the output: 'm' for meters (default) or 'km' for kilometers.
 
-    Returns:
-    float or ndarray: The radius of the Earth. If lat is None, returns the nominal radius.
-                      If lat is provided, returns the radius as a function of latitude.
+    Returns
+    -------
+    float or ndarray
+        The radius of the Earth, an array if ``lat`` is array-like.
     """
     # Nominal radius of the Earth in meters
     r = 6371000
@@ -309,19 +353,24 @@ def earth_radius(lat=None, unit='m'):
 
 def pixel_area(latitude: float, lat_resolution: float, lon_resolution: float | None) -> float:
     """
-    Calculate the area of a pixel on Earth's surface in CRS 4326
-    for a given latitude and a given resolution
+    Calculate the area of a pixel on the Earth's surface in EPSG:4326.
 
     Python port from the Climate Data Toolbox for Matlab.
 
-    Args:
-    latitude (float): Latitude of the pixel.
-    lat_resolution (float): Latitude resolution in degrees.
-    lon_resolution (float or None): Longitude resolution in degrees. If
-      none, assume equal to lat_resolution (square pixels, most common)
+    Parameters
+    ----------
+    latitude : float
+        Latitude of the pixel, in decimal degrees.
+    lat_resolution : float
+        Pixel height (latitude resolution), in degrees.
+    lon_resolution : float or None
+        Pixel width (longitude resolution), in degrees. If None, assumed equal
+        to ``lat_resolution`` (square pixels, the most common case).
 
-    Returns:
-    area: pixel area in square kilometers.
+    Returns
+    -------
+    float
+        The pixel area, in km².
     """
 
     # If no longitude resolution given, assume square pixels

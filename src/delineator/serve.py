@@ -163,35 +163,40 @@ def serve(
     port: int = 5000,
     debug: bool = False,
 ) -> None:
-    """Start the local watershed delineation web app.
+    """
+    Start the local watershed delineation web app.
 
-    Works both from the command line and when called from Python, e.g.::
+    Works both from the command line (``delineator_serve``) and when called
+    from Python. Blocks until the server is stopped.
 
-    Usage:
-    ------
-        from delineator.serve import serve
-        serve()
-
-        # Customize how every click is delineated:
-        from delineator import DelineatorConfig
-        serve(DelineatorConfig(high_res=False, num_stream_orders=6, fill=False))
-
-    Parameters:
-    -----------
-    config: DelineatorConfig applied to every delineation the app performs.
-        If None, a default suited to interactive review is used
-        (rivers, outlets, a cleaned boundary, and cache=True so repeated
-        clicks along the same river reuse the upstream geometry). Pass a
-        config of your own to change this. The output_format option
-        is ignored here since results are streamed to the browser as GeoJSON;
-        the map shows whichever layers the config produces.
-    host: Interface to bind. Defaults to localhost only.
-    port: Port to listen on.
-    debug: Enable Flask's debug error pages. The auto-reloader is always
+    Parameters
+    ----------
+    config : DelineatorConfig, optional
+        Applied to every delineation the app performs. If None, a default
+        suited to interactive review is used (rivers, outlets, a cleaned
+        boundary, and cache=True so repeated clicks along the same river
+        reuse the upstream geometry). The output_format option is ignored
+        here since results are streamed to the browser as GeoJSON; the map
+        shows whichever layers the config produces. Options set in the
+        browser override the config for that request only.
+    host : str, optional
+        Interface to bind. Defaults to localhost only.
+    port : int, optional
+        Port to listen on. Defaults to 5000.
+    debug : bool, optional
+        Enable Flask's debug error pages. The auto-reloader is always
         left off (use_reloader=False) so that calling serve() from a
         Python session, notebook, or another script reliably starts the
         server. Leave debug off when distributing the package.
 
+    Examples
+    --------
+    >>> from delineator import serve, DelineatorConfig
+    >>> serve()
+
+    Customize how every click is delineated:
+
+    >>> serve(DelineatorConfig(high_res=False, num_stream_orders=6, fill=False))
     """
     app.config[_CONFIG_KEY] = config
 

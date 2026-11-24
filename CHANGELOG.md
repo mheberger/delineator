@@ -19,6 +19,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   MERIT-Basins reach threshold) this should not happen; above it, small
   headwater outlets may need a lower threshold.
 
+### Fixed
+
+- `write_outputs` now respects `round_coordinates=False`. Before, it always
+  rounded the watershed and river coordinates to 6 decimal places, and it did
+  so in place, changing the GeoDataFrames passed to it.
+- `write_outputs` no longer raises when the watershed is `None`, as it is when
+  `delineate` fails. It writes whichever layers are present, and if there are
+  none, logs a warning and writes nothing.
+- `delineator.__version__` reported 2.2.5 in the 2.2.6 release.
+
 
 ## [2.2.6] - 2026-11-22
 
