@@ -10,10 +10,13 @@ Formerly a collection of Python scripts, rewritten as a Python package
 import logging
 from collections import OrderedDict
 from contextlib import closing
+from pathlib import Path
+from typing import Any
 import geopandas as gpd
 import shapely
 from shapely.ops import unary_union
 from shapely.geometry import Point
+from shapely.geometry.base import BaseGeometry
 import sqlite3
 import warnings
 
@@ -40,7 +43,7 @@ logger = logging.getLogger(__name__)
 # is a sufficient cache key. The cache is bounded because dissolved
 # geometries can be large; it assumes one set of data files per process
 # (call clear_cache() if you switch data directories mid-session).
-_CACHE: OrderedDict = OrderedDict()
+_CACHE: OrderedDict[tuple[str, int], Any] = OrderedDict()
 _CACHE_MAXSIZE = 64
 
 
@@ -49,20 +52,21 @@ def clear_cache() -> None:
     _CACHE.clear()
 
 
-def _cache_get(key):
+def _cache_get(key: tuple[str, int]) -> Any | None:
     value = _CACHE.get(key)
     if value is not None:
         _CACHE.move_to_end(key)
     return value
 
 
-def _cache_put(key, value) -> None:
+def _cache_put(key: tuple[str, int], value: Any) -> None:
     _CACHE[key] = value
     while len(_CACHE) > _CACHE_MAXSIZE:
         _CACHE.popitem(last=False)
 
 
-def _get_upstream_catchments(basins_db_conn, home_unit_catchment, use_cache: bool):
+def _get_upstream_catchments(basins_db_conn: sqlite3.Connection, home_unit_catchment: int,
+                             use_cache: bool) -> tuple[list[int], dict | None]:
     """
     Return ``(upstream_unit_catchments, basins_dict)`` for the home unit
     catchment: the recursive-CTE traversal of the drainage network and the
@@ -87,8 +91,8 @@ def _get_upstream_catchments(basins_db_conn, home_unit_catchment, use_cache: boo
     return upstream_unit_catchments, basins_dict
 
 
-def _get_upstream_union(basins_db_path, home_unit_catchment, basins_dict,
-                        use_cache: bool):
+def _get_upstream_union(basins_db_path: Path, home_unit_catchment: int, basins_dict: dict,
+                        use_cache: bool) -> BaseGeometry:
     """
     Fetch the upstream catchment geometries and dissolve them into a single
     (Multi)Polygon, optionally caching the result. This is the most expensive
