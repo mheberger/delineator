@@ -105,6 +105,12 @@ def _is_on_mainstem(grid: Grid, acc, lat: float, lng: float) -> bool:
     at least the threshold is on that reach, below the inflow point. A cell
     that drains less is on a side channel that no upstream catchment feeds.
 
+    Note: I chose to use a single set of accumulation rasters for delineator,
+    the version with the number of upstream pixels. The upstream *area* rasters
+    are much larger files. So we use the function `pixelarea()` to find the
+    local area of each cell, which should not change too much over the relatively
+    small area of a unit catchment.
+
     Parameters
     ----------
     grid : pysheds Grid
@@ -232,10 +238,6 @@ def _split_catchment(basin: int, lat: float, lng: float, catchment_poly: Polygon
     # inside the boundaries of the terminal unit catchment.
     hexpoly = catchment_poly.wkb_hex
     poly = wkb.loads(hexpoly, hex=True)
-
-    # Fix any holes in the polygon by taking the exterior coordinates.
-    # Updated 2026-07-02 to remove. Now we are handling MultiPolygons properly. No longer need this hack!
-    #filled_poly = _close_holes(poly, area_max=0)
 
     # It needs to be of type MultiPolygon to work with rasterio apparently
     if isinstance(poly, Polygon):

@@ -184,8 +184,11 @@ class DelineatorConfig:
     stream_threshold_km2: float
         Minimum upstream drainage area, in km², for a grid cell to be considered
         part of a stream when snapping the outlet. Cells below this are not valid
-        snap targets. Applies to watersheds spanning multiple unit catchments;
-        setting this too low causes incorrect results and topology problems.
+        snap targets. The effective threshold is capped at 25% of the home unit
+        catchment's area, so small catchments always have valid snap targets.
+        If the snapped outlet drains less than 25 km² (the MERIT-Basins reach
+        threshold), it is off the river reach and only the local catchment
+        above it is returned; setting this below 25 makes that more likely.
         DEFAULT = 25.0 (km²)
 
     verbose: bool
