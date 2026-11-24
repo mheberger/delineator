@@ -237,17 +237,17 @@ def test_main_default_options(fake_delineation, tmp_path):
     """
     With no options, delineate uses its own defaults, which differ from DelineatorConfig's.
 
-    On the command line, rivers, outlets and fill are off unless asked for,
-    while DelineatorConfig turns all three on by default. This test pins the
-    command-line defaults so that any change to them is deliberate.
+    On the command line, rivers and outlets are on but fill is off unless
+    asked for, while DelineatorConfig turns all three on by default. This test
+    pins the command-line defaults so that any change to them is deliberate.
     """
     result = CliRunner().invoke(main, ["--point", *ICELAND_POINT, "--output-dir", str(tmp_path)])
 
     assert result.exit_code == 0
     config = fake_delineation[0]
     assert config.high_res is True
-    assert config.rivers is False
-    assert config.outlets is False
+    assert config.rivers is True
+    assert config.outlets is True
     assert config.fill is False
     assert config.simplify is False
     assert config.verbose is False
@@ -260,7 +260,11 @@ def test_main_default_options(fake_delineation, tmp_path):
         (["--low-res"], "high_res", False),
         (["--fill"], "fill", True),
         (["--rivers"], "rivers", True),
+        (["--rivers", "false"], "rivers", False),
+        (["--rivers", "true"], "rivers", True),
         (["--outlets"], "outlets", True),
+        (["--outlets", "false"], "outlets", False),
+        (["--outlets", "true"], "outlets", True),
         (["--simplify"], "simplify", True),
         (["--verbose"], "verbose", True),
         (["--no-downloads"], "auto_download", False),
@@ -309,8 +313,8 @@ def test_main_delineates_iceland_csv_to_output_directory(tmp_path):
     Batch mode writes one GeoJSON watershed file for each outlet in the Iceland CSV.
 
     Uses the 23 outlets in tests/iceland_outlets.csv, which only need the
-    bundled data. Rivers and outlets are off by default on the command line,
-    so there must be exactly 23 files, all watershed_<id>.geojson. The output
+    bundled data. With --rivers false and --outlets false, there must be
+    exactly 23 files, all watershed_<id>.geojson. The output
     directory doesn't exist beforehand, so this also checks that the CLI
     creates it.
     """
@@ -320,6 +324,7 @@ def test_main_delineates_iceland_csv_to_output_directory(tmp_path):
 
     result = CliRunner().invoke(main, [
         "--csv", str(csv_path), "--output-dir", str(output_dir), "--output-format", "geojson",
+        "--rivers", "false", "--outlets", "false",
     ])
 
     assert result.exit_code == 0
@@ -332,12 +337,14 @@ def test_main_delineates_single_iceland_point_to_output_directory(tmp_path):
     Single-point mode writes one watershed file named with the --id value.
 
     Uses the Nordhura River outlet, which only needs the bundled Iceland data.
+    Rivers and outlets are turned off, so only the watershed is written.
     """
     output_dir = tmp_path / "output"
 
     result = CliRunner().invoke(main, [
         "--point", *ICELAND_POINT, "--id", "iceland-point",
         "--output-dir", str(output_dir), "--output-format", "geojson",
+        "--rivers", "false", "--outlets", "false",
     ])
 
     assert result.exit_code == 0
@@ -345,9 +352,9 @@ def test_main_delineates_single_iceland_point_to_output_directory(tmp_path):
     assert [p.name for p in output_dir.iterdir()] == ["watershed_iceland-point.geojson"]
 
 
-def test_main_rivers_and_outlets_flags_write_extra_layers(tmp_path):
+def test_main_writes_rivers_and_outlets_by_default(tmp_path):
     """
-    --rivers and --outlets each add their own output file, with the expected contents.
+    With no --rivers or --outlets option, rivers and outlets each get their own output file.
 
     With GeoJSON output, each layer is written to its own file. The outlets
     file must hold both the requested and the snapped outlet, since high-res
@@ -356,7 +363,7 @@ def test_main_rivers_and_outlets_flags_write_extra_layers(tmp_path):
     output_dir = tmp_path / "output"
 
     result = CliRunner().invoke(main, [
-        "--point", *ICELAND_POINT, "--id", "x", "--rivers", "--outlets",
+        "--point", *ICELAND_POINT, "--id", "x",
         "--output-dir", str(output_dir), "--output-format", "geojson",
     ])
 

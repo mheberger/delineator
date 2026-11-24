@@ -31,7 +31,7 @@ A ready-made CSV with ten outlet points spanning six continents, useful for
 testing batch delineation:
 
 ```bash
-delineate --csv examples/sample_outlets.csv --rivers --output-dir output/
+delineate --csv examples/sample_outlets.csv --output-dir output/
 ```
 
 ### Batch delineation from a CSV file with live results table and a Leaflet map viewer 

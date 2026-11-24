@@ -9,6 +9,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- The `delineate` command now writes rivers and outlet points by default, so a
+  GeoPackage holds the watershed, rivers and outlets layers. Use
+  `--rivers false` and `--outlets false` to leave them out. A bare `--rivers`
+  or `--outlets` still works and means `true`.
 - `stream_threshold_km2` is now used exactly as given. Before, it was silently
   capped at 25% of the outlet's unit catchment area
   (`ADAPTIVE_THRESHOLD_FRACTION`), so in small catchments the outlet could

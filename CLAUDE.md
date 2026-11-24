@@ -40,7 +40,8 @@ ruff 0.17 widened its defaults.
 ### CLI entry points (defined in `pyproject.toml` [project.scripts], all map to `cli.py`)
 
 ```bash
-delineate --point 64.71072 -21.60337 --rivers --outlets   # single point
+delineate --point 64.71072 -21.60337                      # single point (watershed, rivers, outlets)
+delineate --point 64.71072 -21.60337 --rivers false --outlets false  # watershed only
 delineate --csv outlets.csv --output-format geojson        # batch (needs id,lat,lon cols)
 delineator_download --basin 62                             # pre-download a megabasin
 delineator_dir                                            # print the data directory

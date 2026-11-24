@@ -51,8 +51,10 @@ def serve_cli():
 @click.option("--output-format", default="gpkg",
               help="Output format: geojson, shp, kml, gpkg. Default is gpkg (Geopackage).")
 @click.option("--fill", is_flag=True, help="Fill interior gaps or \"donut holes\" in the watershed")
-@click.option("--rivers", is_flag=True, help="Output the river network")
-@click.option("--outlets", is_flag=True, help="Output the outlet points")
+@click.option("--rivers", type=click.BOOL, default=True, is_flag=False, flag_value=True, metavar="[true|false]",
+              help="Output the river network. On by default; use --rivers false to leave it out.")
+@click.option("--outlets", type=click.BOOL, default=True, is_flag=False, flag_value=True, metavar="[true|false]",
+              help="Output the outlet points. On by default; use --outlets false to leave them out.")
 @click.option("--simplify", is_flag=True, help="Simplify the geometry of the watershed and rivers")
 @click.option("--verbose", is_flag=True, default=False, help="Show more information on the script's progress")
 def main(point, id, outlets_csv, data_dir, auto_download, high_res, output_dir,
@@ -62,10 +64,12 @@ def main(point, id, outlets_csv, data_dir, auto_download, high_res, output_dir,
     Usage:
         delineate --help  # List options
 
-        delineate --point 48.834 2.263  # Create watershed for a single outlet
+        delineate --point 48.834 2.263  # Watershed, rivers and outlets for a single outlet
+
+        delineate --point 48.834 2.263 --rivers false --outlets false  # Watershed only
 
         # Single outlet with a variety of options
-        delineate --point 48.863 2.314 --id alexandreIII --rivers --outlets --fill --simplify --output-dir D:/Projects/watersheds --output-format geojson
+        delineate --point 48.863 2.314 --id alexandreIII --fill --simplify --output-dir D:/Projects/watersheds --output-format geojson
 
         # Batch delineation of a list of outlet points in a CSV file; see docs for correct format
         delineate --csv outlets.csv
