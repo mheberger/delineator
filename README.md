@@ -234,6 +234,27 @@ delineate --csv outlets.csv --output-dir /path/to/output/
 delineate --help
 ```
 
+Command line options for `delineate`:
+
+| Option                             | Default          | Description                                                                                                  |
+|------------------------------------|------------------|--------------------------------------------------------------------------------------------------------------|
+| `--point LAT LON`                  |                  | Delineate the watershed for a single outlet point. Use either `--point` or `--csv`, not both.                |
+| `--id TEXT`                        |                  | ID for the watershed, appended to the output file names (used with `--point`).                               |
+| `--csv PATH`                       |                  | CSV file of outlet points for batch delineation (see format below).                                          |
+| `--data-dir PATH`                  | system default   | Directory for input data files. Run `delineator_dir` to see the default.                                     |
+| `--auto-download / --no-downloads` | auto-download    | Whether to download missing data files automatically.                                                        |
+| `--high-res / --low-res`           | `--high-res`     | High-res mode refines the boundary near the outlet with raster methods; low-res is faster but less accurate. |
+| `--output-dir PATH`                | `./output/`      | Directory for output files.                                                                                  |
+| `--output-format TEXT`             | `gpkg`           | Output format: `gpkg`, `geojson`, `shp`, `kml`, or `parquet`.                                                |
+| `--fill [true\|false]`             | `true`           | Fill interior gaps or "donut holes" in the watershed.                                                        |
+| `--rivers [true\|false]`           | `true`           | Include the upstream river network in the output.                                                            |
+| `--outlets [true\|false]`          | `true`           | Include the requested and snapped outlet points in the output.                                               |
+| `--simplify`                       | off              | Simplify the geometry of the watershed and rivers.                                                           |
+| `--verbose`                        | off              | Show more information on the script's progress.                                                              |
+
+Other options in the [Configuration reference](#configuration-reference) below are
+available only from Python, through `DelineatorConfig`.
+
 For batch delineation, the CSV file must contain at minimum `id`, `lat`, and `lon` columns.
 Other columns are OK but will be ignored by the script. Example CSV file:
 
@@ -273,9 +294,9 @@ Mac/Linux:
 
 ```bash
 export DELINEATOR_DATA_DIR=/mnt/data/delineator
-export DELINEATOR_OUTPUT_DIR =/home/user/documents/watersheds
+export DELINEATOR_OUTPUT_DIR=/home/user/documents/watersheds
 export DELINEATOR_AUTO_DOWNLOAD=false
-delineator --csv outlets.csv
+delineate --csv outlets.csv
 ```
 
 Windows CMD:
@@ -284,7 +305,7 @@ Windows CMD:
 set DELINEATOR_DATA_DIR=D:\Data\delineator
 set DELINEATOR_OUTPUT_DIR=C:\Users\user\Documents\watersheds
 set DELINEATOR_AUTO_DOWNLOAD=false
-delineator --csv outlets.csv
+delineate --csv outlets.csv
 ```
 
 Windows Powershell:
@@ -292,7 +313,7 @@ Windows Powershell:
 $env:DELINEATOR_DATA_DIR = "D:\Data\delineator"
 $env:DELINEATOR_OUTPUT_DIR = "C:\Users\user\Documents\watersheds"
 $env:DELINEATOR_AUTO_DOWNLOAD = "false"
-delineator --csv outlets.csv
+delineate --csv outlets.csv
 ```
 
 ## Configuration reference

@@ -50,7 +50,9 @@ def serve_cli():
 @click.option("--output-dir", default=None, help="Directory for output files. Defaults to ./output/")
 @click.option("--output-format", default="gpkg",
               help="Output format: geojson, shp, kml, gpkg. Default is gpkg (Geopackage).")
-@click.option("--fill", is_flag=True, help="Fill interior gaps or \"donut holes\" in the watershed")
+@click.option("--fill", type=click.BOOL, default=True, is_flag=False, flag_value=True, metavar="[true|false]",
+              help="Fill interior gaps or \"donut holes\" in the watershed. On by default;"
+                   " use --fill false to keep them.")
 @click.option("--rivers", type=click.BOOL, default=True, is_flag=False, flag_value=True, metavar="[true|false]",
               help="Output the river network. On by default; use --rivers false to leave it out.")
 @click.option("--outlets", type=click.BOOL, default=True, is_flag=False, flag_value=True, metavar="[true|false]",
@@ -69,7 +71,7 @@ def main(point, id, outlets_csv, data_dir, auto_download, high_res, output_dir,
         delineate --point 48.834 2.263 --rivers false --outlets false  # Watershed only
 
         # Single outlet with a variety of options
-        delineate --point 48.863 2.314 --id alexandreIII --fill --simplify --output-dir D:/Projects/watersheds --output-format geojson
+        delineate --point 48.863 2.314 --id alexandreIII --fill false --simplify --output-dir D:/Projects/watersheds --output-format geojson
 
         # Batch delineation of a list of outlet points in a CSV file; see docs for correct format
         delineate --csv outlets.csv

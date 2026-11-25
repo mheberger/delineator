@@ -6,6 +6,7 @@ from shapely.geometry import Polygon
 
 import delineator.cli
 from delineator.cli import delineator_download, main, delineator_dir, serve_cli
+from delineator.settings import DelineatorConfig
 
 
 TESTS_DIR = Path(__file__).parent
@@ -235,11 +236,10 @@ def test_main_no_downloads_fails_instead_of_downloading(tmp_path):
 
 def test_main_default_options(fake_delineation, tmp_path):
     """
-    With no options, delineate uses its own defaults, which differ from DelineatorConfig's.
+    With no options, delineate uses the same defaults as DelineatorConfig.
 
-    On the command line, rivers and outlets are on but fill is off unless
-    asked for, while DelineatorConfig turns all three on by default. This test
-    pins the command-line defaults so that any change to them is deliberate.
+    This test pins the command-line defaults so that any change to them is
+    deliberate, and checks each against DelineatorConfig's own default.
     """
     result = CliRunner().invoke(main, ["--point", *ICELAND_POINT, "--output-dir", str(tmp_path)])
 
@@ -248,10 +248,14 @@ def test_main_default_options(fake_delineation, tmp_path):
     assert config.high_res is True
     assert config.rivers is True
     assert config.outlets is True
-    assert config.fill is False
+    assert config.fill is True
     assert config.simplify is False
     assert config.verbose is False
     assert config.output_format == "gpkg"
+
+    python_defaults = DelineatorConfig()
+    for name in ("high_res", "rivers", "outlets", "fill", "simplify", "verbose", "output_format"):
+        assert getattr(config, name) == getattr(python_defaults, name), name
 
 
 @pytest.mark.parametrize(
@@ -259,6 +263,8 @@ def test_main_default_options(fake_delineation, tmp_path):
     [
         (["--low-res"], "high_res", False),
         (["--fill"], "fill", True),
+        (["--fill", "false"], "fill", False),
+        (["--fill", "true"], "fill", True),
         (["--rivers"], "rivers", True),
         (["--rivers", "false"], "rivers", False),
         (["--rivers", "true"], "rivers", True),

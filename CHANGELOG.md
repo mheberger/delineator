@@ -13,6 +13,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   GeoPackage holds the watershed, rivers and outlets layers. Use
   `--rivers false` and `--outlets false` to leave them out. A bare `--rivers`
   or `--outlets` still works and means `true`.
+- The `delineate` command now fills small holes in the watershed by default,
+  matching `DelineatorConfig(fill=True)`, so the command line and Python use
+  the same defaults. Use `--fill false` to keep the holes. A bare `--fill`
+  still works and means `true`.
 - `stream_threshold_km2` is now used exactly as given. Before, it was silently
   capped at 25% of the outlet's unit catchment area
   (`ADAPTIVE_THRESHOLD_FRACTION`), so in small catchments the outlet could
