@@ -209,6 +209,33 @@ def test_main_exits_with_error_when_no_watershed_is_delineated(tmp_path):
     assert not list(output_dir.glob("*"))
 
 
+def test_main_parquet_without_pyarrow_fails_before_delineating(fake_delineation, no_pyarrow, tmp_path):
+    """
+    --output-format parquet without pyarrow exits 1 with the install hint, before delineating anything.
+
+    pyarrow is the optional extra delineator[parquet]. Without the early
+    check, a long delineation would finish and then fail at the write.
+    """
+    result = CliRunner().invoke(main, ["--point", *ICELAND_POINT, "--output-dir", str(tmp_path),
+                                       "--output-format", "parquet"])
+
+    assert result.exit_code == 1
+    assert isinstance(result.exception, SystemExit)
+    assert 'pip install "delineator[parquet]"' in result.output
+    assert fake_delineation == []
+
+
+def test_main_rejects_unknown_output_format_without_traceback(fake_delineation, tmp_path):
+    """An unknown --output-format is a one-line error and exit 1, not a ValueError traceback."""
+    result = CliRunner().invoke(main, ["--point", *ICELAND_POINT, "--output-dir", str(tmp_path),
+                                       "--output-format", "foo"])
+
+    assert result.exit_code == 1
+    assert isinstance(result.exception, SystemExit)
+    assert "Unsupported output_format: 'foo'" in result.output
+    assert fake_delineation == []
+
+
 def _locked_file_error(filename):
     """The PermissionError pyogrio raises on Windows when an output file is open in another program."""
     return PermissionError(13, "The process cannot access the file because it is being used by another process",

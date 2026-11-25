@@ -47,6 +47,9 @@ MEGABASINS_DB_FILE = files('delineator').joinpath('data', 'megabasins.db')
 # and installed libraries.'
 SUPPORTED_OUTPUT_FORMATS = ["shp", "gpkg", "geojson", "json", "kml", "parquet", "geoparquet"]
 
+# GeoParquet output needs pyarrow, an optional extra: pip install "delineator[parquet]"
+PARQUET_OUTPUT_FORMATS = ("parquet", "geoparquet")
+
 # These are used by the `pooch` library to verify the integrity of the download
 HASHES = {
     "accum11.tif": "3cbd439b5e661ca2f6d4418e812fb6ea733929e8c6863d2ae57e2b0fa75edb1d",

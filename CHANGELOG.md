@@ -36,6 +36,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   `delineate` fails. It writes whichever layers are present, and if there are
   none, logs a warning and writes nothing.
 - `delineator.__version__` reported 2.2.5 in the 2.2.6 release.
+- Parquet output (`output_format="parquet"`) failed with an `ImportError` on a
+  plain install, because nothing installed `pyarrow`. It is now the optional
+  extra `pip install "delineator[parquet]"`. Without it, choosing parquet
+  fails at once with that install hint, instead of after the delineation.
+- `delineate` now reports a bad option value, such as an unknown
+  `--output-format`, as a one-line error instead of a traceback.
+- `delineate` no longer crashes with a traceback when it can't write an output
+  file, for example because the file is open in QGIS or ArcGIS. It names the
+  file, skips that outlet, and exits with status 1 if nothing was written.
 
 
 ## [2.2.6] - 2026-11-22

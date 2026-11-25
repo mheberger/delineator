@@ -264,32 +264,49 @@ def test_close_holes_rejects_unsupported_geometry_type():
         _close_holes(line, area_max_km2=0)
 
 
-def test_write_outputs_parquet_passes_path_per_layer(tmp_path, monkeypatch):
+def test_write_outputs_parquet_writes_one_file_per_layer(tmp_path):
     """
-    For parquet output, write_outputs passes a single file path for each layer.
+    For parquet output, write_outputs writes each layer to <layer>_<id>.parquet.
 
-    A regression once passed a tuple instead of a path. to_parquet needs
-    pyarrow, which may not be installed, so the test replaces it with a stub
-    that records the path it was given. The only layer here is the watershed,
-    which must go to watershed_<id>.parquet in output_dir.
+    A regression once passed a tuple instead of a path to to_parquet. Needs
+    the optional pyarrow (delineator[parquet]), so the test is skipped
+    without it. The files must read back with the same geometry and CRS.
     """
-    paths = []
+    pytest.importorskip("pyarrow")
+    square = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
+    watershed_gdf = gpd.GeoDataFrame({"area": [1.0]}, geometry=[square], crs="EPSG:4326")
+    rivers_gdf = gpd.GeoDataFrame(geometry=[LineString([(0, 0), (1, 1)])], crs="EPSG:4326")
+    config = DelineatorConfig(output_dir=tmp_path, output_format="parquet", round_coordinates=False)
 
-    def fake_to_parquet(self, path, **kwargs):
-        paths.append(path)
+    write_outputs(watershed_gdf, rivers_gdf, None, config, id="test")
 
-    monkeypatch.setattr(gpd.GeoDataFrame, "to_parquet", fake_to_parquet)
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["rivers_test.parquet", "watershed_test.parquet"]
+    result = gpd.read_parquet(tmp_path / "watershed_test.parquet")
+    assert result.crs == watershed_gdf.crs
+    assert result.geometry.iloc[0].equals(square)
+    assert result["area"].tolist() == [1.0]
 
-    watershed_gdf = gpd.GeoDataFrame(
-        geometry=[Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])],
-        crs="EPSG:4326",
-    )
-    config = DelineatorConfig(output_dir=tmp_path, output_format="parquet")
 
-    write_outputs(watershed_gdf, None, None, config, id="test")
+@pytest.mark.parametrize("output_format", ["parquet", "geoparquet"])
+def test_config_parquet_without_pyarrow_raises_with_install_hint(no_pyarrow, output_format):
+    """Choosing parquet without pyarrow fails when the config is made, before any delineation runs."""
+    with pytest.raises(ImportError, match=r'pip install "delineator\[parquet\]"'):
+        DelineatorConfig(output_format=output_format)
 
-    assert paths == [tmp_path / "watershed_test.parquet"]
-    assert all(isinstance(p, Path) for p in paths)
+
+def test_write_outputs_parquet_without_pyarrow_raises_with_install_hint(no_pyarrow, tmp_path):
+    """
+    write_outputs checks for pyarrow too, since output_format can be changed after the config is made.
+
+    Nothing may be written.
+    """
+    config = DelineatorConfig(output_dir=tmp_path, output_format="gpkg")
+    config.output_format = "parquet"
+    watershed_gdf = gpd.GeoDataFrame(geometry=[Polygon([(0, 0), (1, 0), (1, 1)])], crs="EPSG:4326")
+
+    with pytest.raises(ImportError, match=r'pip install "delineator\[parquet\]"'):
+        write_outputs(watershed_gdf, None, None, config)
+    assert not list(tmp_path.iterdir())
 
 
 def _precise_square_gdf():

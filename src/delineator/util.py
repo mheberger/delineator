@@ -7,8 +7,8 @@ import shapely
 from shapely.geometry import MultiPolygon, Polygon
 import geopandas as gpd
 
-from delineator.constants import KM_PER_DEGREE, ROUNDING_DECIMALS
-from delineator.settings import DelineatorConfig
+from delineator.constants import KM_PER_DEGREE, PARQUET_OUTPUT_FORMATS, ROUNDING_DECIMALS
+from delineator.settings import DelineatorConfig, _require_pyarrow
 
 logger = logging.getLogger(__name__)
 
@@ -198,7 +198,8 @@ def write_outputs(watershed_gdf: gpd.GeoDataFrame | None,
     - shapefile: ``shp``
     - GeoPackage: ``gpkg``
     - GeoJSON: ``geojson``, ``json``
-    - GeoParquet: ``parquet``, ``geoparquet``
+    - GeoParquet: ``parquet``, ``geoparquet`` (needs pyarrow:
+      ``pip install "delineator[parquet]"``)
     - KML: ``kml``
 
     Parameters
@@ -261,7 +262,9 @@ def write_outputs(watershed_gdf: gpd.GeoDataFrame | None,
                 gdf["geometry"] = shapely.set_precision(gdf.geometry, grid_size=grid_size)
                 layers[layer_name] = gdf
 
-    if output_format in {"parquet", "geoparquet"}:
+    if output_format in PARQUET_OUTPUT_FORMATS:
+        # DelineatorConfig checks this too, but output_format can be changed after it's created
+        _require_pyarrow()
         for layer_name, gdf in layers.items():
             if gdf is not None:
                 fname = output_dir / f"{layer_name}{suffix}.parquet"

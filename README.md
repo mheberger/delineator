@@ -13,7 +13,7 @@ and [MERIT-Basins](https://www.reachhydro.org/home/params/merit-basins). Feature
 
 - Near-global coverage (excludes Greenland, Antarctica, and some small islands).
 - Returns watershed, river network, and outlet points.
-- Ouput to multiple formats: GeoPackage, GeoJSON, Shapefile, KML, parquet.
+- Ouput to multiple formats: GeoPackage, GeoJSON, Shapefile, KML, GeoParquet.
 - Includes a local web app for interactive exploration.
 - Bundled sample data for Iceland; other regions download automatically on first use.
 
@@ -77,6 +77,13 @@ Fix with (one-time per session):
 
 ```powershell
 powershellSet-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+**Optional: GeoParquet output.** Writing `parquet` files needs the `pyarrow`
+package, which adds about 90 MB, so it isn't installed by default. To include it:
+
+```bash
+pip install "delineator[parquet]"
 ```
 
 
@@ -222,7 +229,7 @@ delineate --point 63.938 -21.004 --rivers false --outlets false
 delineate --point 63.938 -21.004 --output-format geojson
 delineate --point 63.938 -21.004 --output-format shp
 delineate --point 63.938 -21.004 --output-format kml
-delineate --point 63.938 -21.004 --output-format parquet
+delineate --point 63.938 -21.004 --output-format parquet  # needs: pip install "delineator[parquet]"
 
 # Batch delineation of multiple outlet points in a CSV file
 delineate --csv outlets.csv
@@ -356,7 +363,7 @@ All options with their defaults:
 | `num_stream_orders`    | `4`            | Number of stream orders to include in the river network output. Higher values give a more detailed network; set ≥ 9 for all available reaches. Only used when `rivers=True`.                                                    |
 | `outlets`              | `True`         | Include the requested and snapped outlet points in the output.                                                                                                                                                                  |
 | `output_dir`           | `./output/`    | Directory for output files.                                                                                                                                                                                                     |
-| `output_format`        | `gpkg`         | Output format: `gpkg`, `geojson`, `shp`, `kml`, or any other GeoPandas-supported driver.                                                                                                                                        |
+| `output_format`        | `gpkg`         | Output format: `gpkg`, `geojson`, `shp`, `kml`, or `parquet`. Parquet needs `pip install "delineator[parquet]"`.                                                                                                                |
 | `rivers`               | `True`         | Include the upstream river network in the output.                                                                                                                                                                               |
 | `round_coordinates`    | `True`         | Round output vertex coordinates to 6 decimal places (~10 cm near the equator). Saves disk space with minimal loss of precision.                                                                                                 |
 | `search_dist`          | `5.0`          | Distance in km to search for a catchment containing the outlet, or to snap the outlet to a river centerline. Accepts values from 0 to 50 km.                                                                                    |

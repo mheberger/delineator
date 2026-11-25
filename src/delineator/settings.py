@@ -12,12 +12,28 @@ including:
 Allows the user to specify various options for the watershed delineation process
 such as the output format, whether to include rivers, directory locations, etc.
 """
+import importlib.util
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from platformdirs import user_data_dir
 
-from delineator.constants import SUPPORTED_OUTPUT_FORMATS
+from delineator.constants import PARQUET_OUTPUT_FORMATS, SUPPORTED_OUTPUT_FORMATS
+
+
+def _require_pyarrow() -> None:
+    """
+    Raise ImportError, with an install hint, if pyarrow is not installed.
+
+    geopandas writes GeoParquet through pyarrow, which delineator offers as
+    the optional extra ``delineator[parquet]`` rather than a required
+    dependency, since it adds about 90 MB to an install.
+    """
+    if importlib.util.find_spec("pyarrow") is None:
+        raise ImportError(
+            "Parquet output needs the pyarrow package. "
+            'Install it with: pip install "delineator[parquet]"'
+        )
 
 
 def _default_auto_download() -> bool:
@@ -140,10 +156,10 @@ class DelineatorConfig:
         otherwise an "output" folder in the current working directory.
 
     output_format : str
-        Specify the output format for geodata files. Options are "gpkg" (default)
-        or "geojson", "shp", "kml", and others supported by your installation of geopandas.
-        See https://geopandas.org/en/stable/docs/user_guide/io.html#supported-drivers-file-formats
-        for more details.
+        Specify the output format for geodata files. Options are "gpkg" (default),
+        "geojson" (or "json"), "shp", "kml", and "parquet" (or "geoparquet").
+        Parquet needs pyarrow (``pip install "delineator[parquet]"``); without it,
+        choosing parquet raises ImportError.
         DEFAULT = "gpkg".
 
     rivers : bool
@@ -299,6 +315,9 @@ class DelineatorConfig:
                 f"Unsupported output_format: {self.output_format!r}. "
                 f"Supported formats are: {valid_formats}."
             )
+        # Fail now, not after a long delineation, if parquet can't be written
+        if self.output_format in PARQUET_OUTPUT_FORMATS:
+            _require_pyarrow()
 
     @staticmethod
     def _coerce_path(value: Path | str, name: str) -> Path:

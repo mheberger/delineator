@@ -49,7 +49,8 @@ def serve_cli():
                                                          " Default is True (high-res mode).")
 @click.option("--output-dir", default=None, help="Directory for output files. Defaults to ./output/")
 @click.option("--output-format", default="gpkg",
-              help="Output format: geojson, shp, kml, gpkg. Default is gpkg (Geopackage).")
+              help="Output format: gpkg, geojson, shp, kml, parquet. Default is gpkg (GeoPackage)."
+                   " Parquet needs pyarrow: pip install \"delineator[parquet]\"")
 @click.option("--fill", type=click.BOOL, default=True, is_flag=False, flag_value=True, metavar="[true|false]",
               help="Fill interior gaps or \"donut holes\" in the watershed. On by default;"
                    " use --fill false to keep them.")
@@ -116,7 +117,11 @@ def main(point, id, outlets_csv, data_dir, auto_download, high_res, output_dir,
     if auto_download is not None:
         config_kwargs["auto_download"] = auto_download
 
-    config = DelineatorConfig(**config_kwargs)
+    try:
+        config = DelineatorConfig(**config_kwargs)
+    except (ValueError, TypeError, ImportError) as e:
+        # e.g. an unknown --output-format, or parquet without pyarrow installed
+        raise click.ClickException(str(e))
 
     # Set the output directory (may not have been set by user)
     output_path = config.output_dir

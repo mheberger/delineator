@@ -33,6 +33,12 @@ dependencies = [
     "tqdm>4.67",
 ]
 
+[project.optional-dependencies]
+# GeoParquet output (output_format="parquet"). geopandas writes parquet through
+# pyarrow but leaves it optional; it adds about 90 MB, so delineator does too.
+# The minimum matches geopandas' own "all" extra.
+parquet = ["pyarrow>=15.0"]
+
 [project.scripts]
 delineate = "delineator.cli:main"
 delineator_dir = "delineator.cli:delineator_dir"
@@ -69,7 +75,9 @@ extend_exclude = ["data_mgmt", "benchmarking", "examples"]
 [tool.deptry.per_rule_ignores]
 # tqdm is never imported by the package, but pooch.retrieve(progressbar=True)
 # needs it at runtime (see download.py), so it must stay a declared dependency.
-DEP002 = ["tqdm"]
+# pyarrow (the optional [parquet] extra) is never imported either: geopandas
+# imports it inside GeoDataFrame.to_parquet (see util.write_outputs).
+DEP002 = ["tqdm", "pyarrow"]
 
 [tool.ruff.lint]
 # Pin ruff's classic default rule set (pyflakes + core pycodestyle errors).
