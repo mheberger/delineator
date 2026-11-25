@@ -56,6 +56,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - With `cache=True`, a cache full of continent-sized watersheds took about
   600 MB. It now takes about 240 MB, because the cached upstream IDs are kept
   as a compact array instead of a list of Python integers.
+- `filled_area` could come out as `-0.0` for a watershed with no holes,
+  because it is the difference between two separately measured areas.
+  Filling can only add area, so `filled_area` is now never below 0.
 
 
 ## [2.2.6] - 2026-11-22

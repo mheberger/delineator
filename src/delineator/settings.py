@@ -175,11 +175,12 @@ class DelineatorConfig:
         DEFAULT = True.
 
     search_dist : float
-        The distance (in km) to search for a catchment that contains the outlet point,
-        or to snap the outlet point to a river centerline.
-        If the outlet point does not fall inside any catchment, the script will
-        search for the nearest catchment within this distance (in kilometers).
-        Accepts values from 0 to 50 km.
+        Maximum distance (in km) for two searches. If the outlet point does not
+        fall inside any catchment, the nearest catchment within this distance
+        is used. When snapping, the outlet moves to the nearest stream cell in
+        its unit catchment, but no farther than this distance; if the nearest
+        stream cell is farther away, delineation fails with a warning.
+        Must be greater than 0 and at most 50 km.
         DEFAULT = 5.0 (km)
 
     simplify : bool

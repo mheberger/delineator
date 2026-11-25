@@ -346,10 +346,14 @@ def delineate(lat: float, lng: float, config: DelineatorConfig | None = None) ->
             # filled interior holes to the polygon, so that sum no longer matches
             # the delivered polygon. area_km2 then reports the polygon's actual
             # area, and filled_area reports how much of it the filling added.
+            # The two areas are measured differently, so for a watershed with no
+            # holes the polygon can come out a hair smaller than the sum. Filling
+            # can only add area, so floor the difference at zero; this also
+            # turns a rounded -0.0 into 0.0.
             if config.fill:
                 filled_polygon_area = _get_polygon_area(watershed_polygon)
                 watershed_gdf["area_km2"] = round(filled_polygon_area, 1)
-                watershed_gdf["filled_area"] = round(filled_polygon_area - watershed_area, 1)
+                watershed_gdf["filled_area"] = max(0.0, round(filled_polygon_area - watershed_area, 1))
 
     # Step 7.5: optionally clean, simplify, and smooth the watershed
     if config.smooth and not config.simplify:

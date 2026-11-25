@@ -357,10 +357,10 @@ All options with their defaults:
 |------------------------|----------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `auto_download`        | `True`         | Automatically download missing data files on first use.                                                                                                                                                                         |
 | `cache`                | `False`        | Cache the upstream-catchment queries and polygon dissolve in memory, keyed on the outlet's unit catchment. Speeds up repeated delineations with nearby outlets. See [Caching](#caching) below.                                  |
-| `calc_area`            | `True`         | Calculate the watershed area in km² and add it to the output attribute table.                                                                                                                                                   |
+| `calc_area`            | `True`         | Calculate the watershed area in km² and add it to the output attribute table as `area_km2`.                                                                                                                                    |
 | `clean`                | `True`         | Apply a small buffer/unbuffer to repair seam artifacts in the watershed polygon.                                                                                                                                                |
 | `data_dir`             | system default | Directory where data files are stored and downloaded. Overrides the platform default location.                                                                                                                                  |
-| `fill`                 | `True`         | Fill small interior "donut holes" caused by topological gaps in the MERIT-Hydro data.                                                                                                                                           |
+| `fill`                 | `True`         | Fill small interior "donut holes" caused by topological gaps in the MERIT-Hydro data. Also adds a `filled_area` attribute (km²) when `calc_area=True`. See [Filling holes](#filling-holes).                                    |
 | `fill_area_max`        | `1.0`          | Maximum hole size to fill, in km². Only used when `fill=True`. Larger holes are preserved (e.g. genuine endorheic basins). **Set to `0` to fill all holes.**                                                                    |
 | `high_res`             | `True`         | Refine the watershed boundary at the outlet using raster methods. More accurate but slower. Set `False` to skip (the watershed will include some area downstream of the outlet).                                                |
 | `num_stream_orders`    | `4`            | Number of stream orders to include in the river network output. Higher values give a more detailed network; set ≥ 9 for all available reaches. Only used when `rivers=True`.                                                    |
@@ -369,7 +369,7 @@ All options with their defaults:
 | `output_format`        | `gpkg`         | Output format: `gpkg`, `geojson`, `shp`, `kml`, or `parquet`. Parquet needs `pip install "delineator[parquet]"`.                                                                                                                |
 | `rivers`               | `True`         | Include the upstream river network in the output.                                                                                                                                                                               |
 | `round_coordinates`    | `True`         | Round output vertex coordinates to 6 decimal places (~10 cm near the equator). Saves disk space with minimal loss of precision.                                                                                                 |
-| `search_dist`          | `5.0`          | Distance in km to search for a catchment containing the outlet, or to snap the outlet to a river centerline. Accepts values from 0 to 50 km.                                                                                    |
+| `search_dist`          | `5.0`          | Maximum distance in km for two searches: finding the nearest catchment if the outlet isn't inside one, and snapping the outlet to a stream. Must be more than 0 and at most 50. See [Search distance](#search-distance).       |
 | `simplify`             | `False`        | Simplify output geometry using the Douglas-Peucker algorithm. Reduces file size and removes staircase artifacts from raster-origin boundaries.                                                                                  |
 | `simplify_tolerance`   | `0.10`         | Douglas-Peucker tolerance in km: the maximum distance a vertex may move from its original position. Only used when `simplify=True`.                                                                                             |
 | `smooth`               | `False`        | Smooth the output geometries for a more natural appearance: rivers with Catmull-Rom splines, the watershed boundary with Chaikin corner cutting. Best used together with `simplify=True`.                                       |
@@ -418,13 +418,39 @@ for studies of surface drainage:
 
 ![Rio Grande Watershed](docs/rio_grande.jpg)
 
+Filling holes makes the watershed polygon larger than the sum of the unit
+catchments it was built from. So with `fill=True` and `calc_area=True` (both
+defaults), the watershed's attributes change:
+
+- `area_km2` is the area of the polygon as delivered, with the filled holes
+  included.
+- A second attribute, `filled_area`, gives the area in km² that filling added.
+
+With `fill=False`, `area_km2` is the sum of the unit catchment areas, and the
+watershed has no `filled_area` attribute. Because `filled_area` is the
+difference between two separately measured areas, a watershed with no holes
+may show a small value such as 0.1 km² instead of exactly 0.
+
 
 #### Search distance
 
-If the outlet point falls just offshore, in an estuary, or in a gap between unit
- catchments, `search_dist` controls how far (in km) the script 
- searches for the nearest catchment. A larger value (up to the 50 km maximum) may help 
- for coastal outlets.
+`search_dist` (in km, default 5) sets the limit for two different searches:
+
+- **Finding the outlet's catchment.** If the outlet point falls just offshore,
+  in an estuary, or in a gap between unit catchments, the script uses the
+  nearest catchment within `search_dist`. A larger value (up to the 50 km
+  maximum) may help for coastal outlets.
+- **Snapping the outlet to a stream.** With `snapping=True` (the default), the
+  outlet moves to the nearest stream cell (see [Snapping](#snapping)), but no
+  farther than `search_dist`. If the nearest stream cell is farther away,
+  `delineate()` returns `None` with a warning that gives the distance. Only
+  stream cells inside the outlet's unit catchment are considered, so the
+  outlet never snaps into a neighboring catchment.
+
+Because one setting controls both searches, raising it to find a catchment for
+a coastal outlet also lets outlets snap farther from where you placed them.
+Lowering it keeps snapped outlets close to the original point, but outlets far
+from any stream will then fail.
 
 
 #### Simplify
@@ -461,6 +487,8 @@ parameter sets the minimum upstream drainage area
 the outlet to snap to. Setting it too low can snap the outlet onto a minor 
 channel and may not give the desired result. Setting it too high will snap the 
 outlet to a large river, and you may not be able to find small watersheds.
+The outlet snaps to the nearest such cell, and moves at most `search_dist` km
+(see [Search distance](#search-distance)).
 
 Because the outlet always snaps to a cell that drains more than the threshold, 
 `stream_threshold_km2` is also the **minimum size of watershed** you can 

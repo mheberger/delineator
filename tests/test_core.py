@@ -1,4 +1,5 @@
 import logging
+import math
 import sqlite3
 from array import array
 from contextlib import closing
@@ -378,6 +379,24 @@ def test_delineate_omits_area_when_upstream_area_unknown(tmp_path, monkeypatch):
     assert watershed_gdf is not None
     assert "area_km2" not in watershed_gdf.columns
     assert "filled_area" not in watershed_gdf.columns
+
+
+def test_filled_area_is_never_negative(tmp_path):
+    """
+    filled_area is 0, not -0.0, for a watershed whose polygon measures slightly smaller.
+
+    filled_area is the polygon's measured area minus the sum of the unit
+    catchment areas. For the Olfusa River at Selfoss the polygon measures a
+    hair smaller than that sum, which used to round to -0.0. Filling can only
+    add area, so filled_area must be zero or positive, and never negative zero.
+    """
+    config = DelineatorConfig(fill=True, rivers=False, outlets=False, output_dir=tmp_path)
+
+    watershed_gdf, _, _ = delineate(63.93796, -21.00666, config)
+
+    filled_area = watershed_gdf["filled_area"].iloc[0]
+    assert filled_area >= 0
+    assert math.copysign(1.0, filled_area) == 1.0
 
 
 def test_delineate_closes_all_database_connections(tmp_path, monkeypatch):
