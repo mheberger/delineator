@@ -34,10 +34,10 @@ the grid cell. MERIT uses the ESRI standard for repesenting flow in 8 directions
 | ↖ northwest              |   32  |
 | ↑ north                  |   64  |
 | ↗ northeast              |  128  |
-| inland depression (sink) |  255  |
-| undefined                |  247  |
-| undefined (ocean)        |   -9  |
+| inland depression (sink)\* |  -1 or 255  |
+| undefined (ocean)\*        |   -9 or 247 |
 
+\*NOTE: MERIT-Hydro flow direction rasters are distributed as signed integer (`Int8`). If a flow direction file is opened as UNSIGNED integer, undefined=247 and inland depression=255. [Source](https://global-hydrodynamics.github.io/MERIT_Hydro/): 
 
 ![ESRI Flow direction mapping](../../../docs/esri-flow-direction.png)
 

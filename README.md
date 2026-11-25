@@ -200,7 +200,9 @@ parallel-computing, or internet-server requirements.
   watershed in Iceland (5,754 km²) has a measured peak memory footprint of
   about 310 MB, including the Python interpreter and all imported libraries.
   Any machine with 8 GB of RAM is more than sufficient, even for
-  continental-scale watersheds like the Amazon.
+  continental-scale watersheds like the Amazon. The optional
+  [cache](#caching) adds a few megabytes in typical use, and at most about
+  250 MB if it fills up with continental-scale watersheds.
 - **Speed:** On a circa-2020 laptop (Intel Core i7-10610U @ 1.80 GHz, 32 GB
   RAM), watersheds of roughly 40,000–86,000 km² take about 0.5–1.5 seconds
   each (median 0.8 s; see the `benchmarking` folder in this repository).
@@ -392,8 +394,11 @@ often click several points along the same river reach — the local web app
 enables it by default. It will not speed up batch runs where every outlet lands in a different
 unit catchment.
 
-The cache is held in memory, holds up to 64 watersheds, and can be emptied
-with `delineator.clear_cache()`. It assumes the data files do not change while
+The cache is held in memory and keeps the results for about 32 of the most
+recently delineated watersheds. Each cached watershed takes about 150 KB for
+a 10,000 km² basin, and roughly 7 MB for one the size of the Amazon. The cache can be emptied with `delineator.clear_cache()`, although
+Python may hold on to the freed memory rather than return it to the operating
+system. The cache assumes the data files do not change while
 your program runs; if you point the script at a different data directory
 mid-session, call `clear_cache()`.
 
