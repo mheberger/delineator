@@ -217,7 +217,16 @@ def _delineate_dataframe(outlets_df, config: DelineatorConfig) -> bool:
         if watershed_gdf is None:
             logger.warning(f"No watershed found for point {id} ({lat}, {lon}).")
             continue
-        write_outputs(watershed_gdf, rivers_gdf, outlets_gdf, config, id=id)
+        try:
+            write_outputs(watershed_gdf, rivers_gdf, outlets_gdf, config, id=id)
+        except (OSError, RuntimeError) as e:
+            # Most often an output file is open in another program (QGIS, ArcGIS),
+            # which locks it on Windows. pyogrio raises PermissionError for that, and
+            # its own RuntimeError subclasses for other GDAL write failures.
+            reason = f"{e.strerror}: {e.filename}" if isinstance(e, OSError) and e.filename else str(e)
+            logger.warning(f"Could not write outputs for outlet {lat}, {lon}. {reason}. "
+                           "If the file is open in another program, close it and try again.")
+            continue
         num_outputs_written += 1
 
     if num_outputs_written > 0:

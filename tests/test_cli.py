@@ -209,6 +209,56 @@ def test_main_exits_with_error_when_no_watershed_is_delineated(tmp_path):
     assert not list(output_dir.glob("*"))
 
 
+def _locked_file_error(filename):
+    """The PermissionError pyogrio raises on Windows when an output file is open in another program."""
+    return PermissionError(13, "The process cannot access the file because it is being used by another process",
+                           filename)
+
+
+def test_main_reports_locked_output_file_without_traceback(fake_delineation, monkeypatch, tmp_path, caplog):
+    """
+    A locked output file gives a short warning naming the file and exits 1, not a traceback.
+
+    On Windows, a shapefile or GeoJSON open in QGIS or ArcGIS can't be
+    overwritten, and pyogrio raises PermissionError. This used to crash the
+    CLI with a long traceback.
+    """
+    locked = tmp_path / "outlets.shp"
+
+    def locked_write(*args, **kwargs):
+        raise _locked_file_error(str(locked))
+
+    monkeypatch.setattr(delineator.cli, "write_outputs", locked_write)
+
+    result = CliRunner().invoke(main, ["--point", *ICELAND_POINT, "--output-dir", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert isinstance(result.exception, SystemExit)
+    assert "No outputs written" in result.output
+    assert str(locked) in caplog.text
+    assert "close it and try again" in caplog.text
+
+
+def test_main_csv_continues_after_locked_output_file(fake_delineation, monkeypatch, tmp_path, caplog):
+    """In a batch, a locked file for one outlet is skipped and the other outlets are still written."""
+    csv_path = tmp_path / "outlets.csv"
+    csv_path.write_text("id,lat,lon\na,64.7,-21.6\nb,64.8,-21.7\n")
+    written = []
+
+    def write_unless_a(*args, id=None, **kwargs):
+        if id == "a":
+            raise _locked_file_error(str(tmp_path / "watershed_a.gpkg"))
+        written.append(id)
+
+    monkeypatch.setattr(delineator.cli, "write_outputs", write_unless_a)
+
+    result = CliRunner().invoke(main, ["--csv", str(csv_path), "--output-dir", str(tmp_path)])
+
+    assert result.exit_code == 0, result.output
+    assert written == ["b"]
+    assert "watershed_a.gpkg" in caplog.text
+
+
 def test_main_no_downloads_fails_instead_of_downloading(tmp_path):
     """
     With --no-downloads and an empty --data-dir, an outlet outside Iceland fails without downloading anything.
