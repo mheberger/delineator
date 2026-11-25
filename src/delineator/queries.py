@@ -80,14 +80,16 @@ def get_hiearchical_basins(conn: sqlite3.Connection, upstream_catchment_list: li
                 'L0': [23016160, 23016161, 23016603, 23017101, 23017136],
             }
     """
-    placeholders = ", ".join([str(i) for i in upstream_catchment_list])
-
-    # Query #2, gets the nested upstream basins
-    sql = f"""
+    # Query #2, gets the nested upstream basins. The upstream IDs are loaded
+    # into a temporary table rather than written into the SQL as a literal
+    # IN (...) list. The query refers to `upstream` many times through the
+    # nested CTEs, and SQLite copies a literal list for each reference: for
+    # the ~130,000 unit catchments above the Amazon's mouth, that took about
+    # 700 MB of memory. Every CTE below joins `upstream` to catchment_hierarchy,
+    # so IDs missing from that table drop out, just as they did with IN (...).
+    sql = """
     WITH upstream(l0_id) AS (
-        SELECT l0_id
-        FROM catchment_hierarchy
-        WHERE l0_id IN ({placeholders})
+        SELECT l0_id FROM temp.upstream_ids
     ),
     l4_matches AS (
         SELECT h.l4_id AS comid
@@ -164,9 +166,13 @@ def get_hiearchical_basins(conn: sqlite3.Connection, upstream_catchment_list: li
         FROM residuals;
     """
 
-    cur = conn.cursor()
-    cur.execute(sql)
-    rows = cur.fetchall()
+    conn.execute("CREATE TEMP TABLE upstream_ids (l0_id INTEGER PRIMARY KEY)")
+    try:
+        conn.executemany("INSERT OR IGNORE INTO temp.upstream_ids VALUES (?)",
+                         ((comid,) for comid in upstream_catchment_list))
+        rows = conn.execute(sql).fetchall()
+    finally:
+        conn.execute("DROP TABLE temp.upstream_ids")
 
     # Convert the results to a dictionary (mostly for my convenience -- easier to inspect and debug)
     basin_collection = defaultdict(list)

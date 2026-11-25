@@ -9,6 +9,7 @@ Formerly a collection of Python scripts, rewritten as a Python package
 """
 
 import logging
+from array import array
 from collections import OrderedDict
 from contextlib import closing
 from pathlib import Path
@@ -81,7 +82,8 @@ def _get_upstream_catchments(basins_db_conn: sqlite3.Connection, home_unit_catch
         if cached is not None:
             logger.info(f"Using cached upstream catchments for unit catchment "
                         f"{home_unit_catchment}")
-            return cached
+            cached_ids, basins_dict = cached
+            return list(cached_ids), basins_dict
 
     upstream_unit_catchments = get_upstream_comids(basins_db_conn, int(home_unit_catchment))
     basins_dict = None
@@ -89,7 +91,10 @@ def _get_upstream_catchments(basins_db_conn: sqlite3.Connection, home_unit_catch
         basins_dict = get_hiearchical_basins(basins_db_conn, upstream_unit_catchments[1:])
 
     if use_cache:
-        _cache_put(key, (upstream_unit_catchments, basins_dict))
+        # Store the comids as an int64 array: 8 bytes each, in one block. As a
+        # list, each comid is a separate Python int of about 36 bytes, and a
+        # cache full of large watersheds then fragments memory badly.
+        _cache_put(key, (array('q', upstream_unit_catchments), basins_dict))
 
     return upstream_unit_catchments, basins_dict
 

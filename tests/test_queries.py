@@ -3,14 +3,69 @@ Tests for the queries module: graceful degradation when data files are
 missing or a catchment has no record, instead of raising.
 """
 
+import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 from platformdirs import user_data_dir
 
 import delineator.queries
-from delineator.data import _get_data_dir
-from delineator.queries import get_rivers, get_upstream_area
+from delineator.data import _find_data_file, _get_data_dir
+from delineator.queries import get_hiearchical_basins, get_rivers, get_upstream_area, get_upstream_comids
 from delineator.settings import DelineatorConfig
+
+# The outlet catchment of Iceland's largest watershed in the bundled data. Its
+# 184 upstream unit catchments group into a mix of L1 and L0 catchments.
+ICELAND_LARGEST_OUTLET = 27001383
+
+
+def _iceland_basins_db():
+    return _find_data_file("basins27.db", DelineatorConfig())
+
+
+def test_get_hiearchical_basins_partitions_the_upstream_catchments():
+    """
+    The grouped catchments cover every upstream unit catchment exactly once.
+
+    Each L1-L4 catchment is expanded back to its unit catchments through the
+    catchment_hierarchy table. Together with the L0 catchments, they must be
+    exactly the upstream list, with nothing missing and nothing counted twice.
+    At least one aggregated (L1-L4) catchment must be used, or the grouping
+    would not be saving any work.
+    """
+    with closing(sqlite3.connect(_iceland_basins_db())) as conn:
+        upstream = get_upstream_comids(conn, ICELAND_LARGEST_OUTLET)[1:]
+        groups = get_hiearchical_basins(conn, upstream)
+
+        covered = list(groups.get("L0", []))
+        for level, ids in groups.items():
+            if level == "L0":
+                continue
+            column = f"{level.lower()}_id"
+            for group_id in ids:
+                covered += [row[0] for row in conn.execute(
+                    f"SELECT l0_id FROM catchment_hierarchy WHERE {column} = ?", (group_id,))]
+
+    assert set(groups) - {"L0"}
+    assert sorted(covered) == sorted(upstream)
+
+
+def test_get_hiearchical_basins_leaves_its_connection_reusable():
+    """
+    get_hiearchical_basins() can run twice on one connection and leaves no temp tables.
+
+    It loads the upstream IDs into a temporary table for the query. That table
+    must be dropped afterwards, so a second call on the same connection works
+    and gives the same answer.
+    """
+    with closing(sqlite3.connect(_iceland_basins_db())) as conn:
+        upstream = get_upstream_comids(conn, ICELAND_LARGEST_OUTLET)[1:]
+        first = get_hiearchical_basins(conn, upstream)
+        second = get_hiearchical_basins(conn, upstream)
+        leftover_tables = conn.execute("SELECT name FROM sqlite_temp_master").fetchall()
+
+    assert first == second
+    assert leftover_tables == []
 
 
 def test_get_upstream_area_returns_none_when_rivers_db_unavailable(monkeypatch):

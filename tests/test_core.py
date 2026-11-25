@@ -1,11 +1,15 @@
 import logging
 import sqlite3
+from array import array
+from contextlib import closing
 from pathlib import Path
 import pandas as pd
 import pytest
 import shapely
 
 import delineator.core
+from delineator.data import _find_data_file
+from delineator.queries import get_upstream_comids
 from delineator.util import write_outputs
 from delineator.core import delineate, downloader
 from delineator.settings import DelineatorConfig
@@ -451,6 +455,31 @@ def test_cache_skips_repeat_upstream_queries(tmp_path, monkeypatch):
     assert counts_after_first["comids"] == 1
     assert calls == counts_after_first
     assert first_gdf.geometry.iloc[0].equals(second_gdf.geometry.iloc[0])
+
+
+def test_cache_stores_upstream_comids_as_compact_array(tmp_path):
+    """
+    The cache keeps upstream comids as an int64 array, not a list of Python ints.
+
+    A large watershed has over 100,000 upstream comids. As a list, each one is a
+    separate Python int object, and a full cache of them took more than twice
+    the memory of the same IDs in an array. The cached array must hold the same
+    comids that get_upstream_comids() returns.
+    """
+    delineator.core.clear_cache()
+    try:
+        config = DelineatorConfig(cache=True, rivers=False, outlets=False, output_dir=tmp_path)
+        delineate(64.71072, -21.60337, config)
+        (key, (cached_ids, _)), = [(k, v) for k, v in delineator.core._CACHE.items()
+                                   if k[0] == "upstream"]
+    finally:
+        delineator.core.clear_cache()
+
+    assert isinstance(cached_ids, array)
+    assert cached_ids.typecode == "q"
+    db_path = _find_data_file("basins27.db", DelineatorConfig())
+    with closing(sqlite3.connect(db_path)) as conn:
+        assert list(cached_ids) == get_upstream_comids(conn, key[1])
 
 
 def test_downloader_accepts_bundled_iceland_data(tmp_path, capsys):

@@ -45,6 +45,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `delineate` no longer crashes with a traceback when it can't write an output
   file, for example because the file is open in QGIS or ArcGIS. It names the
   file, skips that outlet, and exits with status 1 if nothing was written.
+- Delineating very large watersheds used several hundred megabytes more memory
+  than it needed. The query that groups the upstream unit catchments wrote
+  every upstream ID into the SQL text, and SQLite copied that list many times:
+  about 700 MB extra for the Amazon at its mouth. The IDs now go through a
+  temporary table. Peak memory for that watershed falls from about 820 MB to
+  510 MB, the query runs in about half the time, and long-running processes
+  such as the web app no longer grow by several megabytes after each large
+  delineation.
+- With `cache=True`, a cache full of continent-sized watersheds took about
+  600 MB. It now takes about 240 MB, because the cached upstream IDs are kept
+  as a compact array instead of a list of Python integers.
 
 
 ## [2.2.6] - 2026-11-22
