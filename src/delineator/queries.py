@@ -11,6 +11,10 @@ from delineator.settings import DelineatorConfig
 
 logger = logging.getLogger(__name__)
 
+# SQLite page cache for get_hiearchical_basins(), in KiB: about four times what
+# the largest megabasin (56) needs. The cache grows only as pages are read.
+_HIERARCHY_CACHE_KIB = 32 * 1024
+
 
 def get_upstream_comids(conn: sqlite3.Connection, home_unit_catchment: int) -> list:
     """
@@ -87,6 +91,19 @@ def get_hiearchical_basins(conn: sqlite3.Connection, upstream_catchment_list: li
     # the ~130,000 unit catchments above the Amazon's mouth, that took about
     # 700 MB of memory. Every CTE below joins `upstream` to catchment_hierarchy,
     # so IDs missing from that table drop out, just as they did with IN (...).
+    #
+    # Two things keep the cost in proportion to the number of upstream unit
+    # catchments, not to the size of the megabasin:
+    # - CROSS JOIN makes SQLite loop over the upstream IDs and look each one up
+    #   in catchment_hierarchy (SQLite always keeps the left table of a CROSS
+    #   JOIN in the outer loop). The databases have no planner statistics, and
+    #   with a plain JOIN the planner walked the whole of catchment_hierarchy
+    #   once per level instead. In megabasin 62 that took about 1.1 s and
+    #   900 MB of reads, even for a watershed of a few unit catchments.
+    # - A bigger page cache (see _HIERARCHY_CACHE_KIB) holds the pages these
+    #   lookups touch, about 7 MB in the largest megabasin. With SQLite's
+    #   default 2 MB, a large watershed's lookups kept re-reading the same
+    #   pages: about 300 MB of reads above the Amazon's mouth.
     sql = """
     WITH upstream(l0_id) AS (
         SELECT l0_id FROM temp.upstream_ids
@@ -94,7 +111,7 @@ def get_hiearchical_basins(conn: sqlite3.Connection, upstream_catchment_list: li
     l4_matches AS (
         SELECT h.l4_id AS comid
         FROM upstream t
-        JOIN catchment_hierarchy h ON t.l0_id = h.l0_id
+        CROSS JOIN catchment_hierarchy h ON t.l0_id = h.l0_id
         JOIN expected_counts ec ON ec.parent_id = h.l4_id AND ec.level_name = 'L4'
         WHERE h.l4_id IS NOT NULL
         GROUP BY h.l4_id, ec.expected_count
@@ -103,7 +120,7 @@ def get_hiearchical_basins(conn: sqlite3.Connection, upstream_catchment_list: li
     l3_matches AS (
         SELECT h.l3_id AS comid
         FROM upstream t
-        JOIN catchment_hierarchy h ON t.l0_id = h.l0_id
+        CROSS JOIN catchment_hierarchy h ON t.l0_id = h.l0_id
         JOIN expected_counts ec ON ec.parent_id = h.l3_id AND ec.level_name = 'L3'
         WHERE h.l3_id IS NOT NULL
           AND NOT EXISTS (SELECT 1 FROM l4_matches lm WHERE lm.comid = h.l4_id)
@@ -113,7 +130,7 @@ def get_hiearchical_basins(conn: sqlite3.Connection, upstream_catchment_list: li
     l2_matches AS (
         SELECT h.l2_id AS comid
         FROM upstream t
-        JOIN catchment_hierarchy h ON t.l0_id = h.l0_id
+        CROSS JOIN catchment_hierarchy h ON t.l0_id = h.l0_id
         JOIN expected_counts ec ON ec.parent_id = h.l2_id AND ec.level_name = 'L2'
         WHERE h.l2_id IS NOT NULL
           AND NOT EXISTS (SELECT 1 FROM l4_matches lm WHERE lm.comid = h.l4_id)
@@ -124,7 +141,7 @@ def get_hiearchical_basins(conn: sqlite3.Connection, upstream_catchment_list: li
     l1_matches AS (
         SELECT h.l1_id AS comid
         FROM upstream t
-        JOIN catchment_hierarchy h ON t.l0_id = h.l0_id
+        CROSS JOIN catchment_hierarchy h ON t.l0_id = h.l0_id
         JOIN expected_counts ec ON ec.parent_id = h.l1_id AND ec.level_name = 'L1'
         WHERE h.l1_id IS NOT NULL
           AND NOT EXISTS (SELECT 1 FROM l4_matches lm WHERE lm.comid = h.l4_id)
@@ -136,7 +153,7 @@ def get_hiearchical_basins(conn: sqlite3.Connection, upstream_catchment_list: li
     residuals AS (
         SELECT t.l0_id AS comid
         FROM upstream t
-        JOIN catchment_hierarchy h ON t.l0_id = h.l0_id
+        CROSS JOIN catchment_hierarchy h ON t.l0_id = h.l0_id
         WHERE NOT EXISTS (SELECT 1 FROM l4_matches lm WHERE lm.comid = h.l4_id)
           AND NOT EXISTS (SELECT 1 FROM l3_matches lm WHERE lm.comid = h.l3_id)
           AND NOT EXISTS (SELECT 1 FROM l2_matches lm WHERE lm.comid = h.l2_id)
@@ -166,6 +183,8 @@ def get_hiearchical_basins(conn: sqlite3.Connection, upstream_catchment_list: li
         FROM residuals;
     """
 
+    old_cache_size = conn.execute("PRAGMA cache_size").fetchone()[0]
+    conn.execute(f"PRAGMA cache_size = -{_HIERARCHY_CACHE_KIB}")
     conn.execute("CREATE TEMP TABLE upstream_ids (l0_id INTEGER PRIMARY KEY)")
     try:
         conn.executemany("INSERT OR IGNORE INTO temp.upstream_ids VALUES (?)",
@@ -173,6 +192,7 @@ def get_hiearchical_basins(conn: sqlite3.Connection, upstream_catchment_list: li
         rows = conn.execute(sql).fetchall()
     finally:
         conn.execute("DROP TABLE temp.upstream_ids")
+        conn.execute(f"PRAGMA cache_size = {old_cache_size}")
 
     # Convert the results to a dictionary (mostly for my convenience -- easier to inspect and debug)
     basin_collection = defaultdict(list)

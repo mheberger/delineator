@@ -53,6 +53,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   510 MB, the query runs in about half the time, and long-running processes
   such as the web app no longer grow by several megabytes after each large
   delineation.
+- In large megabasins, grouping the upstream unit catchments cost about 1 s
+  per watershed, however small the watershed. SQLite walked the whole
+  catchment hierarchy on every call, and in megabasin 62 (the Amazon) that
+  meant about 900 MB of reads. The query now looks up only the upstream unit
+  catchments, with a larger page cache while it runs. In megabasin 62, a
+  229 km² watershed now takes 0.17 s instead of 1.33 s (warm file cache), and
+  one of 12,500 km² 0.46 s instead of 1.62 s. Results are unchanged: they
+  were identical on 731 test watersheds in all 60 megabasins.
 - With `cache=True`, a cache full of continent-sized watersheds took about
   600 MB. It now takes about 240 MB, because the cached upstream IDs are kept
   as a compact array instead of a list of Python integers.

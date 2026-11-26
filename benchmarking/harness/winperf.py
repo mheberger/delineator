@@ -176,6 +176,18 @@ def purge_and_verify(path: str, threshold_us: float) -> dict:
     return {"file": str(path), "probe_us": latency, "ok": latency >= threshold_us}
 
 
+def prevent_idle_sleep() -> bool:
+    """
+    Keep Windows from idle-sleeping while this process runs (the display may
+    still turn off). Released automatically when the process exits; a
+    closed lid or choosing Sleep still sleeps.
+    """
+    ES_CONTINUOUS, ES_SYSTEM_REQUIRED = 0x80000000, 0x00000001
+    _k32.SetThreadExecutionState.restype = wintypes.DWORD
+    _k32.SetThreadExecutionState.argtypes = [wintypes.DWORD]
+    return bool(_k32.SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED))
+
+
 def ac_power() -> bool | None:
     """True on mains power, False on battery, None if unknown."""
     class _Status(ctypes.Structure):

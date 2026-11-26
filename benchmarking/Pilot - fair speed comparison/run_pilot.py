@@ -256,6 +256,8 @@ def main() -> int:
               f"page to disk and the timings will be slow and noisy")
     (out / "metadata.json").write_text(json.dumps(meta, indent=2, default=str))
 
+    if not winperf.prevent_idle_sleep():
+        print("WARNING: could not stop Windows from idle-sleeping during the run")
     started = perf_counter()
     if "warm" in args.scenarios:
         runner.warm(outlets, rng)
