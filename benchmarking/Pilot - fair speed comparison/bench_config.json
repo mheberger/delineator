@@ -1,0 +1,9 @@
+{
+  "delineator_data_dir": "C:/Users/mheberger/Documents/watershed_app/static/data",
+  "pysheds_fdir": "C:/Users/mheberger/Documents/watershed_app/static/data/flowdir{mb}.tif",
+  "taudem_fdir": "C:/Data/GIS/MERITHydro/fdir_taudem/flowdir{mb}.tif",
+  "taudem_processes": 4,
+  "mpiexec": "mpiexec",
+  "gagewatershed": "GageWatershed",
+  "scratch_dir": "_scratch"
+}
