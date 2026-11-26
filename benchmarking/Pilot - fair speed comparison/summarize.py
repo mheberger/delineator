@@ -107,6 +107,18 @@ def main(results_dir: Path) -> None:
                + "; ".join(f"{d}: {s.get('Disk')} ({s.get('BusType')} {s.get('MediaType')})"
                            for d, s in storage.items() if s))
     out.append(f"- Power: AC={meta.get('on_ac_power')}, {meta.get('power_scheme')}")
+    av = meta.get("antivirus") or {}
+    if av:
+        folders = av.get("data_folders_excluded") or {}
+        if av.get("exclusions_readable"):
+            not_excluded = [f for f, excluded in folders.items() if not excluded]
+            exclusions = (f"{len(folders) - len(not_excluded)} of {len(folders)} data folders excluded"
+                          + (f"; not excluded: {', '.join(not_excluded)}" if not_excluded else ""))
+        else:
+            exclusions = "exclusions unknown (not run as administrator)"
+        out.append(f"- Antivirus: {', '.join(av.get('antivirus_products') or ['none found'])}; "
+                   f"real-time protection {'on' if av.get('RealTimeProtectionEnabled') else 'off'}; "
+                   f"{exclusions}")
     out.append(f"- Packages: {meta.get('packages')}")
     end = df[df.kind == "end"]
     if "tool_version" in end and end.tool_version.notna().any():

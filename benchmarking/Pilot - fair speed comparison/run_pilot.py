@@ -239,6 +239,16 @@ def main() -> int:
                 config=cfg, outlets=outlets, data_files=machine_info.file_inventory(all_files))
     if not meta["on_ac_power"]:
         print("WARNING: not on mains power; laptops throttle on battery")
+    av = meta.get("antivirus") or {}
+    if av.get("RealTimeProtectionEnabled"):
+        if av.get("exclusions_readable"):
+            missing = [f for f, excluded in av["data_folders_excluded"].items() if not excluded]
+            print("Defender real-time protection is on; "
+                  + (f"these folders are NOT excluded: {missing}" if missing else
+                     "all data folders are excluded"))
+        else:
+            print("Defender real-time protection is on. Windows shows its exclusions only to "
+                  "administrators, so they are not recorded; note them yourself (e.g. with --label)")
     available_gb = meta["memory_mb"]["available_mb"] / 1024
     if "pysheds" in runner.tools and 62 in megabasins and available_gb < 26:
         print(f"WARNING: {available_gb:.0f} GB of RAM free. pysheds needs about 24 GB for the "

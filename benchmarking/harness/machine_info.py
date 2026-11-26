@@ -22,14 +22,59 @@ PACKAGES = ["delineator", "pysheds", "numpy", "numba", "shapely", "geopandas", "
             "rasterio", "pyproj", "pandas", "scipy", "pyshp"]
 
 
-def _powershell_json(command: str):
+def _powershell_json(command: str, pipe: bool = True):
+    """Run *command* and parse its JSON output; pipe=False if the command calls ConvertTo-Json itself."""
     try:
         out = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command",
-                              command + " | ConvertTo-Json -Depth 3"],
+                              command + (" | ConvertTo-Json -Depth 3" if pipe else "")],
                              capture_output=True, text=True, timeout=60).stdout
         return json.loads(out) if out.strip() else None
     except Exception:
         return None
+
+
+def _is_admin() -> bool:
+    try:
+        import ctypes
+        return bool(ctypes.windll.shell32.IsUserAnAdmin())
+    except Exception:
+        return False
+
+
+def _defender(paths) -> dict:
+    """
+    Antivirus state. On-access scanning can slow reads of files just written
+    or changed, so a benchmark report should say whether the data folders
+    were excluded. Windows shows the exclusion list only to administrators;
+    otherwise ``exclusions_readable`` is False and the report has to state
+    the exclusions by hand.
+    """
+    status = _powershell_json("Get-MpComputerStatus | Select-Object AMRunningMode, "
+                              "RealTimeProtectionEnabled, OnAccessProtectionEnabled, AMProductVersion") or {}
+    products = _powershell_json("Get-CimInstance -Namespace root/SecurityCenter2 "
+                                "-ClassName AntivirusProduct | Select-Object displayName")
+    if isinstance(products, dict):
+        products = [products]
+    info = {"antivirus_products": [p.get("displayName") for p in products or []],
+            "running_as_admin": _is_admin(), **status}
+
+    exclusions = _powershell_json("ConvertTo-Json -InputObject @((Get-MpPreference).ExclusionPath)",
+                                  pipe=False)
+    if isinstance(exclusions, str):
+        exclusions = [exclusions]
+    readable = isinstance(exclusions, list) and not any(
+        str(e).startswith("N/A") for e in exclusions)
+    info["exclusions_readable"] = readable
+    folders = sorted({str(Path(p) if Path(p).is_dir() else Path(p).parent) for p in paths})
+    if readable:
+        info["exclusion_paths"] = exclusions
+        prefixes = [str(e).rstrip("\\").lower() for e in exclusions]
+        # Plain prefix matching; wildcard or environment-variable exclusions are not expanded.
+        info["data_folders_excluded"] = {
+            f: any(f.lower() == e or f.lower().startswith(e + "\\") for e in prefixes) for f in folders}
+    else:
+        info["data_folders_excluded"] = {f: None for f in folders}
+    return info
 
 
 def _cpu() -> dict:
@@ -157,6 +202,7 @@ def collect(data_paths, repo: Path, mpiexec: str = "mpiexec",
         "on_ac_power": winperf.ac_power(),
         "power_scheme": _power_scheme(),
         "storage": drives,
+        "antivirus": _defender(data_paths),
         "packages": _versions(),
         "taudem": {"gagewatershed": gw_exe, "version": _file_version(gw_exe)},
         "mpi": {"mpiexec": mpi_exe, "version": _file_version(mpi_exe)},

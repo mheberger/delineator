@@ -57,7 +57,9 @@ Experiments 3 and 4 can be re-run the same way.
    where its time goes, and whether it is waiting on disk or computing.
 8. **Conditions recorded automatically.** `metadata.json` in each results
    folder records the CPU, RAM, the disk behind each data path (model, bus,
-   SSD/HDD) and the power plan and mode. It also has every package version,
+   SSD/HDD), the power plan and mode, and the antivirus state (real-time
+   protection and, when run as administrator, which data folders were
+   excluded). It also has every package version,
    the TauDEM and MS-MPI versions, the delineator commit, and the size and
    date of each data file. It leaves out the host name and user name.
 
@@ -126,7 +128,12 @@ on the smoke test it took about 17 s with delineator, 155 s with pysheds and
   set *Sleep when plugged in* to *Never*).
 - Microsoft Defender scans files as they are opened, which slows cold
   reads. Either add exclusions for the data folders and `_scratch`, or leave
-  them out, but say which in the paper.
+  them out, but say which in the paper. `metadata.json` (under
+  `antivirus`) always records whether real-time protection was on. Windows
+  shows the exclusion list only to administrators, so run `run_pilot.py`
+  from an administrator PowerShell if you want it to record which data
+  folders were excluded; otherwise note it yourself, e.g. with
+  `--label defender_excluded`.
 
 ## Output
 
